@@ -1,0 +1,1 @@
+Tests/VimKitTests/Resources/sample.vim filter=lfs diff=lfs merge=lfs -text
