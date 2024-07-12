@@ -9,6 +9,8 @@
 # VimKit
 Swift Package for reading and rendering [VIM](https://www.vimaec.com/) Files.
 
+![iOS Screenshot](https://github.com/user-attachments/assets/2a13b44e-c110-42c0-a923-a34711f8eec0)
+
 ## VimKit
 Provides the core library for reading and rendering VIM files on MacOS and iOS.
 
