@@ -46,8 +46,7 @@ public class Database: ObservableObject {
             /// The data buffer that contains the coiumn data
             private let buffer: BFast.Buffer
             /// The string data provider used to peform string lookups
-            /// TODO: This should be a weak reference, but it is getting nullified if weak??
-            private var stringDataProvider: IndexedStringDataProvider?
+            private weak var stringDataProvider: IndexedStringDataProvider?
 
             /// Initializes the column.
             ///
