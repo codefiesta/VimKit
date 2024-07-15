@@ -148,6 +148,12 @@ struct BFast: Hashable {
 
     /// Initializes the BFast container from the specified buffer.
     ///
+    /// It's important to call `.subdata(in: Range)` instead of simply subscripting child buffer data in order 
+    /// to reset any resulting child buffer data indices.
+    /// Although `.subdata` returns a new copy of the data in this range which bloats memory (but can be offset by mmapping),
+    /// the indices in a subscript slice are copied from the original data block that can/will crash child buffers when slicing.
+    /// For more info on this subject see https://forums.swift.org/t/data-subscript/57195
+    ///
     /// - Parameters:
     ///   - buffer: The data buffer that holds a BFast container
     init?(buffer: Buffer) {
