@@ -38,7 +38,6 @@ typedef struct {
 
 vertex VertexOut vertexSkycube(VertexIn in [[stage_in]],
                               constant UniformsArray &uniformsArray [[ buffer(BufferIndexUniforms) ]],
-                              constant InstanceUniforms &instanceUniforms [[ buffer(BufferIndexInstanceUniforms) ]],
                               uint vertex_id [[vertex_id]],
                               ushort amp_id [[amplification_id]]) {
     
@@ -52,16 +51,14 @@ vertex VertexOut vertexSkycube(VertexIn in [[stage_in]],
     
     VertexOut out;
     out.position = (viewProjectionMatrix * in.position).xyww;
-    out.color = instanceUniforms.color;
+    out.color = float4(0, 0, 0, 0);
     out.textureCoordinates = in.position.xyz;
-    out.identifier = instanceUniforms.identifier;
+    out.identifier = -1; // Denotes an invalid selection
     return out;
 }
 
 fragment ColorOut fragmentSkycube(VertexOut in [[stage_in]],
                                   texturecube<float> cubeTexture [[texture(0)]]) {
-//    constexpr sampler default_sampler(filter::linear);
-//    float4 color = cubeTexture.sample(default_sampler, in.textureCoordinates);
     ColorOut out;
     out.color = in.color;
     out.identifier = in.identifier;

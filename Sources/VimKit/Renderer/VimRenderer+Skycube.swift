@@ -92,8 +92,6 @@ extension VimRenderer {
             renderEncoder.setDepthStencilState(depthStencilState)
 
             // Set the buffers to pass to the GPU
-            var instanceUniforms = InstanceUniforms(identifier: .empty, matrix: .identity, color: .zero, glossiness: .zero, smoothness: .zero, xRay: false)
-            renderEncoder.setVertexBytes(&instanceUniforms, length: MemoryLayout<InstanceUniforms>.size, index: .instanceUniforms)
             renderEncoder.setVertexBuffer(mesh.vertexBuffers[0].buffer, offset: 0, index: .positions)
             renderEncoder.setFragmentTexture(texture, index: 0)
 
