@@ -78,14 +78,11 @@ extension VimRenderer {
             depthStencilDescriptor.depthCompareFunction = .lessEqual
             depthStencilDescriptor.isDepthWriteEnabled = true
 
-            guard let depthStencilState = device.makeDepthStencilState(descriptor: depthStencilDescriptor) else {
+            guard let depthStencilState = device.makeDepthStencilState(descriptor: depthStencilDescriptor),
+                  let pipelineState = try? device.makeRenderPipelineState(descriptor: pipelineDescriptor) else {
                 return nil
             }
             self.depthStencilState = depthStencilState
-
-            guard let pipelineState = try? device.makeRenderPipelineState(descriptor: pipelineDescriptor) else {
-                return nil
-            }
             self.pipelineState = pipelineState
         }
 
