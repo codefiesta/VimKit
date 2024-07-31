@@ -30,14 +30,19 @@ extension VimRenderer {
             }
 
             let allocator = MTKMeshBufferAllocator(device: device)
-            let cube = MDLMesh(boxWithExtent: .one, segments: .one, inwardNormals: true, geometryType: .triangles, allocator: allocator)
+            let cube = MDLMesh(boxWithExtent: .one,
+                               segments: .one,
+                               inwardNormals: true,
+                               geometryType: .triangles,
+                               allocator: allocator)
             guard let cubeMesh = try? MTKMesh(mesh: cube, device: device) else { return nil }
             mesh = cubeMesh
 
+            let textureDimensions: SIMD2<Int32> = [160, 160]
             let textureLoader = MTKTextureLoader(device: device)
             let mdkSkycubeTexture = MDLSkyCubeTexture(name: nil,
                                         channelEncoding: .uInt8,
-                                        textureDimensions: [Int32(160), Int32(160)],
+                                        textureDimensions: textureDimensions,
                                         turbidity: 0,
                                         sunElevation: 0,
                                         upperAtmosphereScattering: 0,
