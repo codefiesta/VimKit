@@ -30,14 +30,19 @@ extension VimRenderer {
             }
 
             let allocator = MTKMeshBufferAllocator(device: device)
-            let cube = MDLMesh(boxWithExtent: .one, segments: .one, inwardNormals: true, geometryType: .triangles, allocator: allocator)
+            let cube = MDLMesh(boxWithExtent: .one,
+                               segments: .one,
+                               inwardNormals: true,
+                               geometryType: .triangles,
+                               allocator: allocator)
             guard let cubeMesh = try? MTKMesh(mesh: cube, device: device) else { return nil }
             mesh = cubeMesh
 
+            let textureDimensions: SIMD2<Int32> = [160, 160]
             let textureLoader = MTKTextureLoader(device: device)
             let mdkSkycubeTexture = MDLSkyCubeTexture(name: nil,
                                         channelEncoding: .uInt8,
-                                        textureDimensions: [Int32(160), Int32(160)],
+                                        textureDimensions: textureDimensions,
                                         turbidity: 0,
                                         sunElevation: 0,
                                         upperAtmosphereScattering: 0,
@@ -73,14 +78,11 @@ extension VimRenderer {
             depthStencilDescriptor.depthCompareFunction = .lessEqual
             depthStencilDescriptor.isDepthWriteEnabled = true
 
-            guard let depthStencilState = device.makeDepthStencilState(descriptor: depthStencilDescriptor) else {
+            guard let depthStencilState = device.makeDepthStencilState(descriptor: depthStencilDescriptor),
+                  let pipelineState = try? device.makeRenderPipelineState(descriptor: pipelineDescriptor) else {
                 return nil
             }
             self.depthStencilState = depthStencilState
-
-            guard let pipelineState = try? device.makeRenderPipelineState(descriptor: pipelineDescriptor) else {
-                return nil
-            }
             self.pipelineState = pipelineState
         }
 
@@ -92,8 +94,6 @@ extension VimRenderer {
             renderEncoder.setDepthStencilState(depthStencilState)
 
             // Set the buffers to pass to the GPU
-            var instanceUniforms = InstanceUniforms(identifier: .empty, matrix: .identity, color: .zero, glossiness: .zero, smoothness: .zero, xRay: false)
-            renderEncoder.setVertexBytes(&instanceUniforms, length: MemoryLayout<InstanceUniforms>.size, index: .instanceUniforms)
             renderEncoder.setVertexBuffer(mesh.vertexBuffers[0].buffer, offset: 0, index: .positions)
             renderEncoder.setFragmentTexture(texture, index: 0)
 
