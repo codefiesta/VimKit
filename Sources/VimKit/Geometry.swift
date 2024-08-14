@@ -420,18 +420,28 @@ public class Geometry: ObservableObject {
     ///   - instance: the instance to calculate the bounding box for
     /// - Returns: the axis aligned bounding box for the specified instance or nil if the instance has no mesh information.
     private func calculateBoundingBox(_ instance: Instance) async -> MDLAxisAlignedBoundingBox? {
-        guard let mesh = instance.mesh, let range = mesh.submeshes else { return nil }
+        guard let vertices = vertices(for: instance) else { return nil }
         var minBounds: SIMD3<Float> = .zero
         var maxBounds: SIMD3<Float> = .zero
-        for submesh in submeshes[range] {
-            for index in submesh.indices {
-                let i = Int(indices[index]) * 3
-                let vertex: SIMD3<Float> = .init(positions[i..<(i+3)])
-                minBounds = min(minBounds, vertex)
-                maxBounds = max(maxBounds, vertex)
-            }
+        for vertex in vertices {
+            minBounds = min(minBounds, vertex)
+            maxBounds = max(maxBounds, vertex)
         }
         return MDLAxisAlignedBoundingBox(maxBounds: maxBounds, minBounds: minBounds)
+    }
+
+    /// Helper method that returns all of the vertices that are contained in the specified instance.
+    /// - Parameter instance: the instance to return all of the vertices for
+    /// - Returns: all vertices contained in the specified instance
+    func vertices(for instance: Instance) -> [SIMD3<Float>]? {
+        guard let mesh = instance.mesh, let range = mesh.submeshes else { return nil }
+        var results = [SIMD3<Float>]()
+        let indexes = submeshes[range].map { indices[$0.indices].map { Int($0) * 3 } }.reduce( [], + )
+        for i in indexes {
+            let vertex: SIMD3<Float> = .init(positions[i..<(i+3)])
+            results.append(vertex)
+        }
+        return results
     }
 
     // MARK: Shapes

@@ -8,8 +8,6 @@
 import MetalKit
 import simd
 
-private let maxSubmeshRaycastQueryCount = 256
-
 extension Geometry {
 
     /// A type used to find an instance by examining a point on the screen.
@@ -124,29 +122,16 @@ extension Geometry.Instance {
     /// - Returns: the result of the query.
     func raycast(_ geometry: Geometry, query: Geometry.RaycastQuery) -> Geometry.RaycastResult? {
 
-        if let mesh, let range = mesh.submeshes, range.count <= maxSubmeshRaycastQueryCount {
-            var results = [Geometry.RaycastResult]()
-            let indices = geometry.submeshes[range].map { Array(geometry.indices[$0.indices]).map { Int($0)} }.reduce( [], + )
-            for index in indices {
-                var i = index * 3
-                let a: SIMD3<Float> = [geometry.positions[i], geometry.positions[i+1], geometry.positions[i+2]]
-                i = (index+1) * 3
-                let b: SIMD3<Float> = [geometry.positions[i], geometry.positions[i+1], geometry.positions[i+2]]
-                i = (index+2) * 3
-                let c: SIMD3<Float> = [geometry.positions[i], geometry.positions[i+1], geometry.positions[i+2]]
-
-                if let result = query.intersection(a, b, c) {
-                    results.append(result)
-                }
+        guard let vertices = geometry.vertices(for: self)?.chunked(into: 3), vertices.isNotEmpty else { return nil }
+        var results = [Geometry.RaycastResult]()
+        for vertex in vertices {
+            if let result = query.intersection(vertex[0], vertex[1], vertex[2]) {
+                results.append(result)
             }
-
-            // Sort the results by distance and return the first one
-            return results.sorted{ $0.distance < $1.distance }.first
-        } else {
-            // Query the bounding box
-            guard let boundingBox else { return nil }
-            return boundingBox.raycast(query)
         }
+
+        // Sort the results by distance and return the first one
+        return results.sorted{ $0.distance < $1.distance }.first
     }
 }
 
