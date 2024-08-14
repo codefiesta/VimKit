@@ -77,8 +77,6 @@ public class Geometry: ObservableObject {
 
         // 1) Build the positions (vertex) buffer
         let positions = attributes(association: .vertex, semantic: .position)
-        self.positionsCount = positions.reduce(0) { $0 + $1.buffer.data.count(of: Float.self) }
-
         guard let positionsBuffer = positions.makeBufferNoCopy(device: device, type: Float.self) else {
             fatalError("💀 Unable to create positions buffer")
         }
@@ -87,7 +85,6 @@ public class Geometry: ObservableObject {
 
         // 2) Build the index buffer
         let indices = attributes(association: .corner, semantic: .index)
-        self.indicesCount = indices.reduce(0) { $0 + $1.buffer.data.count(of: UInt32.self) }
         guard let indexBuffer = indices.makeBufferNoCopy(device: device, type: UInt32.self) else {
             fatalError("💀 Unable to create index buffer")
         }
@@ -134,23 +131,19 @@ public class Geometry: ObservableObject {
 
     // MARK: Postions (Vertex Buffer Raw Data)
 
-    private var positionsCount: Int = 0
-
     /// Returns the combinded vertex buffer of all of the vertices for all the meshes layed out in slices of [x,y,z].
     public lazy var positions: UnsafeMutableBufferPointer<Float> = {
         assert(positionsBuffer != nil, "💩 Misuse [positions]")
-        return positionsBuffer!.toUnsafeMutableBufferPointer(positionsCount)
+        return positionsBuffer!.toUnsafeMutableBufferPointer()
     }()
 
     // MARK: Index Buffer
-
-    private var indicesCount: Int = 0
 
     /// Returns the combined index buffer of all the meshes (one index per corner, and per half-edge).
     /// The values in this index buffer are relative to the beginning of the vertex buffer.
     public lazy var indices: UnsafeMutableBufferPointer<UInt32> = {
         assert(indexBuffer != nil, "💩 Misuse [indices]")
-        return indexBuffer!.toUnsafeMutableBufferPointer(indicesCount)
+        return indexBuffer!.toUnsafeMutableBufferPointer()
     }()
 
     // MARK: Vertices
