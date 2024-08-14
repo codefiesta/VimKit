@@ -336,8 +336,8 @@ public class Geometry: ObservableObject {
     public lazy var instances: [Instance] = {
         var instances = [Instance]()
 
-        // Map the vertices once so we can calculate the bounding boxes
-        let vertices = positions.chunked(into: 3).map { SIMD3<Float>($0) }
+        // Map of instances that share the same mesh
+        var meshInstancesMap = [Mesh: [Int]]()
 
         // Build the base instances
         for (i, transform) in instanceTransforms.enumerated() {
@@ -352,12 +352,20 @@ public class Geometry: ObservableObject {
             // Lookup the instance mesh
             let meshOffset = instanceMeshes[i]
             if meshOffset != .empty {
-                instance.mesh = meshes[Int(meshOffset)]
+
+                let mesh = meshes[Int(meshOffset)]
+                instance.mesh = mesh
+
+                if meshInstancesMap[mesh] != nil {
+                     meshInstancesMap[mesh]?.append(i)
+                 } else {
+                     meshInstancesMap[mesh] = [i]
+                 }
             }
 
             // Calculate the bounding box of the instance async
             Task {
-                await instance.boundingBox = calculateBoundingBox(instance, vertices)
+                await instance.boundingBox = calculateBoundingBox(instance)
             }
             instances.append(instance)
         }
@@ -410,19 +418,17 @@ public class Geometry: ObservableObject {
     /// Calculates the bounding box for the specified instance.
     /// - Parameters:
     ///   - instance: the instance to calculate the bounding box for
-    ///   - vertices: the array of vertices
     /// - Returns: the axis aligned bounding box for the specified instance or nil if the instance has no mesh information.
-    private func calculateBoundingBox(_ instance: Instance, _ vertices: [SIMD3<Float>]) async -> MDLAxisAlignedBoundingBox? {
+    private func calculateBoundingBox(_ instance: Instance) async -> MDLAxisAlignedBoundingBox? {
         guard let mesh = instance.mesh, let range = mesh.submeshes else { return nil }
         var minBounds: SIMD3<Float> = .zero
         var maxBounds: SIMD3<Float> = .zero
         for submesh in submeshes[range] {
             for index in submesh.indices {
-                if index < vertices.count {
-                    let vertex = vertices[index]
-                    minBounds = min(minBounds, vertex)
-                    maxBounds = max(maxBounds, vertex)
-                }
+                let i = Int(indices[index]) * 3
+                let vertex: SIMD3<Float> = .init(positions[i..<(i+3)])
+                minBounds = min(minBounds, vertex)
+                maxBounds = max(maxBounds, vertex)
             }
         }
         return MDLAxisAlignedBoundingBox(maxBounds: maxBounds, minBounds: minBounds)
