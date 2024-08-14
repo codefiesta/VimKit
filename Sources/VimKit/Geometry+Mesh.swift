@@ -53,7 +53,7 @@ extension Geometry {
     }
 
     /// A mesh is composed of 0 or more submeshes.
-    public struct Mesh {
+    public struct Mesh: Equatable, Hashable {
 
         /// The range of submeshes contained inside this mesh.
         ///
