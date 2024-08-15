@@ -41,8 +41,10 @@ public class Geometry: ObservableObject {
     public private(set) var normalsBuffer: MTLBuffer?
     /// Returns the combinded buffer of all of the transforms.
     public private(set) var transformsBuffer: MTLBuffer?
+    /// Returns a buffer of the offsets into the transforms when performing instancing.
+    public private(set) var instancedOffsetsBuffer: MTLBuffer?
     /// Returns true if the geometry should be drawn using instancing.
-    public private(set) var instancingEnabled: Bool = false
+    private(set) var instancingEnabled: Bool = true
 
     /// The Geometry Bounding Volume Hierarchy
     var bvh: BVH?
@@ -130,6 +132,14 @@ public class Geometry: ObservableObject {
         progress.completedUnitCount += 1
         _ = instances // Build the instances
         progress.completedUnitCount += 1
+
+        if instancingEnabled {
+            var offsets = instanced.map { $0.instances }.reduce( [], + )
+            guard let offsetsBuffer = device.makeBuffer(bytes: &offsets, length: MemoryLayout<UInt32>.stride * offsets.count) else {
+                fatalError("💀 Unable to create offsets buffer")
+            }
+            self.instancedOffsetsBuffer = offsetsBuffer
+        }
 
         // Start indexing the file
         DispatchQueue.main.async {
@@ -336,7 +346,7 @@ public class Geometry: ObservableObject {
         return transformsBuffer!.toUnsafeMutableBufferPointer()
     }()
 
-    /// Builds the instances (nodes).
+    /// Builds the array of instances.
     public lazy var instances: [Instance] = {
         var instances = [Instance]()
 
@@ -344,37 +354,27 @@ public class Geometry: ObservableObject {
         let instanceParents: [Int32] = unsafeTypeArray(association: .instance, semantic: .parent)
         let instanceMeshes: [Int32] = unsafeTypeArray(association: .instance, semantic: .mesh)
 
-        // Map of instances that share the same mesh
-        var meshInstancesMap = [Mesh: [Int]]()
-
         // Build the base instances
-        for (i, transform) in transforms.enumerated() {
+        for (i, _) in transforms.enumerated() {
 
             var flags: Int16 = 0
             if instanceFlags.indices.contains(i) {
                 flags = instanceFlags[i]
             }
 
-            let instance = Instance(identifier: i, matrix: transform, flags: flags)
+            let instance = Instance(index: i, flags: flags)
 
             // Lookup the instance mesh
             let meshOffset = instanceMeshes[i]
             if meshOffset != .empty {
-
-                let mesh = meshes[Int(meshOffset)]
-                instance.mesh = mesh
-
-                if meshInstancesMap[mesh] != nil {
-                     meshInstancesMap[mesh]?.append(i)
-                 } else {
-                     meshInstancesMap[mesh] = [i]
-                 }
+                instance.mesh = meshes[Int(meshOffset)]
             }
 
             // Calculate the bounding box of the instance async
             Task {
-                await instance.boundingBox = calculateBoundingBox(instance)
+                instance.boundingBox = await calculateBoundingBox(instance)
             }
+            instance.transparent = isTransparent(instance.mesh)
             instances.append(instance)
         }
 
@@ -386,41 +386,76 @@ public class Geometry: ObservableObject {
             }
         }
 
-        // Mark any transparent instances
-        for instance in instances {
-            guard let range = instance.mesh?.submeshes else {
-                instance.transparent = true
-                continue
-            }
-
-            // Find the lowest alpha value to determine transparency
-            let alpha = range
-                .map { submeshes[$0] }
-                .sorted { $0.material?.rgba.w ?? .zero < $1.material?.rgba.w ?? .zero }
-                .first?.material?.rgba.w ?? .zero
-            instance.transparent = alpha < 1.0
-        }
-
         // Finally, sort the instances by opaques and transparents
         instances.sort{ !$0.transparent && $1.transparent }
         return instances
     }()
 
+    /// Builds an array of instanced structures (used for instancing).
+    lazy var instanced: [Instanced] = {
+        var results = [Instanced]()
+
+        // Build a map of instances that share the same mesh
+        var meshInstances = [Mesh: [UInt32]]()
+        for instance in instances {
+            guard let mesh = instance.mesh else { continue }
+            if meshInstances[mesh] != nil {
+                meshInstances[mesh]?.append(UInt32(instance.index))
+             } else {
+                 meshInstances[mesh] = [UInt32(instance.index)]
+             }
+        }
+
+        for (mesh, instances) in meshInstances {
+            let transparent = isTransparent(mesh)
+            let meshInstances = Instanced(mesh: mesh, transparent: transparent, instances: instances)
+            results.append(meshInstances)
+        }
+
+        // Sort by opaques and transparents
+        results.sort{ !$0.transparent && $1.transparent }
+
+        // Set the base instance offsets
+        var baseInstance: Int = 0
+        for result in results {
+            result.baseInstance = baseInstance
+            baseInstance += result.instances.count
+        }
+        return results
+    }()
+
+    /// Determines mesh transparency. This allows us to sort or
+    /// split instances into opaque or transparent continuous ranges.
+    /// - Parameters:
+    ///   - mesh: the mesh to determine transparency value for
+    /// - Returns: true if the mesh is transparent, otherwise false
+    private func isTransparent(_ mesh: Mesh?) -> Bool {
+        guard let mesh, let range = mesh.submeshes else { return true }
+
+        // Find the lowest alpha value to determine transparency
+        let alpha = range
+            .map { submeshes[$0] }
+            .sorted { $0.material?.rgba.w ?? .zero < $1.material?.rgba.w ?? .zero }
+            .first?.material?.rgba.w ?? .zero
+        return alpha < 1.0
+    }
+
+
     /// Convenience var that returns a count of the hidden instances.
     public var hiddenCount: Int {
-        return instances.filter{ $0.hidden && $0.flags == .zero }.count
+        return instances.filter{ $0.state != .hidden }.count
     }
 
     /// Convenience var that returns a count of the selected instances.
     public var selectedCount: Int {
-        return instances.filter{ $0.selected }.count
+        return instances.filter{ $0.state == .selected }.count
     }
 
-    /// Convenience method to find an instance by it's identifier.
+    /// Convenience method to find an instance by it's index. Use this instead of subscripting as the instances have most likely been sorted by transparency.
     /// - Parameter identifier: the instance identifier
     /// - Returns: the instance with the specified identifier or nil if none found.
-    public func instance(for identifier: Int) -> Instance? {
-        return instances.filter({ $0.idenitifer == identifier }).first
+    public func instance(for index: Int) -> Instance? {
+        return instances.filter({ $0.index == index }).first
     }
 
     /// Calculates the bounding box for the specified instance.

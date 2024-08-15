@@ -82,7 +82,12 @@ public extension VimRenderer {
     /// Draws the entire scene.
     /// - Parameter renderEncoder: the render encoder
     func drawScene(renderEncoder: MTLRenderCommandEncoder) {
-        guard let geometry, let pipelineState else { return }
+        guard let geometry,
+              let pipelineState,
+              let positionsBuffer = geometry.positionsBuffer,
+              let normalsBuffer = geometry.normalsBuffer,
+              let transformsBuffer = geometry.transformsBuffer,
+              let instancedOffsetsBuffer = geometry.instancedOffsetsBuffer else { return }
 
         renderEncoder.pushDebugGroup(renderEncoderDebugGroupName)
         renderEncoder.setRenderPipelineState(pipelineState)
@@ -91,13 +96,24 @@ public extension VimRenderer {
         renderEncoder.setDepthStencilState(depthStencilState)
         renderEncoder.setTriangleFillMode(fillMode)
 
-        // Filter any hidden instances
-        let instances = geometry.instances.filter{ !$0.hidden }
+        // Setup the per frame buffers to pass to the GPU
+        renderEncoder.setVertexBuffer(positionsBuffer, offset: 0, index: .positions)
+        renderEncoder.setVertexBuffer(normalsBuffer, offset: 0, index: .normals)
+        renderEncoder.setVertexBuffer(transformsBuffer, offset: 0, index: .transforms)
+        renderEncoder.setVertexBuffer(instancedOffsetsBuffer, offset: 0, index: .instanceOffsets)
+        renderEncoder.setFragmentTexture(baseColorTexture, index: 0)
+        renderEncoder.setFragmentSamplerState(samplerState, index: 0)
+
+        // TODO: Just like the transforms buffer, we'll need to pass instance state information to the GPU
+
+        var xRay = xRayMode
+        renderEncoder.setVertexBytes(&xRay, length: MemoryLayout<Bool>.size, index: .xRay)
+
         let start = Date.now // TODO: Follow up: for now just perform a simple timeout check
 
-        for instance in instances {
-            guard abs(start.timeIntervalSinceNow) < frameTimeLimit else { break }
-            drawInstance(instance, renderEncoder: renderEncoder)
+        // Draw with instancing
+        for instanced in geometry.instanced {
+            drawInstanced(instanced, renderEncoder: renderEncoder)
         }
         renderEncoder.popDebugGroup()
     }
@@ -108,36 +124,14 @@ public extension VimRenderer {
         skycube?.draw(renderEncoder: renderEncoder)
     }
 
-    /// Determines if the instance should be drawn or not.
-    /// - Parameter instance: the instance to test
-    /// - Returns: true if the instance should be drawn.
-    private func shouldDrawInstance(_ instance: Geometry.Instance) -> Bool {
-        guard !instance.hidden else {
-            // Make an exception to the rule if the instance is selected
-            // as this instance can be room, level, or other naturally hidden element
-            return instance.selected
-        }
-        guard let boundingBox = instance.boundingBox else { return false }
-        return camera.contains(boundingBox)
-    }
-
-    /// Draws a single instance.
+    /// Draws instanced .
     /// - Parameters:
-    ///   - instance: the geometry instance
+    ///   - instanced: an instancing
     ///   - renderEncoder: the render encoder
-    private func drawInstance(_ instance: Geometry.Instance, renderEncoder: MTLRenderCommandEncoder) {
+    private func drawInstanced(_ instanced: Geometry.Instanced, renderEncoder: MTLRenderCommandEncoder) {
+        guard let geometry, let range = instanced.mesh.submeshes else { return }
 
-        guard let geometry,
-              let positionsBuffer = geometry.positionsBuffer,
-              let normalsBuffer = geometry.normalsBuffer,
-              let mesh = instance.mesh,
-              let range = mesh.submeshes else { return }
-
-        // Set the buffers to pass to the GPU
-        renderEncoder.setVertexBuffer(positionsBuffer, offset: 0, index: .positions)
-        renderEncoder.setVertexBuffer(normalsBuffer, offset: 0, index: .normals)
-        renderEncoder.setFragmentTexture(baseColorTexture, index: 0)
-        renderEncoder.setFragmentSamplerState(samplerState, index: 0)
+        // TODO: Perform a check to make sure any of the instances are contained inside the camera frustum
 
         let submeshes = geometry.submeshes[range]
         for (i, submesh) in submeshes.enumerated() {
@@ -145,11 +139,11 @@ public extension VimRenderer {
             renderEncoder.pushDebugGroup("SubMesh[\(i)]")
 
             // Set the mesh uniforms
-            var uniforms = instanceUniforms(instance, submesh: submesh)
-            renderEncoder.setVertexBytes(&uniforms, length: MemoryLayout<InstanceUniforms>.size, index: .instanceUniforms)
-            // Draw the submesh using the indices
-            drawSubmesh(geometry, submesh, renderEncoder)
+            var uniforms = meshUniforms(submesh: submesh)
+            renderEncoder.setVertexBytes(&uniforms, length: MemoryLayout<MeshUniforms>.size, index: .meshUniforms)
 
+            // Draw the submesh
+            drawSubmesh(geometry, submesh, renderEncoder, instanced.instances.count, instanced.baseInstance)
             renderEncoder.popDebugGroup()
         }
     }
@@ -159,10 +153,24 @@ public extension VimRenderer {
     ///   - geometry: the geometry
     ///   - submesh: the submesh
     ///   - renderEncoder: the render encoder to use
-    private func drawSubmesh(_ geometry: Geometry, _ submesh: Geometry.Submesh, _ renderEncoder: MTLRenderCommandEncoder) {
+    ///   - instanceCount: the number of instances to draw.
+    ///   - baseInstance: the offset for instance_id
+    private func drawSubmesh(_ geometry: Geometry,
+                             _ submesh: Geometry.Submesh,
+                             _ renderEncoder: MTLRenderCommandEncoder,
+                             _ instanceCount: Int = 1,
+                             _ baseInstance: Int = 0) {
 
         guard let indexBuffer = geometry.indexBuffer else { return }
-        renderEncoder.drawIndexedPrimitives(type: .triangle, indexCount: submesh.indices.count, indexType: .uint32, indexBuffer: indexBuffer, indexBufferOffset: submesh.indexBufferOffset)
+        renderEncoder.drawIndexedPrimitives(type: .triangle,
+                                            indexCount: submesh.indices.count,
+                                            indexType: .uint32,
+                                            indexBuffer: indexBuffer,
+                                            indexBufferOffset: submesh.indexBufferOffset,
+                                            instanceCount: instanceCount,
+                                            baseVertex: 0,
+                                            baseInstance: baseInstance
+        )
     }
 }
 
@@ -170,20 +178,15 @@ public extension VimRenderer {
 
 extension VimRenderer {
 
-    /// Returns the per instance uniforms for the specifed submesh in the specified instance
+    /// Returns the per mesh uniforms for the specifed submesh.
     /// - Parameters:
-    ///   - instance: the geometry instance
     ///   - submesh: the submesh
-    /// - Returns: the instance unifroms
-    func instanceUniforms(_ instance: Geometry.Instance, submesh: Geometry.Submesh) -> InstanceUniforms {
-        let color = instance.selected ? Color.objectSelectionColor.channels : submesh.material?.rgba ?? .zero
-        return InstanceUniforms(
-            identifier: Int32(instance.idenitifer),
-            matrix: instance.matrix,
-            color: color,
+    /// - Returns: the mesh unifroms
+    func meshUniforms(submesh: Geometry.Submesh) -> MeshUniforms {
+        return MeshUniforms(
+            color: submesh.material?.rgba ?? .zero,
             glossiness: submesh.material?.glossiness ?? .half,
-            smoothness: submesh.material?.smoothness ?? .half,
-            xRay: instance.selected ? false : xRayMode
+            smoothness: submesh.material?.smoothness ?? .half
         )
     }
 }

@@ -33,22 +33,22 @@ typedef struct {
     Uniforms uniforms[2];
 } UniformsArray;
 
-// Instance Uniforms
+// Per Mesh Uniforms
 typedef struct {
-    int32_t identifier;
-    simd_float4x4 matrix;
     simd_float4 color;
     float glossiness;
     float smoothness;
-    bool xRay;
-} InstanceUniforms;
+} MeshUniforms;
 
 // Constants for the association of a specific buffer index argument passed into the shader function
 typedef NS_ENUM(EnumBackingType, BufferIndex) {
     BufferIndexPositions = 0,
     BufferIndexNormals = 1,
     BufferIndexUniforms = 2,
-    BufferIndexInstanceUniforms = 3,
+    BufferIndexMeshUniforms = 3,
+    BufferIndexTransforms = 4,
+    BufferIndexInstanceOffsets = 5,
+    BufferIndexXRay = 6
 };
 
 typedef NS_ENUM(EnumBackingType, VertexAttribute) {

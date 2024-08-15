@@ -11,16 +11,17 @@ extension Geometry {
 
     public class Instance {
 
-        /// The identifier of the instance
-        public let idenitifer: Int
-        /// 4x4 row-major matrix representing the node's world-space transform
-        public let matrix: float4x4
-        /// The first bit of each flag designates whether the instance should be initially hidden (1) or not (0) when rendered.
-        public let flags: Int16
+        /// Represents the state of the instance.
+        public enum State: Int {
+            case `default`
+            case hidden
+            case selected
+        }
+
+        /// The index of the instance
+        public let index: Int
         /// Marks the instance as hidden
-        public var hidden: Bool = false
-        /// Marks the instance as selected
-        public var selected: Bool = false
+        public var state: State = .default
         /// Flag indicating if the instance is transparent or not.
         public var transparent: Bool = false
         /// A reference to the parent instance
@@ -39,16 +40,13 @@ extension Geometry {
         /// Initializes the instance.
         /// 
         /// - Parameters:
-        ///   - identifier: the instance unique identifier. Use this to find instances
+        ///   - index: The instance index. Use this to find instances
         ///     within the geometry rather than the subscript as
         ///     the array of instances will most likely be sorted differently.
-        ///   - matrix: The 4x4 row-major matrix representing the node's world-space transform
         ///   - flags: Holds the flags for the given instance.
-        init(identifier: Int, matrix: float4x4 = .identity, flags: Int16) {
-            self.idenitifer = identifier
-            self.matrix = matrix
-            self.flags = flags
-            self.hidden = flags != .zero
+        init(index: Int, flags: Int16) {
+            self.index = index
+            self.state = flags != .zero ? .hidden : .default
         }
     }
 
@@ -67,6 +65,32 @@ extension Geometry {
         ///   - submeshes: The range of submeshes contained inside this mesh
         init(submeshes: Range<Int>? = nil) {
             self.submeshes = submeshes
+        }
+    }
+
+    /// Inverts the relationship between an Instance and a Mesh that allows us to draw using instancing.
+    class Instanced {
+
+        /// The mesh that is shared across the instances.
+        let mesh: Mesh
+        /// Flag indicating if the mesh is transparent or not
+        let transparent: Bool
+        /// The instance indexes.
+        let instances: [UInt32]
+        /// Provides an offset into the transforms buffer.
+        var baseInstance: Int
+
+        /// Initalizes the instanced mesh.
+        /// - Parameters:
+        ///   - mesh: the mesh that should be instanced
+        ///   - transparent: a flag indicating if the instance is transparent or not (used primarily for sorting).
+        ///   - instances: the instance indexes
+        ///   - baseInstance: the offset used by the GPU used to lookup the starting index into the transforms buffer.
+        init(mesh: Mesh, transparent: Bool, instances: [UInt32], _ baseInstance: Int = 0) {
+            self.mesh = mesh
+            self.transparent = transparent
+            self.instances = instances
+            self.baseInstance = baseInstance
         }
     }
 

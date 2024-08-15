@@ -43,28 +43,36 @@ typedef struct {
     float glossiness;
     // The material smoothness
     float smoothness;
-    // The instance identifier
-    int32_t identifier;
+    // The instance index
+    int32_t index;
 } VertexOut;
 
 // The struct that is returned from the fragment function
 typedef struct {
     // The colorAttachments[0] that holds the color information
     float4 color [[color(0)]];
-    // The colorAttachments[1] that holds the instance identifier (-1 indicates an invalid instance)
-    int32_t identifier [[color(1)]];
+    // The colorAttachments[1] that holds the instance index (-1 indicates an invalid instance)
+    int32_t index [[color(1)]];
 } ColorOut;
 
 // The main vertex shader function
 vertex VertexOut vertexMain(Vertex in [[stage_in]],
-                            constant UniformsArray &uniformsArray [[ buffer(BufferIndexUniforms) ]],
-                            constant InstanceUniforms &instanceUniforms [[ buffer(BufferIndexInstanceUniforms) ]],
+                            ushort amp_id [[amplification_id]],
                             uint vertex_id [[vertex_id]],
-                            ushort amp_id [[amplification_id]]) {
+                            uint instance_id [[instance_id]],
+                            constant UniformsArray &uniformsArray [[ buffer(BufferIndexUniforms) ]],
+                            constant MeshUniforms &meshUniforms [[ buffer(BufferIndexMeshUniforms) ]],
+                            constant float4x4 *transforms [[ buffer(BufferIndexTransforms) ]],
+                            constant uint32_t *instanceOffsets [[ buffer(BufferIndexInstanceOffsets) ]],
+                            constant bool &xRay [[ buffer(BufferIndexXRay) ]]) {
+
+    uint32_t instanceIndex = instanceOffsets[instance_id];
+    float4x4 transform = transforms[instanceIndex];
+
     VertexOut out;
     Uniforms uniforms = uniformsArray.uniforms[amp_id];
     
-    simd_float4x4 modelMatrix = instanceUniforms.matrix;
+    simd_float4x4 modelMatrix = transform;
     simd_float4x4 viewMatrix = uniforms.viewMatrix;
     simd_float4x4 projectionMatrix = uniforms.projectionMatrix;
     simd_float4x4 modelViewProjectionMatrix = projectionMatrix * viewMatrix * modelMatrix;
@@ -74,17 +82,16 @@ vertex VertexOut vertexMain(Vertex in [[stage_in]],
     float4 position = float4(in.position, 1.0);
     out.position = modelViewProjectionMatrix * position;
     
-    
     // Pass color information to the fragment shader
     float3 normal = in.normal.xyz;
-    out.glossiness = instanceUniforms.glossiness;
-    out.smoothness = instanceUniforms.smoothness;
-    out.color = instanceUniforms.color;
+    out.glossiness = meshUniforms.glossiness;
+    out.smoothness = meshUniforms.smoothness;
+    out.color = meshUniforms.color;
 
     // XRay the object
-    if (instanceUniforms.xRay) {
-        float grayscale = 0.299 * instanceUniforms.color.x + 0.587 * instanceUniforms.color.y + 0.114 * instanceUniforms.color.z;
-        float alpha = instanceUniforms.color.w * 0.1;
+    if (xRay) {
+        float grayscale = 0.299 * meshUniforms.color.x + 0.587 * meshUniforms.color.y + 0.114 * meshUniforms.color.z;
+        float alpha = meshUniforms.color.w * 0.1;
         out.color = float4(grayscale, grayscale, grayscale, alpha);
     }
 
@@ -94,8 +101,8 @@ vertex VertexOut vertexMain(Vertex in [[stage_in]],
     out.cameraLightDirection = (viewMatrix * float4(normalize(lightDirection), 0)).xyz;
     out.cameraDistance = length_squared((modelMatrix * position).xyz - uniforms.cameraPosition);
 
-    // Pass the instance id
-    out.identifier = instanceUniforms.identifier;
+    // Pass the instance index
+    out.index = instanceIndex;
     return out;
 }
 
@@ -135,7 +142,7 @@ fragment ColorOut fragmentMain(VertexOut in [[stage_in]],
     color.a = in.color.a;
     
     out.color = color;
-    out.identifier = in.identifier;
+    out.index = in.index;
     
     return out;
 }

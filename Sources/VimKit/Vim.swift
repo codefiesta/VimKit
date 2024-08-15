@@ -284,11 +284,17 @@ extension Vim {
     ///   - id: the id of the instance to select (or deselect if already selected).
     ///   - point: the point in 3D space where the object was selected
     public func select(id: Int, point: SIMD3<Float> = .zero) {
-        // Find the instance by it's identifier, not subscript as the instances have been sorted.
+        // Find the instance by it's id, not subscript as the instances have been sorted.
         guard let geometry, let instance = geometry.instance(for: id) else { return }
-        instance.selected.toggle()
+
+        switch instance.state {
+        case .default, .hidden:
+            instance.state = .selected
+        case .selected:
+            instance.state = .default
+        }
         // Publish the selection event
-        eventPublisher.send(.selected(id, instance.selected, geometry.selectedCount, point))
+        eventPublisher.send(.selected(id, instance.state == .selected, geometry.selectedCount, point))
     }
 
     /// Toggles an instance hidden state for the instance with the specified id
@@ -299,8 +305,7 @@ extension Vim {
         guard let geometry else { return }
         for id in ids {
             guard let instance = geometry.instance(for: id) else { continue }
-            instance.selected = false
-            instance.hidden = true
+            instance.state = .hidden
         }
         DispatchQueue.main.async {
             // Publish the hidden event
@@ -311,8 +316,8 @@ extension Vim {
     /// Unhides all hidden instances.
     public func unhide() async {
         guard let geometry else { return }
-        geometry.instances.filter{ $0.hidden && $0.flags == .zero }.forEach { instance in
-            instance.hidden = false
+        geometry.instances.filter{ $0.state == .hidden }.forEach { instance in
+            instance.state = .default
         }
         DispatchQueue.main.async {
             // Publish the hidden event
