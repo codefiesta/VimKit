@@ -214,9 +214,7 @@ public class Vim: NSObject, ObservableObject {
             assert(false, "The geometry block is absent")
             return
         }
-        assert(geometry.instanceTransforms.count == count, "The number of transforms doesn't match the instance count.")
-        assert(geometry.instanceParents.count == count, "The number of instance parents doesn't match the instance count.")
-        assert(geometry.instanceMeshes.count == count, "The number of instance meshes doesn't match the instance count.")
+        assert(geometry.transforms.count == count, "The number of transforms doesn't match the instance count.")
 
         guard let materialsTable = db?.Material else {
             assert(false, "The materials table doesn't exist in the database")

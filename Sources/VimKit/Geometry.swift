@@ -11,6 +11,7 @@ import simd
 
 // File extensions for mmap'd metal buffers
 private let normalsBufferExtension = ".normals"
+private let transformsBufferExtension = ".transforms"
 
 /// See: https://github.com/vimaec/vim#geometry-buffer
 /// This class was largely translated from VIM's CSharp + JS implementtions:
@@ -27,7 +28,7 @@ public class Geometry: ObservableObject {
     }
 
     /// Progress Reporting for loading the geometry data.
-    @objc public dynamic let progress = Progress(totalUnitCount: 8)
+    @objc public dynamic let progress = Progress(totalUnitCount: 9)
 
     @Published
     public var state: State = .loading
@@ -38,6 +39,8 @@ public class Geometry: ObservableObject {
     public private(set) var indexBuffer: MTLBuffer?
     /// Returns the combinded buffer of all of the normals.
     public private(set) var normalsBuffer: MTLBuffer?
+    /// Returns the combinded buffer of all of the transforms.
+    public private(set) var transformsBuffer: MTLBuffer?
     /// Returns true if the geometry should be drawn using instancing.
     public private(set) var instancingEnabled: Bool = false
 
@@ -103,6 +106,19 @@ public class Geometry: ObservableObject {
             fatalError("💀 Unable to create normals buffer")
         }
         self.normalsBuffer = normalsBuffer
+        progress.completedUnitCount += 1
+
+        // 4) Build the transforms buffer
+        let transformsBufferFile = cacheDir.appending(path: "\(bfast.sha256Hash)\(transformsBufferExtension)")
+        if !FileManager.default.fileExists(atPath: transformsBufferFile.path) {
+            var transforms = instanceTransforms
+            let data = Data(bytes: &transforms, count: MemoryLayout<float4x4>.size * transforms.count)
+            try! data.write(to: transformsBufferFile)
+        }
+        guard let transformsBuffer = device.makeBufferNoCopy(transformsBufferFile, type: float4x4.self) else {
+            fatalError("💀 Unable to create transforms buffer")
+        }
+        self.transformsBuffer = transformsBuffer
         progress.completedUnitCount += 1
 
         // 5) Build all the data structures
@@ -295,20 +311,8 @@ public class Geometry: ObservableObject {
 
     // MARK: Instances
 
-    /// Returns the instance flags
-    lazy var instanceFlags: [Int16] = {
-        let attributes = attributes(association: .instance, semantic: .flags)
-        return attributes.data.unsafeTypeArray()
-    }()
-
-    /// Returns the index of a parent instance associated with a given instance
-    lazy var instanceParents: [Int32] = {
-        let attributes = attributes(association: .instance, semantic: .parent)
-        return attributes.data.unsafeTypeArray()
-    }()
-
     /// Returns the 4x4 row-major transform matrix values associated with their respective instances.
-    lazy var instanceTransforms: [float4x4] = {
+    private var instanceTransforms: [float4x4] {
         var results = [float4x4]()
         let attributes = attributes(association: .instance, semantic: .transform)
         for attribute in attributes {
@@ -324,23 +328,27 @@ public class Geometry: ObservableObject {
             results.append(contentsOf: values)
         }
         return results
-    }()
+    }
 
-    /// Returns the Mesh associated with instances
-    lazy var instanceMeshes: [Int32] = {
-        let attributes = attributes(association: .instance, semantic: .mesh)
-        return attributes.data.unsafeTypeArray()
+    /// Returns the combined buffer of all the instance transforms.
+    public lazy var transforms: UnsafeMutableBufferPointer<float4x4> = {
+        assert(transformsBuffer != nil, "💩 Misuse [transforms]")
+        return transformsBuffer!.toUnsafeMutableBufferPointer()
     }()
 
     /// Builds the instances (nodes).
     public lazy var instances: [Instance] = {
         var instances = [Instance]()
 
+        let instanceFlags: [Int16] = unsafeTypeArray(association: .instance, semantic: .flags)
+        let instanceParents: [Int32] = unsafeTypeArray(association: .instance, semantic: .parent)
+        let instanceMeshes: [Int32] = unsafeTypeArray(association: .instance, semantic: .mesh)
+
         // Map of instances that share the same mesh
         var meshInstancesMap = [Mesh: [Int]]()
 
         // Build the base instances
-        for (i, transform) in instanceTransforms.enumerated() {
+        for (i, transform) in transforms.enumerated() {
 
             var flags: Int16 = 0
             if instanceFlags.indices.contains(i) {
@@ -542,5 +550,15 @@ public class Geometry: ObservableObject {
     /// - Returns: all attributes that match the soecified association and semantic
     fileprivate func attributes(association: AttributeDescriptor.Association, semantic: AttributeDescriptor.Semantic) -> [Attribute] {
         return attributes.filter { $0.descriptor.association == association && $0.descriptor.semantic == semantic }
+    }
+
+    /// Convenience method for accessing attribute data into an array of the specified type.
+    /// - Parameters:
+    ///   - association: the aatribute descriptotor association to match against
+    ///   - semantic: the aatribute descriptotor semantic to match against
+    /// - Returns: the attribute data as an array of the specified type.
+    fileprivate func unsafeTypeArray<T>(association: AttributeDescriptor.Association, semantic: AttributeDescriptor.Semantic) -> [T] {
+        let attributes = attributes(association: association, semantic: semantic)
+        return attributes.data.unsafeTypeArray()
     }
 }
