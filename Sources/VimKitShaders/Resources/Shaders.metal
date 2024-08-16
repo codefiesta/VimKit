@@ -55,7 +55,16 @@ typedef struct {
     int32_t index [[color(1)]];
 } ColorOut;
 
-// The main vertex shader function
+// The main vertex shader function.
+// - Parameters:
+//   - in: The vertex position + normal data.
+//   - amp_id: The index into the uniforms array used for stereoscopic views in visionOS.
+//   - instance_id: The baseInstance parameter passed to the draw call used to map this instance to it's transform data.
+//   - uniformsArray: The per frame uniforms.
+//   - meshUniforms: The per mesh uniforms.
+//   - transforms: The instance transform matrices.
+//   - instanceOffsets: The current instance index into the transforms pointer.
+//   - xRay: Flag indicating if this frame is being rendered in xray mode.
 vertex VertexOut vertexMain(Vertex in [[stage_in]],
                             ushort amp_id [[amplification_id]],
                             uint vertex_id [[vertex_id]],
@@ -106,7 +115,11 @@ vertex VertexOut vertexMain(Vertex in [[stage_in]],
     return out;
 }
 
-// The primary fragment shader function that includes the texture
+// The main fragment shader function.
+// - Parameters:
+//   - in: the data passed from the vertex function.
+//   - texture: the texture.
+//   - colorSampler: The color sampler.
 fragment ColorOut fragmentMain(VertexOut in [[stage_in]],
                               texture2d<float, access::sample> texture [[texture(0)]],
                               sampler colorSampler [[sampler(0)]]) {
