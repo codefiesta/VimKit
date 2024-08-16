@@ -575,7 +575,7 @@ extension Geometry {
     ///   - ids: the ids of the instances to hide
     /// - Returns: the total count of hidden instances.
     public func hide(ids: [Int]) -> Int {
-        guard var pointer: UnsafeMutablePointer<Instances> = instancesBuffer?.toUnsafeMutablePointer() else { return 0 }
+        guard let pointer: UnsafeMutablePointer<Instances> = instancesBuffer?.toUnsafeMutablePointer() else { return 0 }
         for id in ids {
             guard let index = instanceOffsets.firstIndex(of: UInt32(id)) else { continue }
             pointer.advanced(by: index).pointee.state = .hidden
@@ -588,10 +588,10 @@ extension Geometry {
     ///   - id: the index of the instances to select or deselect
     /// - Returns: true if the instance was selected, otherwise false
     public func select(id: Int) -> Bool {
-        guard var pointer: UnsafeMutablePointer<Instances> = instancesBuffer?.toUnsafeMutablePointer(),
+        guard let pointer: UnsafeMutablePointer<Instances> = instancesBuffer?.toUnsafeMutablePointer(),
               let index = instanceOffsets.firstIndex(of: UInt32(id)) else { return false }
 
-        var instance = pointer[index]
+        let instance = pointer[index]
         switch instance.state {
         case .default, .hidden:
             pointer.advanced(by: index).pointee.state = .selected

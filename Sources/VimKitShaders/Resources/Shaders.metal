@@ -101,19 +101,22 @@ vertex VertexOut vertexMain(Vertex in [[stage_in]],
     out.smoothness = meshUniforms.smoothness;
     out.color = meshUniforms.color;
     
-    switch(instance.state) {
-        case InstanceStateDefault:
-            break;
-        case InstanceStateSelected:
-            out.color = selectionColor; //float4(0.0, 0.0, 1.0, 1.0);
-            break;
-    }
-
     // XRay the object
     if (xRay) {
         float grayscale = 0.299 * meshUniforms.color.x + 0.587 * meshUniforms.color.y + 0.114 * meshUniforms.color.z;
         float alpha = meshUniforms.color.w * 0.1;
         out.color = float4(grayscale, grayscale, grayscale, alpha);
+    }
+    
+    // Override the color based on the instance state
+    switch (instance.state) {
+        case InstanceStateDefault:
+            break;
+        case InstanceStateHidden:
+            break;
+        case InstanceStateSelected:
+            out.color = selectionColor;
+            break;
     }
 
     // Pass lighting information to the fragment shader
