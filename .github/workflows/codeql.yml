@@ -13,6 +13,8 @@ jobs:
 
   analyze:
 
+    if: github.event.pull_request.draft == false
+
     env:
       XCODE_VERSION: 'Xcode_15.4'
 
