@@ -69,11 +69,11 @@ vertex VertexOut vertexMain(Vertex in [[stage_in]],
                             ushort amp_id [[amplification_id]],
                             uint vertex_id [[vertex_id]],
                             uint instance_id [[instance_id]],
-                            constant UniformsArray &uniformsArray [[ buffer(BufferIndexUniforms) ]],
-                            constant MeshUniforms &meshUniforms [[ buffer(BufferIndexMeshUniforms) ]],
-                            constant float4x4 *transforms [[ buffer(BufferIndexTransforms) ]],
-                            constant uint32_t *instanceOffsets [[ buffer(BufferIndexInstanceOffsets) ]],
-                            constant bool &xRay [[ buffer(BufferIndexXRay) ]]) {
+                            constant UniformsArray &uniformsArray [[buffer(BufferIndexUniforms)]],
+                            constant MeshUniforms &meshUniforms [[buffer(BufferIndexMeshUniforms)]],
+                            constant float4x4 *transforms [[buffer(BufferIndexTransforms)]],
+                            constant uint32_t *instanceOffsets [[buffer(BufferIndexInstanceOffsets)]],
+                            constant bool &xRay [[buffer(BufferIndexXRay)]]) {
 
     uint32_t instanceIndex = instanceOffsets[instance_id];
     float4x4 transform = transforms[instanceIndex];
