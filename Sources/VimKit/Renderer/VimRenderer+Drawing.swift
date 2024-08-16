@@ -129,9 +129,9 @@ public extension VimRenderer {
         skycube?.draw(renderEncoder: renderEncoder)
     }
 
-    /// Draws instanced .
+    /// Draws an instanced mesh.
     /// - Parameters:
-    ///   - instanced: an instancing
+    ///   - instanced: the instanced mesh to draw
     ///   - renderEncoder: the render encoder
     private func drawInstanced(_ instanced: Geometry.InstancedMesh, renderEncoder: MTLRenderCommandEncoder) {
         guard let geometry, let range = instanced.mesh.submeshes else { return }
