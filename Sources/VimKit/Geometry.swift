@@ -8,10 +8,10 @@ import Combine
 import Foundation
 import MetalKit
 import simd
+import VimKitShaders
 
 // File extensions for mmap'd metal buffers
 private let normalsBufferExtension = ".normals"
-private let transformsBufferExtension = ".transforms"
 
 /// See: https://github.com/vimaec/vim#geometry-buffer
 /// This class was largely translated from VIM's CSharp + JS implementtions:
@@ -39,12 +39,8 @@ public class Geometry: ObservableObject {
     public private(set) var indexBuffer: MTLBuffer?
     /// Returns the combinded buffer of all of the normals.
     public private(set) var normalsBuffer: MTLBuffer?
-    /// Returns the combinded buffer of all of the transforms.
-    public private(set) var transformsBuffer: MTLBuffer?
-    /// Returns a buffer of the offsets into the transforms when performing instancing.
-    public private(set) var instancedOffsetsBuffer: MTLBuffer?
-    /// Returns true if the geometry should be drawn using instancing.
-    private(set) var instancingEnabled: Bool = true
+    /// Returns the combinded buffer of all of the instance transforms and their state information.
+    public private(set) var instancesBuffer: MTLBuffer?
 
     /// The Geometry Bounding Volume Hierarchy
     var bvh: BVH?
@@ -110,20 +106,7 @@ public class Geometry: ObservableObject {
         self.normalsBuffer = normalsBuffer
         progress.completedUnitCount += 1
 
-        // 4) Build the transforms buffer
-        let transformsBufferFile = cacheDir.appending(path: "\(bfast.sha256Hash)\(transformsBufferExtension)")
-        if !FileManager.default.fileExists(atPath: transformsBufferFile.path) {
-            var transforms = instanceTransforms
-            let data = Data(bytes: &transforms, count: MemoryLayout<float4x4>.size * transforms.count)
-            try! data.write(to: transformsBufferFile)
-        }
-        guard let transformsBuffer = device.makeBufferNoCopy(transformsBufferFile, type: float4x4.self) else {
-            fatalError("💀 Unable to create transforms buffer")
-        }
-        self.transformsBuffer = transformsBuffer
-        progress.completedUnitCount += 1
-
-        // 5) Build all the data structures
+        // 4) Build all the data structures
         _ = materials // Build the materials
         progress.completedUnitCount += 1
         _ = submeshes // Build the submeshes
@@ -133,13 +116,19 @@ public class Geometry: ObservableObject {
         _ = instances // Build the instances
         progress.completedUnitCount += 1
 
-        if instancingEnabled {
-            var offsets = instanced.map { $0.instances }.reduce( [], + )
-            guard let offsetsBuffer = device.makeBuffer(bytes: &offsets, length: MemoryLayout<UInt32>.stride * offsets.count) else {
-                fatalError("💀 Unable to create offsets buffer")
-            }
-            self.instancedOffsetsBuffer = offsetsBuffer
+        // 5) Build the instances buffer
+        var instanced = instanceOffsets.map {
+            Instances(index: $0,
+                      matrix: instances[Int($0)].matrix,
+                      state: instances[Int($0)].flags != .zero ? .hidden : .default
+            )
         }
+
+        guard let instancesBuffer = device.makeBuffer(bytes: &instanced, length: MemoryLayout<Instances>.stride * instanced.count) else {
+            fatalError("💀 Unable to create instances buffer")
+        }
+        self.instancesBuffer = instancesBuffer
+        progress.completedUnitCount += 1
 
         // Start indexing the file
         DispatchQueue.main.async {
@@ -340,12 +329,6 @@ public class Geometry: ObservableObject {
         return results
     }
 
-    /// Returns the combined buffer of all the instance transforms.
-    public lazy var transforms: UnsafeMutableBufferPointer<float4x4> = {
-        assert(transformsBuffer != nil, "💩 Misuse [transforms]")
-        return transformsBuffer!.toUnsafeMutableBufferPointer()
-    }()
-
     /// Builds the array of instances.
     public lazy var instances: [Instance] = {
         var instances = [Instance]()
@@ -353,16 +336,17 @@ public class Geometry: ObservableObject {
         let instanceFlags: [Int16] = unsafeTypeArray(association: .instance, semantic: .flags)
         let instanceParents: [Int32] = unsafeTypeArray(association: .instance, semantic: .parent)
         let instanceMeshes: [Int32] = unsafeTypeArray(association: .instance, semantic: .mesh)
+        let transforms = instanceTransforms
 
         // Build the base instances
-        for (i, _) in transforms.enumerated() {
+        for (i, transform) in transforms.enumerated() {
 
             var flags: Int16 = 0
             if instanceFlags.indices.contains(i) {
                 flags = instanceFlags[i]
             }
 
-            let instance = Instance(index: i, flags: flags)
+            let instance = Instance(index: i, matrix: transform, flags: flags)
 
             // Lookup the instance mesh
             let meshOffset = instanceMeshes[i]
@@ -385,15 +369,12 @@ public class Geometry: ObservableObject {
                 instances[i].parent = parent
             }
         }
-
-        // Finally, sort the instances by opaques and transparents
-        instances.sort{ !$0.transparent && $1.transparent }
         return instances
     }()
 
-    /// Builds an array of instanced structures (used for instancing).
-    lazy var instanced: [Instanced] = {
-        var results = [Instanced]()
+    /// Builds an array of instanced mesh structures (used for instancing).
+    lazy var instancedMeshes: [InstancedMesh] = {
+        var results = [InstancedMesh]()
 
         // Build a map of instances that share the same mesh
         var meshInstances = [Mesh: [UInt32]]()
@@ -408,11 +389,11 @@ public class Geometry: ObservableObject {
 
         for (mesh, instances) in meshInstances {
             let transparent = isTransparent(mesh)
-            let meshInstances = Instanced(mesh: mesh, transparent: transparent, instances: instances)
+            let meshInstances = InstancedMesh(mesh: mesh, transparent: transparent, instances: instances)
             results.append(meshInstances)
         }
 
-        // Sort by opaques and transparents
+        // Sort the meshes by opaques and transparents
         results.sort{ !$0.transparent && $1.transparent }
 
         // Set the base instance offsets
@@ -422,6 +403,11 @@ public class Geometry: ObservableObject {
             baseInstance += result.instances.count
         }
         return results
+    }()
+
+    /// Returns the instance offsets (used for instancing). 
+    lazy var instanceOffsets: [UInt32] = {
+        return instancedMeshes.map { $0.instances }.reduce( [], + )
     }()
 
     /// Determines mesh transparency. This allows us to sort or
@@ -438,24 +424,6 @@ public class Geometry: ObservableObject {
             .sorted { $0.material?.rgba.w ?? .zero < $1.material?.rgba.w ?? .zero }
             .first?.material?.rgba.w ?? .zero
         return alpha < 1.0
-    }
-
-
-    /// Convenience var that returns a count of the hidden instances.
-    public var hiddenCount: Int {
-        return instances.filter{ $0.state != .hidden }.count
-    }
-
-    /// Convenience var that returns a count of the selected instances.
-    public var selectedCount: Int {
-        return instances.filter{ $0.state == .selected }.count
-    }
-
-    /// Convenience method to find an instance by it's index. Use this instead of subscripting as the instances have most likely been sorted by transparency.
-    /// - Parameter identifier: the instance identifier
-    /// - Returns: the instance with the specified identifier or nil if none found.
-    public func instance(for index: Int) -> Instance? {
-        return instances.filter({ $0.index == index }).first
     }
 
     /// Calculates the bounding box for the specified instance.
@@ -595,5 +563,66 @@ public class Geometry: ObservableObject {
     fileprivate func unsafeTypeArray<T>(association: AttributeDescriptor.Association, semantic: AttributeDescriptor.Semantic) -> [T] {
         let attributes = attributes(association: association, semantic: semantic)
         return attributes.data.unsafeTypeArray()
+    }
+}
+
+// MARK: Instance Mutation
+
+extension Geometry {
+
+    /// Toggles the instance hidden state to `.hidden` for all instances in the specified ids.
+    /// - Parameters:
+    ///   - ids: the ids of the instances to hide
+    /// - Returns: the total count of hidden instances.
+    public func hide(ids: [Int]) -> Int {
+        guard var pointer: UnsafeMutablePointer<Instances> = instancesBuffer?.toUnsafeMutablePointer() else { return 0 }
+        for id in ids {
+            guard let index = instanceOffsets.firstIndex(of: UInt32(id)) else { continue }
+            pointer.advanced(by: index).pointee.state = .hidden
+        }
+        return hiddenCount
+    }
+
+    /// Toggles the instance hidden state to `.selected` or
+    /// - Parameters:
+    ///   - id: the index of the instances to select or deselect
+    /// - Returns: true if the instance was selected, otherwise false
+    public func select(id: Int) -> Bool {
+        guard var pointer: UnsafeMutablePointer<Instances> = instancesBuffer?.toUnsafeMutablePointer(),
+              let index = instanceOffsets.firstIndex(of: UInt32(id)) else { return false }
+
+        var instance = pointer[index]
+        switch instance.state {
+        case .default, .hidden:
+            pointer.advanced(by: index).pointee.state = .selected
+            return true
+        case .selected:
+            pointer.advanced(by: index).pointee.state = .default
+            return false
+        @unknown default:
+            return false
+        }
+    }
+
+    /// Unhides all hidden instances.
+    public func unhide() {
+        guard let pointer: UnsafeMutableBufferPointer<Instances> = instancesBuffer?.toUnsafeMutableBufferPointer() else { return }
+        for (i, value) in pointer.enumerated() {
+            if value.state == .hidden {
+                pointer[i].state = .default
+            }
+        }
+    }
+
+    /// Convenience var that returns a count of the hidden instances.
+    public var hiddenCount: Int {
+        guard let pointer: UnsafeMutableBufferPointer<Instances> = instancesBuffer?.toUnsafeMutableBufferPointer() else { return 0 }
+        return pointer[0..<pointer.count].filter{ $0.state == .hidden }.count
+    }
+
+    /// Convenience var that returns a count of the selected instances.
+    public var selectedCount: Int {
+        guard let pointer: UnsafeMutableBufferPointer<Instances> = instancesBuffer?.toUnsafeMutableBufferPointer() else { return 0 }
+        return pointer[0..<pointer.count].filter{ $0.state == .selected }.count
     }
 }

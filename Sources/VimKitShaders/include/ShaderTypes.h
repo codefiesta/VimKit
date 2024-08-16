@@ -40,14 +40,28 @@ typedef struct {
     float smoothness;
 } MeshUniforms;
 
-// Constants for the association of a specific buffer index argument passed into the shader function
+// Enum constants for possible instance states
+typedef NS_ENUM(EnumBackingType, InstanceState) {
+    InstanceStateDefault = 0,
+    InstanceStateHidden = 1,
+    InstanceStateSelected = 2,
+};
+
+// Instancing Data
+typedef struct {
+    uint32_t index;
+    simd_float4x4 matrix;
+    InstanceState state;
+} Instances;
+
+// Enum constants for the association of a specific buffer index argument passed into the shader function
 typedef NS_ENUM(EnumBackingType, BufferIndex) {
     BufferIndexPositions = 0,
     BufferIndexNormals = 1,
     BufferIndexUniforms = 2,
     BufferIndexMeshUniforms = 3,
-    BufferIndexTransforms = 4,
-    BufferIndexInstanceOffsets = 5,
+    BufferIndexInstances = 4,
+    BufferIndexSelectionColor = 5,
     BufferIndexXRay = 6
 };
 

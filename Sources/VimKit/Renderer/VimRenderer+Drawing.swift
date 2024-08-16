@@ -77,19 +77,12 @@ public extension VimRenderer {
     /// Performs any draws before the scene draw.
     /// - Parameter renderEncoder: the render encoder
     func willDrawScene(renderEncoder: MTLRenderCommandEncoder) {
-    }
-
-    /// Draws the entire scene.
-    /// - Parameter renderEncoder: the render encoder
-    func drawScene(renderEncoder: MTLRenderCommandEncoder) {
         guard let geometry,
               let pipelineState,
               let positionsBuffer = geometry.positionsBuffer,
               let normalsBuffer = geometry.normalsBuffer,
-              let transformsBuffer = geometry.transformsBuffer,
-              let instancedOffsetsBuffer = geometry.instancedOffsetsBuffer else { return }
+              let instancesBuffer = geometry.instancesBuffer else { return }
 
-        renderEncoder.pushDebugGroup(renderEncoderDebugGroupName)
         renderEncoder.setRenderPipelineState(pipelineState)
         renderEncoder.setFrontFacing(.clockwise)
         renderEncoder.setCullMode(.none)
@@ -99,20 +92,32 @@ public extension VimRenderer {
         // Setup the per frame buffers to pass to the GPU
         renderEncoder.setVertexBuffer(positionsBuffer, offset: 0, index: .positions)
         renderEncoder.setVertexBuffer(normalsBuffer, offset: 0, index: .normals)
-        renderEncoder.setVertexBuffer(transformsBuffer, offset: 0, index: .transforms)
-        renderEncoder.setVertexBuffer(instancedOffsetsBuffer, offset: 0, index: .instanceOffsets)
+        renderEncoder.setVertexBuffer(instancesBuffer, offset: 0, index: .instances)
         renderEncoder.setFragmentTexture(baseColorTexture, index: 0)
         renderEncoder.setFragmentSamplerState(samplerState, index: 0)
 
-        // TODO: Just like the transforms buffer, we'll need to pass instance state information to the GPU
-
+        // Set xRay mode
         var xRay = xRayMode
         renderEncoder.setVertexBytes(&xRay, length: MemoryLayout<Bool>.size, index: .xRay)
 
-        let start = Date.now // TODO: Follow up: for now just perform a simple timeout check
+        // Set the selection color
+        var selectionColor = Color.objectSelectionColor.channels
+        renderEncoder.setVertexBytes(&selectionColor, length: MemoryLayout<SIMD4<Float>>.size, index: .selectionColor)
+    }
 
-        // Draw with instancing
-        for instanced in geometry.instanced {
+    /// Draws the entire scene.
+    /// - Parameter renderEncoder: the render encoder
+    func drawScene(renderEncoder: MTLRenderCommandEncoder) {
+
+        guard let geometry else { return }
+
+        // TODO: Follow up: for now just perform a simple timeout check
+        let start = Date.now
+
+        renderEncoder.pushDebugGroup(renderEncoderDebugGroupName)
+        // Draw the instanced meshes
+        for instanced in geometry.instancedMeshes {
+            guard abs(start.timeIntervalSinceNow) < frameTimeLimit else { break }
             drawInstanced(instanced, renderEncoder: renderEncoder)
         }
         renderEncoder.popDebugGroup()
@@ -128,7 +133,7 @@ public extension VimRenderer {
     /// - Parameters:
     ///   - instanced: an instancing
     ///   - renderEncoder: the render encoder
-    private func drawInstanced(_ instanced: Geometry.Instanced, renderEncoder: MTLRenderCommandEncoder) {
+    private func drawInstanced(_ instanced: Geometry.InstancedMesh, renderEncoder: MTLRenderCommandEncoder) {
         guard let geometry, let range = instanced.mesh.submeshes else { return }
 
         // TODO: Perform a check to make sure any of the instances are contained inside the camera frustum

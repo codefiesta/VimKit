@@ -62,8 +62,7 @@ typedef struct {
 //   - instance_id: The baseInstance parameter passed to the draw call used to map this instance to it's transform data.
 //   - uniformsArray: The per frame uniforms.
 //   - meshUniforms: The per mesh uniforms.
-//   - transforms: The instance transform matrices.
-//   - instanceOffsets: The current instance index into the transforms pointer.
+//   - instances: The instances pointer.
 //   - xRay: Flag indicating if this frame is being rendered in xray mode.
 vertex VertexOut vertexMain(Vertex in [[stage_in]],
                             ushort amp_id [[amplification_id]],
@@ -71,17 +70,22 @@ vertex VertexOut vertexMain(Vertex in [[stage_in]],
                             uint instance_id [[instance_id]],
                             constant UniformsArray &uniformsArray [[buffer(BufferIndexUniforms)]],
                             constant MeshUniforms &meshUniforms [[buffer(BufferIndexMeshUniforms)]],
-                            constant float4x4 *transforms [[buffer(BufferIndexTransforms)]],
-                            constant uint32_t *instanceOffsets [[buffer(BufferIndexInstanceOffsets)]],
+                            constant Instances *instances [[buffer(BufferIndexInstances)]],
+                            constant float4 &selectionColor [[buffer(BufferIndexSelectionColor)]],
                             constant bool &xRay [[buffer(BufferIndexXRay)]]) {
 
-    uint32_t instanceIndex = instanceOffsets[instance_id];
-    float4x4 transform = transforms[instanceIndex];
-
     VertexOut out;
-    Uniforms uniforms = uniformsArray.uniforms[amp_id];
+    Instances instance = instances[instance_id];
+    uint32_t instanceIndex = instance.index;
+
+    // If the instance is hidden, just bail
+    if (instance.state == InstanceStateHidden) {
+        return out;
+    }
     
-    simd_float4x4 modelMatrix = transform;
+    Uniforms uniforms = uniformsArray.uniforms[amp_id];
+
+    simd_float4x4 modelMatrix = instance.matrix;
     simd_float4x4 viewMatrix = uniforms.viewMatrix;
     simd_float4x4 projectionMatrix = uniforms.projectionMatrix;
     simd_float4x4 modelViewProjectionMatrix = projectionMatrix * viewMatrix * modelMatrix;
@@ -96,6 +100,14 @@ vertex VertexOut vertexMain(Vertex in [[stage_in]],
     out.glossiness = meshUniforms.glossiness;
     out.smoothness = meshUniforms.smoothness;
     out.color = meshUniforms.color;
+    
+    switch(instance.state) {
+        case InstanceStateDefault:
+            break;
+        case InstanceStateSelected:
+            out.color = selectionColor; //float4(0.0, 0.0, 1.0, 1.0);
+            break;
+    }
 
     // XRay the object
     if (xRay) {

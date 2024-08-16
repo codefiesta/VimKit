@@ -214,7 +214,6 @@ public class Vim: NSObject, ObservableObject {
             assert(false, "The geometry block is absent")
             return
         }
-        assert(geometry.transforms.count == count, "The number of transforms doesn't match the instance count.")
 
         guard let materialsTable = db?.Material else {
             assert(false, "The materials table doesn't exist in the database")
@@ -284,17 +283,12 @@ extension Vim {
     ///   - id: the id of the instance to select (or deselect if already selected).
     ///   - point: the point in 3D space where the object was selected
     public func select(id: Int, point: SIMD3<Float> = .zero) {
-        // Find the instance by it's id, not subscript as the instances have been sorted.
-        guard let geometry, let instance = geometry.instance(for: id) else { return }
-
-        switch instance.state {
-        case .default, .hidden:
-            instance.state = .selected
-        case .selected:
-            instance.state = .default
+        guard let geometry else { return }
+        let selected = geometry.select(id: id)
+        DispatchQueue.main.async {
+            // Publish the selection event
+            self.eventPublisher.send(.selected(id, selected, 1, point))
         }
-        // Publish the selection event
-        eventPublisher.send(.selected(id, instance.state == .selected, geometry.selectedCount, point))
     }
 
     /// Toggles an instance hidden state for the instance with the specified id
@@ -303,25 +297,20 @@ extension Vim {
     ///   - id: the ids of the instances to hide
     public func hide(ids: [Int]) async {
         guard let geometry else { return }
-        for id in ids {
-            guard let instance = geometry.instance(for: id) else { continue }
-            instance.state = .hidden
-        }
+        let hiddenCount = geometry.hide(ids: ids)
         DispatchQueue.main.async {
             // Publish the hidden event
-            self.eventPublisher.send(.hidden(geometry.hiddenCount))
+            self.eventPublisher.send(.hidden(hiddenCount))
         }
     }
 
     /// Unhides all hidden instances.
     public func unhide() async {
         guard let geometry else { return }
-        geometry.instances.filter{ $0.state == .hidden }.forEach { instance in
-            instance.state = .default
-        }
+        geometry.unhide()
         DispatchQueue.main.async {
             // Publish the hidden event
-            self.eventPublisher.send(.hidden(geometry.hiddenCount))
+            self.eventPublisher.send(.hidden(0))
         }
     }
 }

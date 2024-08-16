@@ -11,17 +11,12 @@ extension Geometry {
 
     public class Instance {
 
-        /// Represents the state of the instance.
-        public enum State: Int {
-            case `default`
-            case hidden
-            case selected
-        }
-
         /// The index of the instance
         public let index: Int
-        /// Marks the instance as hidden
-        public var state: State = .default
+        /// 4x4 row-major matrix representing the node's world-space transform
+        public let matrix: float4x4
+        /// The first bit of each flag designates whether the instance should be initially hidden (1) or not (0) when rendered.
+        public let flags: Int16
         /// Flag indicating if the instance is transparent or not.
         public var transparent: Bool = false
         /// A reference to the parent instance
@@ -43,10 +38,13 @@ extension Geometry {
         ///   - index: The instance index. Use this to find instances
         ///     within the geometry rather than the subscript as
         ///     the array of instances will most likely be sorted differently.
+        ///   - matrix: The 4x4 row-major matrix representing the node's world-space transform
         ///   - flags: Holds the flags for the given instance.
-        init(index: Int, flags: Int16) {
+        init(index: Int, matrix: float4x4, flags: Int16) {
             self.index = index
-            self.state = flags != .zero ? .hidden : .default
+            self.matrix = matrix
+            self.flags = flags
+            //self.state = flags != .zero ? .hidden : .default
         }
     }
 
@@ -69,7 +67,7 @@ extension Geometry {
     }
 
     /// Inverts the relationship between an Instance and a Mesh that allows us to draw using instancing.
-    class Instanced {
+    class InstancedMesh {
 
         /// The mesh that is shared across the instances.
         let mesh: Mesh
