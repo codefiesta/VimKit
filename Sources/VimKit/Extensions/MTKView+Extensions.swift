@@ -9,8 +9,6 @@ import MetalKit
 
 #if !os(visionOS)
 
-private let instanceIndexTexture = "InstanceIndexTexture"
-
 extension MTKView: VimRenderDestinationProvider {
 
     public var colorFormat: MTLPixelFormat {

@@ -9,7 +9,9 @@ import Foundation
 
 extension Array {
 
-    /// Splits the array into chunks of n
+    /// Splits the array into chunks of n.
+    /// - Parameter size: the size of chunks.
+    /// - Returns: an array of arrays chunked into the specified size.
     func chunked(into size: Int) -> [[Element]] {
         return stride(from: 0, to: count, by: size).map {
             Array(self[$0 ..< Swift.min($0 + size, count)])
