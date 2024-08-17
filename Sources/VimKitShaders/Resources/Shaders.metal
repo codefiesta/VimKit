@@ -43,28 +43,49 @@ typedef struct {
     float glossiness;
     // The material smoothness
     float smoothness;
-    // The instance identifier
-    int32_t identifier;
+    // The instance index
+    int32_t index;
 } VertexOut;
 
 // The struct that is returned from the fragment function
 typedef struct {
     // The colorAttachments[0] that holds the color information
     float4 color [[color(0)]];
-    // The colorAttachments[1] that holds the instance identifier (-1 indicates an invalid instance)
-    int32_t identifier [[color(1)]];
+    // The colorAttachments[1] that holds the instance index (-1 indicates an invalid instance)
+    int32_t index [[color(1)]];
 } ColorOut;
 
-// The main vertex shader function
+// The main vertex shader function.
+// - Parameters:
+//   - in: The vertex position + normal data.
+//   - amp_id: The index into the uniforms array used for stereoscopic views in visionOS.
+//   - instance_id: The baseInstance parameter passed to the draw call used to map this instance to it's transform data.
+//   - uniformsArray: The per frame uniforms.
+//   - meshUniforms: The per mesh uniforms.
+//   - instances: The instances pointer.
+//   - xRay: Flag indicating if this frame is being rendered in xray mode.
 vertex VertexOut vertexMain(Vertex in [[stage_in]],
-                            constant UniformsArray &uniformsArray [[ buffer(BufferIndexUniforms) ]],
-                            constant InstanceUniforms &instanceUniforms [[ buffer(BufferIndexInstanceUniforms) ]],
+                            ushort amp_id [[amplification_id]],
                             uint vertex_id [[vertex_id]],
-                            ushort amp_id [[amplification_id]]) {
+                            uint instance_id [[instance_id]],
+                            constant UniformsArray &uniformsArray [[buffer(BufferIndexUniforms)]],
+                            constant MeshUniforms &meshUniforms [[buffer(BufferIndexMeshUniforms)]],
+                            constant Instances *instances [[buffer(BufferIndexInstances)]],
+                            constant float4 &selectionColor [[buffer(BufferIndexSelectionColor)]],
+                            constant bool &xRay [[buffer(BufferIndexXRay)]]) {
+
     VertexOut out;
-    Uniforms uniforms = uniformsArray.uniforms[amp_id];
+    Instances instance = instances[instance_id];
+    uint32_t instanceIndex = instance.index;
+
+    // If the instance is hidden, just bail
+    if (instance.state == InstanceStateHidden) {
+        return out;
+    }
     
-    simd_float4x4 modelMatrix = instanceUniforms.matrix;
+    Uniforms uniforms = uniformsArray.uniforms[amp_id];
+
+    simd_float4x4 modelMatrix = instance.matrix;
     simd_float4x4 viewMatrix = uniforms.viewMatrix;
     simd_float4x4 projectionMatrix = uniforms.projectionMatrix;
     simd_float4x4 modelViewProjectionMatrix = projectionMatrix * viewMatrix * modelMatrix;
@@ -74,18 +95,28 @@ vertex VertexOut vertexMain(Vertex in [[stage_in]],
     float4 position = float4(in.position, 1.0);
     out.position = modelViewProjectionMatrix * position;
     
-    
     // Pass color information to the fragment shader
     float3 normal = in.normal.xyz;
-    out.glossiness = instanceUniforms.glossiness;
-    out.smoothness = instanceUniforms.smoothness;
-    out.color = instanceUniforms.color;
-
+    out.glossiness = meshUniforms.glossiness;
+    out.smoothness = meshUniforms.smoothness;
+    out.color = meshUniforms.color;
+    
     // XRay the object
-    if (instanceUniforms.xRay) {
-        float grayscale = 0.299 * instanceUniforms.color.x + 0.587 * instanceUniforms.color.y + 0.114 * instanceUniforms.color.z;
-        float alpha = instanceUniforms.color.w * 0.1;
+    if (xRay) {
+        float grayscale = 0.299 * meshUniforms.color.x + 0.587 * meshUniforms.color.y + 0.114 * meshUniforms.color.z;
+        float alpha = meshUniforms.color.w * 0.1;
         out.color = float4(grayscale, grayscale, grayscale, alpha);
+    }
+    
+    // Override the color based on the instance state
+    switch (instance.state) {
+        case InstanceStateDefault:
+            break;
+        case InstanceStateHidden:
+            break;
+        case InstanceStateSelected:
+            out.color = selectionColor;
+            break;
     }
 
     // Pass lighting information to the fragment shader
@@ -94,12 +125,16 @@ vertex VertexOut vertexMain(Vertex in [[stage_in]],
     out.cameraLightDirection = (viewMatrix * float4(normalize(lightDirection), 0)).xyz;
     out.cameraDistance = length_squared((modelMatrix * position).xyz - uniforms.cameraPosition);
 
-    // Pass the instance id
-    out.identifier = instanceUniforms.identifier;
+    // Pass the instance index
+    out.index = instanceIndex;
     return out;
 }
 
-// The primary fragment shader function that includes the texture
+// The main fragment shader function.
+// - Parameters:
+//   - in: the data passed from the vertex function.
+//   - texture: the texture.
+//   - colorSampler: The color sampler.
 fragment ColorOut fragmentMain(VertexOut in [[stage_in]],
                               texture2d<float, access::sample> texture [[texture(0)]],
                               sampler colorSampler [[sampler(0)]]) {
@@ -135,7 +170,7 @@ fragment ColorOut fragmentMain(VertexOut in [[stage_in]],
     color.a = in.color.a;
     
     out.color = color;
-    out.identifier = in.identifier;
+    out.index = in.index;
     
     return out;
 }
