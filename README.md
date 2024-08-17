@@ -16,7 +16,7 @@ The VimKit package is broken down into 3 seperate modules ([VimKit](#vimkit-1), 
 
 [VIM](https://github.com/vimaec/vim) files are composed of [BFAST](https://github.com/vimaec/bfast) containers that provide the necessary [geometry](https://github.com/vimaec/vim#geometry-buffer), [assets](https://github.com/vimaec/vim/#assets-buffer), [entities](https://github.com/vimaec/vim#entities-buffer), and [strings](https://github.com/vimaec/vim#strings-buffer) buffers used to render and interrogate all of the 3D instances contained in a file. 
 
-Although it is possible to render each [Instance](https://github.com/codefiesta/VimKit/blob/main/Sources/VimKit/Geometry%2BMesh.swift) individually, VimKit leverages instancing to perform a single [draw](https://github.com/codefiesta/VimKit/blob/main/Sources/VimKit/Renderer/VimRenderer%2BDrawing.swift) call that render all Instance's that share the same Mesh.
+Although it is possible to render each [Instance](https://github.com/codefiesta/VimKit/blob/main/Sources/VimKit/Geometry%2BMesh.swift) individually, VimKit leverages instancing to render all Instance's that share the same Mesh in a single [draw](https://github.com/codefiesta/VimKit/blob/main/Sources/VimKit/Renderer/VimRenderer%2BDrawing.swift) call.
 
 [Geometry.swift](https://github.com/codefiesta/VimKit/blob/main/Sources/VimKit/Geometry.swift) and [Geometry+Mesh.swift](https://github.com/codefiesta/VimKit/blob/main/Sources/VimKit/Geometry%2BMesh.swift) are the best sources to understand the details of how the geometry, positions, indices and data structures used for rendering are organized.
 
