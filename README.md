@@ -7,12 +7,21 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-indigo.svg)](https://opensource.org/licenses/MIT)
 
 # VimKit
-Swift Package for reading and rendering [VIM](https://www.vimaec.com/) Files.
+VimKit is an open-source [swift package](https://developer.apple.com/documentation/xcode/swift-packages) for reading and rendering [VIM](https://www.vimaec.com/) files on Apple platforms ([iOS](https://developer.apple.com/ios/), [macOS](https://developer.apple.com/macos/), [visionOS](https://developer.apple.com/visionos/)) with [Metal](https://developer.apple.com/metal/).
 
 ![iOS Screenshot](https://github.com/user-attachments/assets/2a13b44e-c110-42c0-a923-a34711f8eec0)
 
+## Overview
+The VimKit package is broken down into 3 seperate modules ([VimKit](#vimkit-1), [VimKitCompositor](#vimkitcompositor), [VimKitShaders](#vimkitshaders)). 
+
+[VIM](https://github.com/vimaec/vim) files are composed of [BFAST](https://github.com/vimaec/bfast) containers that provide the necessary [geometry](https://github.com/vimaec/vim#geometry-buffer), [assets](https://github.com/vimaec/vim/#assets-buffer), [entities](https://github.com/vimaec/vim#entities-buffer), and [strings](https://github.com/vimaec/vim#strings-buffer) buffers used to render and interrogate all of the 3D instances contained in a file. 
+
+Although it is possible to render each [Instance](https://github.com/codefiesta/VimKit/blob/main/Sources/VimKit/Geometry%2BMesh.swift) individually, VimKit leverages instancing to perform a single [draw](https://github.com/codefiesta/VimKit/blob/main/Sources/VimKit/Renderer/VimRenderer%2BDrawing.swift) call that render all Instance's that share the same Mesh.
+
+[Geometry.swift](https://github.com/codefiesta/VimKit/blob/main/Sources/VimKit/Geometry.swift) and [Geometry+Mesh.swift](https://github.com/codefiesta/VimKit/blob/main/Sources/VimKit/Geometry%2BMesh.swift) are the best sources to understand the details of how the geometry, positions, indices and data structures used for rendering are organized.
+
 ## VimKit
-Provides the core library for reading and rendering VIM files on MacOS and iOS.
+Provides the core library for reading and [rendering](https://github.com/codefiesta/VimKit/blob/main/Sources/VimKit/Renderer/VimRenderer.swift) VIM files on [macOS](https://developer.apple.com/macos/) and [iOS](https://developer.apple.com/ios/).
 
 ### References
 *  [https://github.com/vimaec/vim-format](https://github.com/vimaec/vim-format)
@@ -21,7 +30,7 @@ Provides the core library for reading and rendering VIM files on MacOS and iOS.
 
 
 ## VimKitCompositor
-Provides the core library for rendering VIM files on VisionOS (Vision Pro) using [CompositorServices](https://developer.apple.com/documentation/compositorservices).
+Provides the core library for rendering VIM files on [visionOS](https://developer.apple.com/visionos/) (Apple Vision Pro) using [CompositorServices](https://developer.apple.com/documentation/compositorservices).
 
 ### References
 *  [WWDC 2023 - Discover Metal for immersive apps](https://developer.apple.com/videos/play/wwdc2023/10089/)
@@ -29,11 +38,11 @@ Provides the core library for rendering VIM files on VisionOS (Vision Pro) using
 *  [Drawing fully immersive content using Metal](https://developer.apple.com/documentation/compositorservices/drawing_fully_immersive_content_using_metal)
 
 ## VimKitShaders
-C Library that provides types and enums shared between Metal shaders and Swift.
+C Library that provides types and enums shared between [Metal Shaders](https://developer.apple.com/metal/Metal-Shading-Language-Specification.pdf) and Swift.
 
 
 ## VisionOS Usage
-The following is an example of the simplest usage of rendering a VIM file in VisionOS:
+The following is an example of the simplest usage of rendering a VIM file on visionOS:
 
 ```swift
 import CompositorServices
