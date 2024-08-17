@@ -566,7 +566,7 @@ public class Geometry: ObservableObject {
     }
 }
 
-// MARK: Instance Mutation
+// MARK: Instance Mutation (MTLBuffer content)
 
 extension Geometry {
 
@@ -617,12 +617,14 @@ extension Geometry {
     /// Convenience var that returns a count of the hidden instances.
     public var hiddenCount: Int {
         guard let pointer: UnsafeMutableBufferPointer<Instances> = instancesBuffer?.toUnsafeMutableBufferPointer() else { return 0 }
+        // TODO: Must be a better way to filter the pointer values
         return pointer[0..<pointer.count].filter{ $0.state == .hidden }.count
     }
 
     /// Convenience var that returns a count of the selected instances.
     public var selectedCount: Int {
         guard let pointer: UnsafeMutableBufferPointer<Instances> = instancesBuffer?.toUnsafeMutableBufferPointer() else { return 0 }
+        // TODO: Must be a better way to filter the pointer values
         return pointer[0..<pointer.count].filter{ $0.state == .selected }.count
     }
 }

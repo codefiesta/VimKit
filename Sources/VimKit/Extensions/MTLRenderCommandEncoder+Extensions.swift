@@ -19,17 +19,30 @@ public extension MTLRenderCommandEncoder {
         setVertexBuffer(buffer, offset: offset, index: index.rawValue)
     }
 
-    // Convenience method using BufferIndex enum
+    /// Convenience method using BufferIndex enum that sets the buffer data (by copy).
+    /// - Parameters:
+    ///   - bytes: the bytes to copy
+    ///   - length: the byte length
+    ///   - index: The buffer index enum value
     func setVertexBytes(_ bytes: UnsafeRawPointer, length: Int, index: BufferIndex) {
         setVertexBytes(bytes, length: length, index: index.rawValue)
     }
 
-    // Convenience method using BufferIndex enum
+    /// Convenience method using BufferIndex enum that set a global buffer for all fragment shaders at the given bind point index.
+    /// - Parameters:
+    ///   - buffer: the metal buffer
+    ///   - offset: the buffer offset
+    ///   - index: The buffer index enum value
     func setFragmentBuffer(_ buffer: MTLBuffer?, offset: Int, index: BufferIndex) {
         setFragmentBuffer(buffer, offset: offset, index: index.rawValue)
     }
 
-    // Convenience method using BufferIndex enum
+    //
+    /// Convenience method using BufferIndex enum that sets the buffer data (by copy).
+    /// - Parameters:
+    ///   - bytes: the bytes to copy
+    ///   - length: the byte length
+    ///   - index: The buffer index enum value
     func setFragmentBytes(_ bytes: UnsafeRawPointer, length: Int, index: BufferIndex) {
         setFragmentBytes(bytes, length: length, index: index.rawValue)
     }

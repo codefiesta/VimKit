@@ -18,7 +18,7 @@ public extension MTLBuffer {
         return string
     }
 
-    /// Builds an UnsafeMutableBufferPointer from the buffer contents.
+    /// Builds an UnsafeMutableBufferPointer from the buffer contents of the specifed type.
     /// - Returns: a mutable buffer pointer of the specified type and length.
     func toUnsafeMutableBufferPointer<T>() -> UnsafeMutableBufferPointer<T> {
         let count = length/MemoryLayout<T>.stride
