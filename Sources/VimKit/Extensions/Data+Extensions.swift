@@ -10,6 +10,9 @@ import Foundation
 
 extension Data {
 
+    /// The min data size (in MB) used to determine if a data block should be mmap'd or not.
+    static let minMmapByteSize = 1024 * 1000 * 8
+
     /// Calculates the SHA hash of this data
     var sha256Hash: String {
         let hashed = SHA256.hash(data: self)

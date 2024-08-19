@@ -28,7 +28,7 @@ public class Geometry: ObservableObject {
     }
 
     /// Progress Reporting for loading the geometry data.
-    @objc public dynamic let progress = Progress(totalUnitCount: 9)
+    public dynamic let progress = Progress(totalUnitCount: 9)
 
     @Published
     public var state: State = .loading
@@ -78,7 +78,7 @@ public class Geometry: ObservableObject {
 
         // 1) Build the positions (vertex) buffer
         let positions = attributes(association: .vertex, semantic: .position)
-        guard let positionsBuffer = positions.makeBufferNoCopy(device: device, type: Float.self) else {
+        guard let positionsBuffer = positions.makeBuffer(device: device, type: Float.self) else {
             fatalError("💀 Unable to create positions buffer")
         }
         self.positionsBuffer = positionsBuffer
@@ -86,7 +86,7 @@ public class Geometry: ObservableObject {
 
         // 2) Build the index buffer
         let indices = attributes(association: .corner, semantic: .index)
-        guard let indexBuffer = indices.makeBufferNoCopy(device: device, type: UInt32.self) else {
+        guard let indexBuffer = indices.makeBuffer(device: device, type: UInt32.self) else {
             fatalError("💀 Unable to create index buffer")
         }
         self.indexBuffer = indexBuffer

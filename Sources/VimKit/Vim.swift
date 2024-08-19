@@ -59,7 +59,7 @@ public class Vim: NSObject, ObservableObject {
     public lazy var events = eventPublisher.eraseToAnyPublisher()
 
     /// Progress Reporting for reading, mapping, and indexing the file.
-    @objc public dynamic let progress = Progress(totalUnitCount: 5)
+    public dynamic let progress = Progress(totalUnitCount: 5)
 
     /// See: https://github.com/vimaec/vim#header-buffer
     public var header = [String: String]()
@@ -189,9 +189,6 @@ public class Vim: NSObject, ObservableObject {
                 break
             }
         }
-
-        // Validate the file
-//        validate()
 
         debugPrint("􀇺 [Vim] - validated [\(bfast.header)]")
 
