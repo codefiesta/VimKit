@@ -44,7 +44,6 @@ extension Geometry {
             self.index = index
             self.matrix = matrix
             self.flags = flags
-            //self.state = flags != .zero ? .hidden : .default
         }
     }
 

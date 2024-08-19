@@ -55,9 +55,6 @@ public extension VimRenderer {
         // Update the per-frame uniforms
         updateUniforms()
 
-        // Encode the uniforms to send to the vertex function
-        renderEncoder.setVertexBuffer(uniformBuffer, offset: uniformBufferOffset, index: .uniforms)
-
         // Perform any pre scene draws
         willDrawScene(renderEncoder: renderEncoder)
 
@@ -90,6 +87,7 @@ public extension VimRenderer {
         renderEncoder.setTriangleFillMode(fillMode)
 
         // Setup the per frame buffers to pass to the GPU
+        renderEncoder.setVertexBuffer(uniformBuffer, offset: uniformBufferOffset, index: .uniforms)
         renderEncoder.setVertexBuffer(positionsBuffer, offset: 0, index: .positions)
         renderEncoder.setVertexBuffer(normalsBuffer, offset: 0, index: .normals)
         renderEncoder.setVertexBuffer(instancesBuffer, offset: 0, index: .instances)

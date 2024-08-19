@@ -8,9 +8,6 @@
 import CryptoKit
 import Foundation
 
-/// The min data size (in MB) used to determine if a data block should be mmap'd or not.
-private let minMmapByteSize = 1024 * 1000 * 64
-
 /// The BFast format is essentially a collection of named data buffers (byte arrays).
 struct BFast: Hashable {
 
@@ -183,7 +180,7 @@ struct BFast: Hashable {
             } else {
                 let name = names[i-1]
                 // Mmap the data slice to it's own file
-                if slice.count >= minMmapByteSize {
+                if slice.count >= Data.minMmapByteSize {
                     guard let b = Buffer(data: slice, sha256Hash, name) else { continue }
                     buffers.append(b)
                 } else {
