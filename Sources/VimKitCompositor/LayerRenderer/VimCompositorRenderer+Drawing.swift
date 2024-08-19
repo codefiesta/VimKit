@@ -42,9 +42,6 @@ extension VimCompositorRenderer {
         // Update the per-frame uniforms
         updateUniforms(drawable)
 
-        // Encode the uniforms to send to the vertex function
-        renderEncoder.setVertexBuffer(uniformBuffer, offset: uniformBufferOffset, index: .uniforms)
-
         // Perform any pre scene draws
         willDrawScene(renderEncoder: renderEncoder)
 
