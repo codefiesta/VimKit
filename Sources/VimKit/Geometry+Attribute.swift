@@ -26,7 +26,6 @@ extension Geometry {
 
 extension Array where Element == Geometry.Attribute {
 
-
     /// Helper method that creates a MTLBuffer from the array data.
     /// - Parameters:
     ///   - device: the metal device
@@ -47,7 +46,6 @@ extension Array where Element == Geometry.Attribute {
             // Simply build a buffer by copying the bytes
             return device.makeBuffer(data, type: type)
         }
-        return nil
     }
 
     /// Helper method that converts an array of attributes to data,

@@ -337,7 +337,7 @@ extension Database {
     }
 }
 
-extension TimeInterval{
+extension TimeInterval {
 
     func stringFromTimeInterval() -> String {
         let time = Int(self)
