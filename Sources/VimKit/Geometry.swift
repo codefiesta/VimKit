@@ -23,6 +23,7 @@ public class Geometry: ObservableObject {
 
     /// Represents the state of our geometry buffer
     public enum State: Equatable {
+        case unknown
         case loading
         case indexing
         case ready
@@ -33,7 +34,7 @@ public class Geometry: ObservableObject {
     public dynamic let progress = Progress(totalUnitCount: 9)
 
     @Published
-    public var state: State = .loading
+    public var state: State = .unknown
 
     /// Returns the combinded positions (vertex) buffer of all of the vertices for all the meshes layed out in slices of [x,y,z]
     public private(set) var positionsBuffer: MTLBuffer?
@@ -51,6 +52,14 @@ public class Geometry: ObservableObject {
     private let bfast: BFast
     private var attributes = [Attribute]()
 
+    /// Cancellable tasks.
+    var tasks = [Task<(), Never>]()
+
+    /// Convenience var for accessing the SHA 256 hash of this geometry data.
+    public lazy var sha256Hash: String = {
+        return bfast.sha256Hash
+    }()
+
     /// Initializer
     init(_ bfast: BFast) {
         self.bfast = bfast
@@ -67,13 +76,30 @@ public class Geometry: ObservableObject {
             }
         }
 
-        Task {
+        let loadTask = Task {
             await load()
+        }
+        tasks.append(loadTask)
+    }
+
+    /// Cancels all running tasks.
+    public func cancel() {
+        for task in tasks {
+            task.cancel()
+        }
+        tasks.removeAll()
+
+        DispatchQueue.main.async {
+            self.state = .unknown
         }
     }
 
     /// Asynchronously loads the geometry structures and Metal buffers.
     private func load() async {
+
+        DispatchQueue.main.async {
+            self.state = .loading
+        }
 
         let device = MTLContext.device
         let cacheDir = FileManager.default.cacheDirectory
@@ -95,10 +121,11 @@ public class Geometry: ObservableObject {
         progress.completedUnitCount += 1
 
         // 3) Build the normals buffer
-        Task {
+        let computeTask = Task {
             await computeVertexNormals(device: device, cacheDirectory: cacheDir)
             progress.completedUnitCount += 1
         }
+        tasks.append(computeTask)
 
         // 4) Build all the data structures
         _ = materials // Build the materials
@@ -111,31 +138,25 @@ public class Geometry: ObservableObject {
         progress.completedUnitCount += 1
 
         // 5) Build the instances buffer
-        var instanced = instanceOffsets.map {
-            Instances(index: $0,
-                      matrix: instances[Int($0)].matrix,
-                      state: instances[Int($0)].flags != .zero ? .hidden : .default
-            )
+        let instancingTask = Task {
+            await makeInstancesBuffer(device: device)
+            progress.completedUnitCount += 1
         }
-
-        guard let instancesBuffer = device.makeBuffer(bytes: &instanced, length: MemoryLayout<Instances>.stride * instanced.count) else {
-            fatalError("💀 Unable to create instances buffer")
-        }
-        self.instancesBuffer = instancesBuffer
-        progress.completedUnitCount += 1
+        tasks.append(instancingTask)
 
         // Start indexing the file
         DispatchQueue.main.async {
             self.state = .indexing
         }
 
-        Task {
+        let indexingTask = Task {
             await bvh = BVH(self)
             progress.completedUnitCount += 1
             DispatchQueue.main.async {
                 self.state = .ready
             }
         }
+        tasks.append(indexingTask)
     }
 
     // MARK: Postions (Vertex Buffer Raw Data)
@@ -170,7 +191,7 @@ public class Geometry: ObservableObject {
         }
 
         // If the normals file has already been generated, just make the MTLBuffer from it
-        let normalsBufferFile = cacheDirectory.appending(path: "\(bfast.sha256Hash)\(normalsBufferExtension)")
+        let normalsBufferFile = cacheDirectory.appending(path: "\(sha256Hash)\(normalsBufferExtension)")
         if FileManager.default.fileExists(atPath: normalsBufferFile.path) {
             guard let normalsBuffer = device.makeBufferNoCopy(normalsBufferFile, type: Float.self) else {
                 fatalError("💀 Unable to make MTLBuffer from normals file.")
@@ -183,7 +204,8 @@ public class Geometry: ObservableObject {
         var positionsCount = positions.count
         var indicesCount = indices.count
 
-        guard let library = MTLContext.makeLibrary(),
+        guard !Task.isCancelled,
+              let library = MTLContext.makeLibrary(),
               let function = library.makeFunction(name: computeVertexNormalsFunctionName),
               let pipelineState = try? await device.makeComputePipelineState(function: function),
               let positionsBuffer,
@@ -196,7 +218,8 @@ public class Geometry: ObservableObject {
                 options: [.storageModeShared]),
               let commandBuffer = commandQueue?.makeCommandBuffer(),
               let computeEncoder = commandBuffer.makeComputeCommandEncoder() else {
-            fatalError("💩 Unable to compute normals.")
+            debugPrint("💩 Unable to compute normals.")
+            return
         }
 
         computeEncoder.setComputePipelineState(pipelineState)
@@ -226,6 +249,28 @@ public class Geometry: ObservableObject {
             fatalError("💀 Unable to make MTLBuffer from normals file.")
         }
         self.normalsBuffer = normalsBuffer
+    }
+
+    /// Makes the instance buffer.
+    /// - Parameters:
+    ///   - device: the metal device to use
+    private func makeInstancesBuffer(device: MTLDevice) async {
+
+        guard !Task.isCancelled else { return }
+        // Build the array of instances
+        var instanced = instanceOffsets.map {
+            Instances(index: $0,
+                      matrix: instances[Int($0)].matrix,
+                      state: instances[Int($0)].flags != .zero ? .hidden : .default
+            )
+        }
+
+        guard let instancesBuffer = device.makeBuffer(
+            bytes: &instanced,
+            length: MemoryLayout<Instances>.stride * instanced.count) else {
+            fatalError("💀 Unable to create instances buffer")
+        }
+        self.instancesBuffer = instancesBuffer
     }
 
     /// Calculates the vertex normals.
@@ -497,7 +542,7 @@ public class Geometry: ObservableObject {
     ///   - instance: the instance to calculate the bounding box for
     /// - Returns: the axis aligned bounding box for the specified instance or nil if the instance has no mesh information.
     private func calculateBoundingBox(_ instance: Instance) async -> MDLAxisAlignedBoundingBox? {
-        guard let vertices = vertices(for: instance) else { return nil }
+        guard !Task.isCancelled, let vertices = vertices(for: instance) else { return nil }
         var minBounds: SIMD3<Float> = .zero
         var maxBounds: SIMD3<Float> = .zero
         for vertex in vertices {
@@ -532,10 +577,6 @@ public class Geometry: ObservableObject {
             results.append(contentsOf: values)
         }
         return results
-    }()
-
-    lazy var shapeVertexCounts: Int = {
-        return shapeVertices.count
     }()
 
     lazy var shapeVertexOffsets: [Int32] = {

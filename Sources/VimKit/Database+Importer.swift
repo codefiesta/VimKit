@@ -13,12 +13,23 @@ fileprivate typealias CacheKey = String
 
 extension Database {
 
+    /// Cancels all running tasks.
+    public func cancel() {
+        for task in tasks {
+            task.cancel()
+        }
+        tasks.removeAll()
+
+        // This is a very misleading method name, as this method simply
+        // disconnects the model container from it's underlying data store
+        modelContainer.deleteAllData()
+    }
+
     /// Starts the import process.
     /// - Parameters:
     ///   - isStoredInMemoryOnly: if set to true, the model container is only stored in memory
     ///   - limit: the max limit of models per entity to import
     public func `import`(limit: Int = .max) async {
-
         let importer = Database.ImportActor(self, modelContainer: modelContainer)
         await importer.import(limit)
     }

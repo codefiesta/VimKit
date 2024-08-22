@@ -186,6 +186,14 @@ public class Database: ObservableObject {
     var tables = [String: Table]()
     /// The encapsulating data buffer
     let bfast: BFast
+    /// Cancellable tasks.
+    var tasks = [Task<(), Never>]()
+
+    /// Convenience var for accessing the SHA 256 hash of this database data.
+    public lazy var sha256Hash: String = {
+        return bfast.sha256Hash
+    }()
+
     /// The SwiftData model container
     public var modelContainer: ModelContainer
 
