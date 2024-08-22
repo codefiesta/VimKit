@@ -111,18 +111,10 @@ public class Geometry: ObservableObject {
         progress.completedUnitCount += 1
 
         // 5) Build the instances buffer
-        var instanced = instanceOffsets.map {
-            Instances(index: $0,
-                      matrix: instances[Int($0)].matrix,
-                      state: instances[Int($0)].flags != .zero ? .hidden : .default
-            )
+        Task {
+            await makeInstancesBuffer(device: device)
+            progress.completedUnitCount += 1
         }
-
-        guard let instancesBuffer = device.makeBuffer(bytes: &instanced, length: MemoryLayout<Instances>.stride * instanced.count) else {
-            fatalError("💀 Unable to create instances buffer")
-        }
-        self.instancesBuffer = instancesBuffer
-        progress.completedUnitCount += 1
 
         // Start indexing the file
         DispatchQueue.main.async {
@@ -226,6 +218,27 @@ public class Geometry: ObservableObject {
             fatalError("💀 Unable to make MTLBuffer from normals file.")
         }
         self.normalsBuffer = normalsBuffer
+    }
+
+    /// Makes the instance buffer.
+    /// - Parameters:
+    ///   - device: the metal device to use
+    private func makeInstancesBuffer(device: MTLDevice) async {
+
+        // Build the array of instances
+        var instanced = instanceOffsets.map {
+            Instances(index: $0,
+                      matrix: instances[Int($0)].matrix,
+                      state: instances[Int($0)].flags != .zero ? .hidden : .default
+            )
+        }
+
+        guard let instancesBuffer = device.makeBuffer(
+            bytes: &instanced,
+            length: MemoryLayout<Instances>.stride * instanced.count) else {
+            fatalError("💀 Unable to create instances buffer")
+        }
+        self.instancesBuffer = instancesBuffer
     }
 
     /// Calculates the vertex normals.
@@ -532,10 +545,6 @@ public class Geometry: ObservableObject {
             results.append(contentsOf: values)
         }
         return results
-    }()
-
-    lazy var shapeVertexCounts: Int = {
-        return shapeVertices.count
     }()
 
     lazy var shapeVertexOffsets: [Int32] = {
