@@ -13,6 +13,7 @@ public class Vim: NSObject, ObservableObject {
 
     /// Represents the state of our file
     public enum State: Equatable {
+        case unknown
         case initializing
         case downloading
         case loading
@@ -49,7 +50,7 @@ public class Vim: NSObject, ObservableObject {
     }
 
     @Published
-    public var state: State = .initializing
+    public var state: State = .unknown
 
     /// The private pass through event publisher.
     private var eventPublisher = PassthroughSubject<Event, Never>()
@@ -116,6 +117,8 @@ public class Vim: NSObject, ObservableObject {
     }
 
     /// Initialixes the VIM file from the specified URL.
+    /// - Parameters:
+    ///   - url: the url of the vim file
     private func initialize(_ url: URL) async {
         do {
             switch url.scheme {
@@ -141,6 +144,8 @@ public class Vim: NSObject, ObservableObject {
     }
 
     /// Loads the VIM file.
+    /// - Parameters:
+    ///   - url: the local url of the vim file
     private func load(_ url: URL) {
 
         DispatchQueue.main.async {
@@ -195,6 +200,35 @@ public class Vim: NSObject, ObservableObject {
         // Put the file into a ready state
         DispatchQueue.main.async {
             self.state = .ready
+        }
+    }
+
+    /// Removes the contents of the locally cached vim file.
+    public func remove() {
+        defer {
+            DispatchQueue.main.async {
+                self.state = .unknown
+            }
+        }
+
+        var hashes = [String]([sha256Hash])
+        guard let geometry, let db else { return }
+        geometry.cancel()
+        db.cancel()
+
+        hashes.append(geometry.sha256Hash)
+        hashes.append(db.sha256Hash)
+
+        let cacheDirectory = FileManager.default.cacheDirectory
+        guard let files = try? FileManager.default.contentsOfDirectory(atPath: cacheDirectory.path()) else { return }
+
+        for file in files {
+            for hash in hashes {
+                if file.contains(hash) {
+                    let url = FileManager.default.cacheDirectory.appending(path: file)
+                    try? FileManager.default.removeItem(at: url)
+                }
+            }
         }
     }
 
