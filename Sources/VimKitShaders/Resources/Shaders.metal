@@ -20,7 +20,7 @@ constant float4 materialSpecularColor = float4(1.0, 1.0, 1.0, 1.0);
 // The struct that is passed to the vertex function
 typedef struct {
     // 3D coordinates representing a position in space
-    simd_float3 position [[attribute(VertexAttributePosition)]];
+    float3 position [[attribute(VertexAttributePosition)]];
     // Used for lighting calculations (such as Phong shading)
     float3 normal [[attribute(VertexAttributeNormal)]];
 } Vertex;
@@ -28,17 +28,17 @@ typedef struct {
 // The struct that is passed from the vertex function to the fragment function
 typedef struct {
     // The position of the vertex
-    simd_float4 position [[position]];
+    float4 position [[position]];
     // The normal from the perspective of the camera
-    simd_float3 cameraNormal;
+    float3 cameraNormal;
     // The directional vector from the perspective of the camera
-    simd_float3 cameraDirection;
+    float3 cameraDirection;
     // The direction of the light from the position of the camera
-    simd_float3 cameraLightDirection;
+    float3 cameraLightDirection;
     // The distance from camera to the vertex
     float cameraDistance;
     // The material color
-    simd_float4 color;
+    float4 color;
     // The material glossiness
     float glossiness;
     // The material smoothness
@@ -85,11 +85,11 @@ vertex VertexOut vertexMain(Vertex in [[stage_in]],
     
     Uniforms uniforms = uniformsArray.uniforms[amp_id];
 
-    simd_float4x4 modelMatrix = instance.matrix;
-    simd_float4x4 viewMatrix = uniforms.viewMatrix;
-    simd_float4x4 projectionMatrix = uniforms.projectionMatrix;
-    simd_float4x4 modelViewProjectionMatrix = projectionMatrix * viewMatrix * modelMatrix;
-    simd_float4x4 modelViewMatrix = viewMatrix * modelMatrix;
+    float4x4 modelMatrix = instance.matrix;
+    float4x4 viewMatrix = uniforms.viewMatrix;
+    float4x4 projectionMatrix = uniforms.projectionMatrix;
+    float4x4 modelViewProjectionMatrix = projectionMatrix * viewMatrix * modelMatrix;
+    float4x4 modelViewMatrix = viewMatrix * modelMatrix;
 
     // Position
     float4 position = float4(in.position, 1.0);
