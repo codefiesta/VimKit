@@ -185,7 +185,7 @@ public class Geometry: ObservableObject {
 
         guard let library = MTLContext.makeLibrary(),
               let function = library.makeFunction(name: computeVertexNormalsFunctionName),
-              let pipelineState = await try? device.makeComputePipelineState(function: function),
+              let pipelineState = try? await device.makeComputePipelineState(function: function),
               let positionsBuffer,
               let indexBuffer,
               let faceNormalsBuffer = device.makeBuffer(
@@ -225,7 +225,7 @@ public class Geometry: ObservableObject {
         guard let normalsBuffer = device.makeBufferNoCopy(normalsBufferFile, type: Float.self) else {
             fatalError("💀 Unable to make MTLBuffer from normals file.")
         }
-        self.normalsBuffer = resultsBuffer
+        self.normalsBuffer = normalsBuffer
     }
 
     /// Calculates the vertex normals.
@@ -233,6 +233,7 @@ public class Geometry: ObservableObject {
     /// - https://computergraphics.stackexchange.com/questions/4031/programmatically-generating-vertex-normals
     /// -  https://iquilezles.org/articles/normals/
     /// - Returns: an array of vertex normals
+    @available(*, deprecated, message: "Use computeVertexNormals(device:cacheDirectory) to build vertex normals.")
     var vertexNormals: [Float] {
         var results = [Float]()
         for normal in faceNormals {
@@ -279,6 +280,7 @@ public class Geometry: ObservableObject {
 
     /// If not provided, will be computed dynamically as the average of all vertex normals,
     /// NOTE: This is not lazy as we can truly discard it from memory once done with it.
+    @available(*, deprecated, message: "Use computeVertexNormals(device:cacheDirectory) to build vertex normals.")
     var faceNormals: [SIMD3<Float>] {
         var results = [SIMD3<Float>]()
         let attributes = attributes(association: .face, semantic: .normal)
@@ -304,7 +306,6 @@ public class Geometry: ObservableObject {
             }
             results.append(contentsOf: faceNormals)
         }
-
         return results
     }
 
