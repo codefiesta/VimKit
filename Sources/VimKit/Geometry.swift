@@ -10,6 +10,8 @@ import MetalKit
 import simd
 import VimKitShaders
 
+// The MPS function name for computing the vertex normals on the GPU
+private let computeVertexNormalsFunctionName = "computeVertexNormals"
 // File extensions for mmap'd metal buffers
 private let normalsBufferExtension = ".normals"
 
@@ -93,18 +95,10 @@ public class Geometry: ObservableObject {
         progress.completedUnitCount += 1
 
         // 3) Build the normals buffer
-        let normalsBufferFile = cacheDir.appending(path: "\(bfast.sha256Hash)\(normalsBufferExtension)")
-        if !FileManager.default.fileExists(atPath: normalsBufferFile.path) {
-            var normals = vertexNormals
-            let data = Data(bytes: &normals, count: MemoryLayout<Float>.size * normals.count)
-            try! data.write(to: normalsBufferFile)
+        Task {
+            await computeVertexNormals(device: device, cacheDirectory: cacheDir)
+            progress.completedUnitCount += 1
         }
-
-        guard let normalsBuffer = device.makeBufferNoCopy(normalsBufferFile, type: Float.self) else {
-            fatalError("💀 Unable to create normals buffer")
-        }
-        self.normalsBuffer = normalsBuffer
-        progress.completedUnitCount += 1
 
         // 4) Build all the data structures
         _ = materials // Build the materials
@@ -163,11 +157,83 @@ public class Geometry: ObservableObject {
 
     // MARK: Vertices
 
+    /// Computes the vertiex normals on the GPU using Metal Performance Shaders.
+    /// - Parameters:
+    ///   - device: the metal device to use
+    ///   - cacheDirectory: the cache directory
+    private func computeVertexNormals(device: MTLDevice, cacheDirectory: URL) async {
+
+        let start = Date.now
+        defer {
+            let timeInterval = abs(start.timeIntervalSinceNow)
+            debugPrint("􀬨 Normals computed in [\(timeInterval.stringFromTimeInterval())]")
+        }
+
+        // If the normals file has already been generated, just make the MTLBuffer from it
+        let normalsBufferFile = cacheDirectory.appending(path: "\(bfast.sha256Hash)\(normalsBufferExtension)")
+        if FileManager.default.fileExists(atPath: normalsBufferFile.path) {
+            guard let normalsBuffer = device.makeBufferNoCopy(normalsBufferFile, type: Float.self) else {
+                fatalError("💀 Unable to make MTLBuffer from normals file.")
+            }
+            self.normalsBuffer = normalsBuffer
+            return
+        }
+
+        let commandQueue = device.makeCommandQueue()
+        var positionsCount = positions.count
+        var indicesCount = indices.count
+
+        guard let library = MTLContext.makeLibrary(),
+              let function = library.makeFunction(name: computeVertexNormalsFunctionName),
+              let pipelineState = try? await device.makeComputePipelineState(function: function),
+              let positionsBuffer,
+              let indexBuffer,
+              let faceNormalsBuffer = device.makeBuffer(
+                length: MemoryLayout<SIMD3<Float>>.stride * (positionsCount/3),
+                options: [.storageModeShared]),
+              let resultsBuffer = device.makeBuffer(
+                length: MemoryLayout<Float>.stride * positionsCount,
+                options: [.storageModeShared]),
+              let commandBuffer = commandQueue?.makeCommandBuffer(),
+              let computeEncoder = commandBuffer.makeComputeCommandEncoder() else {
+            fatalError("💩 Unable to compute normals.")
+        }
+
+        computeEncoder.setComputePipelineState(pipelineState)
+
+        // Encode the buffers to pass to the GPU
+        computeEncoder.setBuffer(positionsBuffer, offset: 0, index: 0)
+        computeEncoder.setBuffer(indexBuffer, offset: 0, index: 1)
+        computeEncoder.setBuffer(faceNormalsBuffer, offset: 0, index: 2)
+        computeEncoder.setBuffer(resultsBuffer, offset: 0, index: 3)
+        computeEncoder.setBytes(&positionsCount, length: MemoryLayout<Int>.size, index: 4)
+        computeEncoder.setBytes(&indicesCount, length: MemoryLayout<Int>.size, index: 5)
+
+        // Set the thread group size and dispatch
+        let gridSize = MTLSizeMake(1, 1, 1);
+        let maxThreadsPerGroup = pipelineState.maxTotalThreadsPerThreadgroup
+        let threadgroupSize = MTLSizeMake(maxThreadsPerGroup, 1, 1);
+        computeEncoder.dispatchThreadgroups(gridSize, threadsPerThreadgroup: threadgroupSize)
+
+        computeEncoder.endEncoding()
+        commandBuffer.commit()
+        commandBuffer.waitUntilCompleted()
+
+        // Finally, write the results to a cache file and create the MTLBuffer from it
+        let data = Data(bytes: resultsBuffer.contents(), count: resultsBuffer.length)
+        try? data.write(to: normalsBufferFile)
+        guard let normalsBuffer = device.makeBufferNoCopy(normalsBufferFile, type: Float.self) else {
+            fatalError("💀 Unable to make MTLBuffer from normals file.")
+        }
+        self.normalsBuffer = normalsBuffer
+    }
+
     /// Calculates the vertex normals.
     /// TODO: Port this over to Metal Performance Shaders to perform this work on the GPU.
     /// - https://computergraphics.stackexchange.com/questions/4031/programmatically-generating-vertex-normals
     /// -  https://iquilezles.org/articles/normals/
     /// - Returns: an array of vertex normals
+    @available(*, deprecated, message: "Use computeVertexNormals(device:cacheDirectory) to build vertex normals.")
     var vertexNormals: [Float] {
         var results = [Float]()
         for normal in faceNormals {
@@ -214,6 +280,7 @@ public class Geometry: ObservableObject {
 
     /// If not provided, will be computed dynamically as the average of all vertex normals,
     /// NOTE: This is not lazy as we can truly discard it from memory once done with it.
+    @available(*, deprecated, message: "Use computeVertexNormals(device:cacheDirectory) to build vertex normals.")
     var faceNormals: [SIMD3<Float>] {
         var results = [SIMD3<Float>]()
         let attributes = attributes(association: .face, semantic: .normal)
@@ -239,7 +306,6 @@ public class Geometry: ObservableObject {
             }
             results.append(contentsOf: faceNormals)
         }
-
         return results
     }
 

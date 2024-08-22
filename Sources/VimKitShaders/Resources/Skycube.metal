@@ -6,7 +6,6 @@
 //
 
 #include <metal_stdlib>
-#include <simd/simd.h>
 #include "../include/ShaderTypes.h"
 
 using namespace metal;
@@ -19,9 +18,9 @@ typedef struct {
 // The struct that is passed from the vertex function to the fragment function
 typedef struct {
     // The position of the vertex
-    simd_float4 position [[position]];
+    float4 position [[position]];
     // The material color
-    simd_float4 color;
+    float4 color;
     // The texture coordinates
     float3 textureCoordinates;
     // The instance identifier
@@ -42,12 +41,12 @@ vertex VertexOut vertexSkycube(VertexIn in [[stage_in]],
                               ushort amp_id [[amplification_id]]) {
     
     Uniforms uniforms = uniformsArray.uniforms[amp_id];
-    simd_float4x4 projectionMatrix = uniforms.projectionMatrix;
+    float4x4 projectionMatrix = uniforms.projectionMatrix;
 
-    simd_float4x4 viewMatrix = uniforms.viewMatrix;
+    float4x4 viewMatrix = uniforms.viewMatrix;
     viewMatrix[3] = float4(0, 0, 0, 1);
 
-    simd_float4x4 viewProjectionMatrix = viewMatrix * projectionMatrix;
+    float4x4 viewProjectionMatrix = viewMatrix * projectionMatrix;
     
     VertexOut out;
     out.position = (viewProjectionMatrix * in.position).xyww;
