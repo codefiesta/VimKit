@@ -6,9 +6,7 @@
 //
 
 #include <metal_stdlib>
-#include <simd/simd.h>
 using namespace metal;
-
 
 // Computes the vertex normals.
 // See: https://iquilezles.org/articles/normals/
@@ -20,10 +18,10 @@ using namespace metal;
 //   - normals: The pointer to the normals that will be updated with the computed values.
 //   - positionsCount: The count of positions.
 //   - indicesCount: The count of indices.
-kernel void computeVertexNormals(device const float* positions,
-                           device const uint32_t* indices,
-                           device float3* faceNormals,
-                           device float* normals,
+kernel void computeVertexNormals(device const float *positions,
+                           device const uint32_t *indices,
+                           device float3 *faceNormals,
+                           device float *normals,
                            constant int &positionsCount,
                            constant int &indicesCount) {
     
