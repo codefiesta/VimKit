@@ -11,6 +11,7 @@ import VimKitShaders
 
 private let renderEncoderLabel = "VimRenderEncoder"
 private let renderEncoderDebugGroupName = "VimDrawGroup"
+private let minFrustumCullingThreshold = 1024
 
 #if !os(visionOS)
 
@@ -109,13 +110,15 @@ public extension VimRenderer {
 
         guard let geometry else { return }
 
-        // TODO: Follow up: for now just perform a simple timeout check
+        renderEncoder.pushDebugGroup(renderEncoderDebugGroupName)
+
+        let results = cullInstancedMeshes(geometry)
         let start = Date.now
 
-        renderEncoder.pushDebugGroup(renderEncoderDebugGroupName)
         // Draw the instanced meshes
-        for instanced in geometry.instancedMeshes {
+        for i in results {
             guard abs(start.timeIntervalSinceNow) < frameTimeLimit else { break }
+            let instanced = geometry.instancedMeshes[i]
             drawInstanced(instanced, renderEncoder: renderEncoder)
         }
         renderEncoder.popDebugGroup()
@@ -191,5 +194,20 @@ extension VimRenderer {
             glossiness: submesh.material?.glossiness ?? .half,
             smoothness: submesh.material?.smoothness ?? .half
         )
+    }
+}
+
+// MARK: Culling
+
+extension VimRenderer {
+
+    /// Culls the instanced meshes that are outside of the view frustum.
+    /// - Parameter geometry: the geometry data
+    /// - Returns: indices into the geometry.instancedMeshes that should be drawn
+    private func cullInstancedMeshes(_ geometry: Geometry) -> [Int] {
+        guard let bvh = geometry.bvh, minFrustumCullingThreshold <= geometry.instancedMeshes.endIndex else {
+            return Array(0..<geometry.instancedMeshes.endIndex)
+        }
+        return bvh.intersectionResults(frustum: camera.frustum)
     }
 }

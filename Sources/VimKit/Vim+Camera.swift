@@ -246,32 +246,32 @@ extension Vim {
             var planes = [SIMD4<Float>](repeating: .zero, count: 6)
 
             /// Convenience var that returns the frustum near plane
-            public var nearPlane: SIMD4<Float> {
+            var nearPlane: SIMD4<Float> {
                 return planes[.near]
             }
 
             /// Convenience var that returns the frustum far plane
-            public var farPlane: SIMD4<Float> {
+            var farPlane: SIMD4<Float> {
                 return planes[.far]
             }
 
             /// Convenience var that returns the frustum left plane
-            public var leftPlane: SIMD4<Float> {
+            var leftPlane: SIMD4<Float> {
                 return planes[.left]
             }
 
             /// Convenience var that returns the frustum right plane
-            public var rightPlane: SIMD4<Float> {
+            var rightPlane: SIMD4<Float> {
                 return planes[.right]
             }
 
             /// Convenience var that returns the frustum top plane
-            public var topPlane: SIMD4<Float> {
+            var topPlane: SIMD4<Float> {
                 return planes[.top]
             }
 
             /// Convenience var that returns the frustum bottom plane
-            public var bottomPlane: SIMD4<Float> {
+            var bottomPlane: SIMD4<Float> {
                 return planes[.bottom]
             }
 

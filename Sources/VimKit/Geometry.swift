@@ -121,11 +121,8 @@ public class Geometry: ObservableObject {
         progress.completedUnitCount += 1
 
         // 3) Build the normals buffer
-        let computeTask = Task {
-            await computeVertexNormals(device: device, cacheDirectory: cacheDir)
-            progress.completedUnitCount += 1
-        }
-        tasks.append(computeTask)
+        await computeVertexNormals(device: device, cacheDirectory: cacheDir)
+        progress.completedUnitCount += 1
 
         // 4) Build all the data structures
         _ = materials // Build the materials
@@ -138,25 +135,19 @@ public class Geometry: ObservableObject {
         progress.completedUnitCount += 1
 
         // 5) Build the instances buffer
-        let instancingTask = Task {
-            await makeInstancesBuffer(device: device)
-            progress.completedUnitCount += 1
-        }
-        tasks.append(instancingTask)
+        await makeInstancesBuffer(device: device)
+        progress.completedUnitCount += 1
 
         // Start indexing the file
         DispatchQueue.main.async {
             self.state = .indexing
         }
 
-        let indexingTask = Task {
-            await bvh = BVH(self)
-            progress.completedUnitCount += 1
-            DispatchQueue.main.async {
-                self.state = .ready
-            }
+        await bvh = BVH(self)
+        progress.completedUnitCount += 1
+        DispatchQueue.main.async {
+            self.state = .ready
         }
-        tasks.append(indexingTask)
     }
 
     // MARK: Postions (Vertex Buffer Raw Data)
@@ -541,7 +532,7 @@ public class Geometry: ObservableObject {
     /// - Parameters:
     ///   - instance: the instance to calculate the bounding box for
     /// - Returns: the axis aligned bounding box for the specified instance or nil if the instance has no mesh information.
-    private func calculateBoundingBox(_ instance: Instance) async -> MDLAxisAlignedBoundingBox? {
+    func calculateBoundingBox(_ instance: Instance) async -> MDLAxisAlignedBoundingBox? {
         guard !Task.isCancelled, let vertices = vertices(for: instance) else { return nil }
         var minBounds: SIMD3<Float> = .zero
         var maxBounds: SIMD3<Float> = .zero

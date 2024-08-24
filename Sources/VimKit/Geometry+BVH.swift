@@ -10,6 +10,9 @@ import MetalKit
 import simd
 import Spatial
 
+/// The maximum number of indexes that should be contained in this node.
+private let nodeThreshold = 8
+
 extension Geometry {
 
     typealias BVH = BoundingVolumeHierarchy
@@ -22,19 +25,17 @@ extension Geometry {
 
             /// The axis aligned bounding box that fully contains the geometry in this node.
             var box: MDLAxisAlignedBoundingBox
-            /// The instance indexes that are contained in this node
+            /// The instanced mesh indexes that are contained in this node
             var instances = [Int]()
             /// The child nodes
             var children = [Node]()
-            /// The maximum number of indexes that should be contained in this node.
-            let threshold: Int = 8
             /// A flag denoting whether the node is a leaf.
             var isLeaf: Bool = false
 
             /// Initializer
             init(_ data: inout [(index: Int, box: MDLAxisAlignedBoundingBox)]) {
                 self.box = MDLAxisAlignedBoundingBox(containing: data.map { $0.box })
-                if data.count > threshold {
+                if data.count > nodeThreshold {
 
                     sort(&data)
 
@@ -91,17 +92,77 @@ extension Geometry {
             return root.box
         }
 
+        /// Provides a hash lookup of instance indices into their instanced meshes index.
+        private var instancedMeshesMap = [Int: Int]()
+
         /// Intializes the bounding volume with the specified geometry.
         /// - Parameter geometry: the geomety to use
         init(_ geometry: Geometry) async {
             self.geometry = geometry
             var data = [(index: Int, box: MDLAxisAlignedBoundingBox)]()
             for (i, instance) in geometry.instances.enumerated() {
+
                 if let box = instance.boundingBox {
+                    data.append((index: i, box: box))
+                } else {
+                    guard let box = await geometry.calculateBoundingBox(instance) else { continue }
                     data.append((index: i, box: box))
                 }
             }
+
+            // Map the instances to their shared meshes
+            for (i, instancedMesh) in geometry.instancedMeshes.enumerated() {
+                for j in instancedMesh.instances {
+                    guard instancedMeshesMap[Int(j)] == nil else {
+                        continue
+                    }
+                    instancedMeshesMap[Int(j)] = i
+                }
+            }
+
             root = Node(&data)
+        }
+
+        /// Accumulates frustum intersection results and returns a list of indices into the
+        /// `geometry.instancedMeshes` array that are visible on the view frustum and should be rendered,
+        /// - Parameter frustum: the view frustum
+        /// - Returns: a list of indices into the `geometry.instancedMeshes` array that are inside the frustum
+        func intersectionResults(frustum: Vim.Camera.Frustum) -> [Int] {
+            var results = Set<Int>()
+            intersections(planes: [frustum.nearPlane], node: root, results: &results)
+            return results.sorted()
+        }
+
+        /// Recursively iterates through the BVH nodes to collect results that are inside the frustum planes.
+        /// - Parameters:
+        ///   - planes: the view frustum planes
+        ///   - node: the node to recursively look through
+        ///   - results: the results to append to
+        fileprivate func intersections(planes: [SIMD4<Float>], node: Node, results: inout Set<Int>) {
+            guard intersects(planes: planes, node.box) else { return }
+            var indices = node.instances.compactMap{ instancedMeshesMap[$0] }
+            results.formUnion(indices)
+            for child in node.children {
+                intersections(planes: planes, node: child, results: &results)
+            }
+        }
+
+        /// Tests to see if the viewing frustum planes false iinside or intersects the provided bounding box.
+        /// See: https://iquilezles.org/articles/frustumcorrect/
+        /// - Parameters:
+        ///   - box: the bounding box to test
+        ///   - planes: the viewing frustum planes
+        /// - Returns: false if fully outside, true if inside or intersects
+        fileprivate func intersects(planes: [SIMD4<Float>], _ box: MDLAxisAlignedBoundingBox) -> Bool {
+            for plane in planes {
+                for corner in box.corners {
+                    let value = dot(plane, .init(corner, 1))
+                    if value > .zero {
+                        return true
+                    }
+                }
+            }
+            return false
         }
     }
 }

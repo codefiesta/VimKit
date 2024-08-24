@@ -12,8 +12,7 @@ extension MDLAxisAlignedBoundingBox {
 
     /// Returns the center point of the box.
     var center: SIMD3<Float> {
-        let center = (maxBounds + minBounds) * .half
-        return center
+        (maxBounds + minBounds) * .half
     }
 
     /// Returns the 8 corner points of the bounding box.
@@ -36,9 +35,14 @@ extension MDLAxisAlignedBoundingBox {
         return max(distance.x, max(distance.y, distance.z))
     }
 
+    /// Returns the box positive extents.
+    var extents: SIMD3<Float> {
+        maxBounds - center
+    }
+
     /// Returns the radius of the box from the center to it's max bounds.
     var radius: Float {
-        return distance(center, maxBounds)
+        distance(center, maxBounds)
     }
 
     /// Determines and returns the longest axis of the bounding box.
