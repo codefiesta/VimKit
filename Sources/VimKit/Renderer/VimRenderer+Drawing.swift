@@ -11,7 +11,7 @@ import VimKitShaders
 
 private let renderEncoderLabel = "VimRenderEncoder"
 private let renderEncoderDebugGroupName = "VimDrawGroup"
-private let minFrustumCullingThreshold = 1024
+private let minFrustumCullingThreshold = 2048
 
 #if !os(visionOS)
 
