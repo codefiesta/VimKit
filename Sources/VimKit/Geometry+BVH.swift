@@ -123,8 +123,8 @@ extension Geometry {
             root = Node(&data)
         }
 
-        /// Accumulates frustum intersection results and returns a list of indices into the
-        /// `geometry.instancedMeshes` array that are visible on the view frustum and should be rendered,
+        /// Traverses the BVH tree and accumulates a list of indices into the `geometry.instancedMeshes` array
+        /// that are visible on the view frustum and should be rendered,
         /// - Parameter frustum: the view frustum
         /// - Returns: a list of indices into the `geometry.instancedMeshes` array that are inside the frustum
         func intersectionResults(frustum: Vim.Camera.Frustum) -> [Int] {
