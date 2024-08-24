@@ -9,9 +9,12 @@ import MetalKit
 import SwiftUI
 import VimKitShaders
 
+///  The render encoder label.
 private let renderEncoderLabel = "VimRenderEncoder"
+///  The render encoder debug group.
 private let renderEncoderDebugGroupName = "VimDrawGroup"
-private let minFrustumCullingThreshold = 2048
+///  The minimum amount of instanced meshes to implement frustum culling.
+private let minFrustumCullingThreshold = 1024
 
 #if !os(visionOS)
 

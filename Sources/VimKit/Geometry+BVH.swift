@@ -140,7 +140,7 @@ extension Geometry {
         ///   - results: the results to append to
         fileprivate func intersections(frustum: Vim.Camera.Frustum, node: Node, results: inout Set<Int>) {
             guard intersects(frustum: frustum, node.box) else { return }
-            var indices = node.instances.compactMap{ instancedMeshesMap[$0] }
+            let indices = node.instances.compactMap{ instancedMeshesMap[$0] }
             results.formUnion(indices)
             for child in node.children {
                 intersections(frustum: frustum, node: child, results: &results)
