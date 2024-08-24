@@ -129,7 +129,7 @@ extension Geometry {
         /// - Returns: a list of indices into the `geometry.instancedMeshes` array that are inside the frustum
         func intersectionResults(frustum: Vim.Camera.Frustum) -> [Int] {
             var results = Set<Int>()
-            intersections(planes: [frustum.nearPlane], node: root, results: &results)
+            intersections(frustum: frustum, node: root, results: &results)
             return results.sorted()
         }
 
@@ -138,12 +138,12 @@ extension Geometry {
         ///   - planes: the view frustum planes
         ///   - node: the node to recursively look through
         ///   - results: the results to append to
-        fileprivate func intersections(planes: [SIMD4<Float>], node: Node, results: inout Set<Int>) {
-            guard intersects(planes: planes, node.box) else { return }
+        fileprivate func intersections(frustum: Vim.Camera.Frustum, node: Node, results: inout Set<Int>) {
+            guard intersects(frustum: frustum, node.box) else { return }
             var indices = node.instances.compactMap{ instancedMeshesMap[$0] }
             results.formUnion(indices)
             for child in node.children {
-                intersections(planes: planes, node: child, results: &results)
+                intersections(frustum: frustum, node: child, results: &results)
             }
         }
 
@@ -153,11 +153,11 @@ extension Geometry {
         ///   - box: the bounding box to test
         ///   - planes: the viewing frustum planes
         /// - Returns: false if fully outside, true if inside or intersects
-        fileprivate func intersects(planes: [SIMD4<Float>], _ box: MDLAxisAlignedBoundingBox) -> Bool {
-            for plane in planes {
+        fileprivate func intersects(frustum: Vim.Camera.Frustum, _ box: MDLAxisAlignedBoundingBox) -> Bool {
+            for plane in frustum.planes {
                 for corner in box.corners {
-                    let value = dot(plane, .init(corner, 1))
-                    if value > .zero {
+                    // Return true if any of the box corners are inside the frustum
+                    if dot(corner, plane.xyz) > .zero {
                         return true
                     }
                 }
