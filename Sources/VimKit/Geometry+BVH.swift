@@ -20,7 +20,7 @@ extension Geometry {
         let center: SIMD3<Float>
         /// The sphere radius.
         let radius: Float
-        
+
         /// Returns true if this sphere intersects the given box.
         /// - Parameter box: the box to check for intersections againts
         /// - Returns: true if intersects, otherwise false.
