@@ -27,7 +27,6 @@ extension Geometry {
         func intersects(box: MDLAxisAlignedBoundingBox) -> Bool {
             let r2 = radius * radius
             let closest = center.clamped(lowerBound: box.minBounds, upperBound: box.maxBounds)
-            //let d = distance(center, closest)
             let d = distance_squared(center, closest)
             return d <= r2
         }

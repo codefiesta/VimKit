@@ -232,11 +232,10 @@ extension Vim {
         /// Returns the minimum bounding sphere of the frustum,
         /// See: https://lxjk.github.io/2017/04/15/Calculate-Minimal-Bounding-Sphere-of-Frustum.html
         var sphere: Geometry.Sphere {
-            // TODO: Calculate the center of the frustum and radius
-            let d = distance_squared(frustum.nearPlane, frustum.farPlane) * .half
-            //let cr = cross(frustum.nearPlane, frustum.farPlane)
-            let c = position + forward * d
-            return Geometry.Sphere(center: c, radius: d)
+            // TODO: Calculate the center of the frustum and it's radius
+            let r = distance_squared(frustum.nearPlane, frustum.farPlane) * .half
+            let center = position
+            return Geometry.Sphere(center: center, radius: r)
         }
 
         /// A struct that holds the camera frustum information that contains the
