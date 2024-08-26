@@ -229,6 +229,16 @@ extension Vim {
             return box.inFront(of: frustum.nearPlane)
         }
 
+        /// Returns the minimum bounding sphere of the frustum,
+        /// See: https://lxjk.github.io/2017/04/15/Calculate-Minimal-Bounding-Sphere-of-Frustum.html
+        var sphere: Geometry.Sphere {
+            // TODO: Calculate the center of the frustum and radius
+            let d = distance_squared(frustum.nearPlane, frustum.farPlane) * .half
+            //let cr = cross(frustum.nearPlane, frustum.farPlane)
+            let c = position + forward * d
+            return Geometry.Sphere(center: c, radius: d)
+        }
+
         /// A struct that holds the camera frustum information that contains the
         /// region of space in the modeled world that may appear on the screen.
         struct Frustum {
@@ -243,6 +253,7 @@ extension Vim {
                 case near
             }
 
+            /// The frustum clipping planes.
             var planes = [SIMD4<Float>](repeating: .zero, count: 6)
 
             /// Convenience var that returns the frustum near plane

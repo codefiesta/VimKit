@@ -121,8 +121,11 @@ public class Geometry: ObservableObject {
         progress.completedUnitCount += 1
 
         // 3) Build the normals buffer
-        await computeVertexNormals(device: device, cacheDirectory: cacheDir)
-        progress.completedUnitCount += 1
+        let computeTask = Task {
+            await computeVertexNormals(device: device, cacheDirectory: cacheDir)
+            progress.completedUnitCount += 1
+        }
+        tasks.append(computeTask)
 
         // 4) Build all the data structures
         _ = materials // Build the materials
@@ -329,11 +332,11 @@ public class Geometry: ObservableObject {
         // Compute the values
         if results.isEmpty {
             var faceNormals = positions.chunked(into: 3).map { _ in SIMD3<Float>.zero }
-            let verices = positions.chunked(into: 3).map { SIMD3<Float>($0) }
+            let vertices = positions.chunked(into: 3).map { SIMD3<Float>($0) }
             for i in stride(from: 0, to: indices.count, by: 3) {
-                let a = verices[Int(indices[i])]
-                let b = verices[Int(indices[i+1])]
-                let c = verices[Int(indices[i+2])]
+                let a = vertices[Int(indices[i])]
+                let b = vertices[Int(indices[i+1])]
+                let c = vertices[Int(indices[i+2])]
                 let crossProduct = cross(b - a, c - a)
 
                 faceNormals[Int(indices[i])] += crossProduct

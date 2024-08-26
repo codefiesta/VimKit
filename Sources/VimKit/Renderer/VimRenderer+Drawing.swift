@@ -211,6 +211,6 @@ extension VimRenderer {
         guard let bvh = geometry.bvh, minFrustumCullingThreshold <= geometry.instancedMeshes.endIndex else {
             return Array(0..<geometry.instancedMeshes.endIndex)
         }
-        return bvh.intersectionResults(frustum: camera.frustum)
+        return bvh.intersectionResults(camera: camera)
     }
 }

@@ -15,6 +15,24 @@ private let nodeThreshold = 8
 
 extension Geometry {
 
+    struct Sphere {
+        /// The center of the sphere.
+        let center: SIMD3<Float>
+        /// The sphere radius.
+        let radius: Float
+        
+        /// Returns true if this sphere intersects the given box.
+        /// - Parameter box: the box to check for intersections againts
+        /// - Returns: true if intersects, otherwise false.
+        func intersects(box: MDLAxisAlignedBoundingBox) -> Bool {
+            let r2 = radius * radius
+            let closest = center.clamped(lowerBound: box.minBounds, upperBound: box.maxBounds)
+            //let d = distance(center, closest)
+            let d = distance_squared(center, closest)
+            return d <= r2
+        }
+    }
+
     typealias BVH = BoundingVolumeHierarchy
 
     /// A type that holds a tree structure for geometry data used to build
@@ -125,44 +143,28 @@ extension Geometry {
 
         /// Traverses the BVH tree and accumulates a list of indices into the `geometry.instancedMeshes` array
         /// that are visible on the view frustum and should be rendered,
-        /// - Parameter frustum: the view frustum
+        /// See: https://www.flipcode.com/archives/Frustum_Culling.shtml
+        /// - Parameter camera: the camera data
         /// - Returns: a list of indices into the `geometry.instancedMeshes` array that are inside the frustum
-        func intersectionResults(frustum: Vim.Camera.Frustum) -> [Int] {
+        func intersectionResults(camera: Vim.Camera) -> [Int] {
+            let sphere = camera.sphere
             var results = Set<Int>()
-            intersections(frustum: frustum, node: root, results: &results)
+            intersections(sphere: sphere, node: root, results: &results)
             return results.sorted()
         }
 
-        /// Recursively iterates through the BVH nodes to collect results that are inside the frustum planes.
+        /// Recursively iterates through the BVH nodes to collect results that are inside the given sphere.
         /// - Parameters:
-        ///   - planes: the view frustum planes
+        ///   - sphere: the sphere to test against
         ///   - node: the node to recursively look through
         ///   - results: the results to append to
-        fileprivate func intersections(frustum: Vim.Camera.Frustum, node: Node, results: inout Set<Int>) {
-            guard intersects(frustum: frustum, node.box) else { return }
+        fileprivate func intersections(sphere: Sphere, node: Node, results: inout Set<Int>) {
+            guard sphere.intersects(box: node.box) else { return }
             let indices = node.instances.compactMap{ instancedMeshesMap[$0] }
             results.formUnion(indices)
             for child in node.children {
-                intersections(frustum: frustum, node: child, results: &results)
+                intersections(sphere: sphere, node: child, results: &results)
             }
-        }
-
-        /// Tests to see if the viewing frustum planes false iinside or intersects the provided bounding box.
-        /// See: https://iquilezles.org/articles/frustumcorrect/
-        /// - Parameters:
-        ///   - box: the bounding box to test
-        ///   - planes: the viewing frustum planes
-        /// - Returns: false if fully outside, true if inside or intersects
-        fileprivate func intersects(frustum: Vim.Camera.Frustum, _ box: MDLAxisAlignedBoundingBox) -> Bool {
-            for plane in frustum.planes {
-                for corner in box.corners {
-                    // Return true if any of the box corners are inside the frustum
-                    if dot(corner, plane.xyz) > .zero {
-                        return true
-                    }
-                }
-            }
-            return false
         }
     }
 }
