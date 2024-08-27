@@ -43,7 +43,7 @@ extension VimRenderer {
                 return nil
             }
 
-            let extents: SIMD3<Float> = [.half, .half, .half]
+            let extents: SIMD3<Float> = [1.0, 1.0, 1.0]
             let segment: UInt32 = 100
 
             let allocator = MTKMeshBufferAllocator(device: device)
@@ -94,11 +94,13 @@ extension VimRenderer {
             renderEncoder.setDepthStencilState(depthStencilState)
             renderEncoder.setTriangleFillMode(.lines)
 
+            var matrix: float4x4 = .identity
+            matrix.position = camera.sphere.center
+
             // Set the buffers to pass to the GPU
             renderEncoder.setVertexBuffer(sphereMesh.vertexBuffers[0].buffer, offset: 0, index: .positions)
 
-            var center = camera.sphere.center
-            renderEncoder.setVertexBytes(&center, length: MemoryLayout<SIMD3<Float>>.size, index: 1)
+            renderEncoder.setVertexBytes(&matrix, length: MemoryLayout<float4x4>.size, index: .instances)
 
             for submesh in sphereMesh.submeshes {
                 renderEncoder.drawIndexedPrimitives(type: .triangle, indexCount: submesh.indexCount, indexType: submesh.indexType, indexBuffer: submesh.indexBuffer.buffer, indexBufferOffset: 0)

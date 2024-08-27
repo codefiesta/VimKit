@@ -125,12 +125,14 @@ public extension VimRenderer {
             drawInstanced(instanced, renderEncoder: renderEncoder)
         }
         renderEncoder.popDebugGroup()
+
+        // Draw the shapes
+        shapes?.draw(renderEncoder: renderEncoder)
     }
 
     /// Performs any draws after the main scene draw.
     /// - Parameter renderEncoder: the render encoder
     func didDrawScene(renderEncoder: MTLRenderCommandEncoder) {
-        shapes?.draw(renderEncoder: renderEncoder)
         skycube?.draw(renderEncoder: renderEncoder)
     }
 
