@@ -212,7 +212,7 @@ extension VimRenderer {
     /// - Returns: indices into the geometry.instancedMeshes that should be drawn
     private func cullInstancedMeshes(_ geometry: Geometry) -> [Int] {
         guard let bvh = geometry.bvh, minFrustumCullingThreshold <= geometry.instancedMeshes.endIndex else {
-            return Array(0..<geometry.instancedMeshes.endIndex)
+            return Array(geometry.instancedMeshes.indices)
         }
         return bvh.intersectionResults(camera: camera)
     }
