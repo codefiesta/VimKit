@@ -320,8 +320,7 @@ extension Vim {
                 planes[.far].w = matrix.columns.3.w - matrix.columns.3.z
 
                 for (i, plane) in planes.enumerated() {
-                    let length = sqrtf((plane.x * plane.x) + (plane.y * plane.y) + (plane.z * plane.z))
-                    planes[i] /= length
+                    planes[i] = normalize(planes[i])
                 }
             }
 
