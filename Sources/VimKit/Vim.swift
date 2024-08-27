@@ -355,4 +355,8 @@ public extension Vim.Option {
 
     /// A key used to specify whether the file should be rendered in xray mode or not.
     static let xRay: Vim.Option = .init(rawValue: "xRay")
+
+    /// A key used to specify whether the frustum culling sphere should be rendererd or not.
+    static let cullingSphere: Vim.Option = .init(rawValue: "cullingSphere")
+
 }

@@ -130,6 +130,7 @@ public extension VimRenderer {
     /// Performs any draws after the main scene draw.
     /// - Parameter renderEncoder: the render encoder
     func didDrawScene(renderEncoder: MTLRenderCommandEncoder) {
+        shapes?.draw(renderEncoder: renderEncoder)
         skycube?.draw(renderEncoder: renderEncoder)
     }
 
