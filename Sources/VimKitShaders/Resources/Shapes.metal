@@ -28,7 +28,6 @@ vertex ShpereOut vertexSphere(SphereIn in [[stage_in]],
     float4x4 viewMatrix = uniforms.viewMatrix;
     float4x4 projectionMatrix = uniforms.projectionMatrix;
     float4x4 modelViewProjectionMatrix = projectionMatrix * viewMatrix * modelMatrix;
-    float4x4 modelViewMatrix = viewMatrix * modelMatrix;
 
     // Position
     float4 position = in.position;

@@ -330,7 +330,7 @@ extension Vim {
 //                center = c
 //                radius = d
 
-                for (i, plane) in planes.enumerated() {
+                for (i, _) in planes.enumerated() {
                     planes[i] = normalize(planes[i])
                 }
 
