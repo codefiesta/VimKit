@@ -8,7 +8,7 @@
 import MetalKit
 import VimKitShaders
 
-private let debugCullingSphereGroupName = "DebugCullingSphere"
+private let sphereGroupName = "Sphere"
 private let sphereVertexFunctionName = "vertexSphere"
 private let sphereFragmentFunctionName = "fragmentSphere"
 
@@ -80,33 +80,35 @@ extension VimRenderer {
         /// Draws the shapes.
         /// - Parameter renderEncoder: the render encoder
         func draw(renderEncoder: MTLRenderCommandEncoder) {
-            drawCullingSphere(renderEncoder: renderEncoder)
+            if cullingSphere {
+                drawPoints(renderEncoder: renderEncoder, points: [camera.frustum.center])
+            }
         }
 
-        /// Draws the frustum culling sphere (for debugging purposes).
-        /// - Parameter renderEncoder: the render encoder
-        private func drawCullingSphere(renderEncoder: MTLRenderCommandEncoder) {
-            guard cullingSphere else { return }
+        /// Draws the points as spheres.
+        /// - Parameters:
+        ///   - renderEncoder: the render encoder
+        ///   - points: the points to draw
+        func drawPoints(renderEncoder: MTLRenderCommandEncoder, points: [SIMD3<Float>]) {
 
             guard let pipelineState else { return }
-            renderEncoder.pushDebugGroup(debugCullingSphereGroupName)
+            renderEncoder.pushDebugGroup(sphereGroupName)
             renderEncoder.setRenderPipelineState(pipelineState)
             renderEncoder.setDepthStencilState(depthStencilState)
             renderEncoder.setTriangleFillMode(.lines)
 
-            var matrix: float4x4 = .identity
-            matrix.position = camera.sphere.center
-
             // Set the buffers to pass to the GPU
             renderEncoder.setVertexBuffer(sphereMesh.vertexBuffers[0].buffer, offset: 0, index: .positions)
 
-            renderEncoder.setVertexBytes(&matrix, length: MemoryLayout<float4x4>.size, index: .instances)
-
-            for submesh in sphereMesh.submeshes {
-                renderEncoder.drawIndexedPrimitives(type: .triangle, indexCount: submesh.indexCount, indexType: submesh.indexType, indexBuffer: submesh.indexBuffer.buffer, indexBufferOffset: 0)
+            for point in points {
+                var matrix: float4x4 = .identity
+                matrix.position = point
+                renderEncoder.setVertexBytes(&matrix, length: MemoryLayout<float4x4>.size, index: .instances)
+                for submesh in sphereMesh.submeshes {
+                    renderEncoder.drawIndexedPrimitives(type: .triangle, indexCount: submesh.indexCount, indexType: submesh.indexType, indexBuffer: submesh.indexBuffer.buffer, indexBufferOffset: 0)
+                }
             }
             renderEncoder.popDebugGroup()
-
         }
     }
 }

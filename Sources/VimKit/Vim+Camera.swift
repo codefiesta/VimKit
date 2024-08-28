@@ -133,7 +133,7 @@ extension Vim {
             let fovyRadians = fov.radians
             let projectiveTransform = ProjectiveTransform3D(fovyRadians: fovyRadians, aspectRatio: aspectRatio, nearZ: nearZ, farZ: farZ)
             projectionMatrix = .init(projectiveTransform)
-            frustum.update(projectionMatrix * viewMatrix)
+            frustum.update(self)
         }
 
         /// Updates the camera by translating and rotating the camera with the specified offsets.
@@ -232,10 +232,7 @@ extension Vim {
         /// Returns the minimum bounding sphere of the frustum,
         /// See: https://lxjk.github.io/2017/04/15/Calculate-Minimal-Bounding-Sphere-of-Frustum.html
         var sphere: Geometry.Sphere {
-            // TODO: Calculate the center of the frustum and it's radius
-            let r = distance_squared(frustum.nearPlane, frustum.farPlane) * .half
-            let center = position
-            return Geometry.Sphere(center: center, radius: r)
+            return Geometry.Sphere(center: frustum.center, radius: frustum.radius)
         }
 
         /// A struct that holds the camera frustum information that contains the
@@ -254,6 +251,12 @@ extension Vim {
 
             /// The frustum clipping planes.
             var planes = [SIMD4<Float>](repeating: .zero, count: 6)
+
+            /// The center point of the frustum
+            var center: SIMD3<Float> = .zero
+
+            /// The minimum bounding sphere radius
+            var radius: Float = .zero
 
             /// Convenience var that returns the frustum near plane
             var nearPlane: SIMD4<Float> {
@@ -287,7 +290,8 @@ extension Vim {
 
             /// Updates the frustum from the specified matrix
             /// - Parameter matrix: the matrix to use to build the frustum planes
-            mutating func update(_ matrix: float4x4) {
+            fileprivate mutating func update(_ camera: Camera) {
+                let matrix = camera.projectionMatrix * camera.viewMatrix
                 // Left Plane
                 planes[.left].x = matrix.columns.0.w + matrix.columns.0.x
                 planes[.left].y = matrix.columns.1.w + matrix.columns.1.x
@@ -319,9 +323,18 @@ extension Vim {
                 planes[.far].z = matrix.columns.2.w - matrix.columns.2.z
                 planes[.far].w = matrix.columns.3.w - matrix.columns.3.z
 
+//                let a = nearPlane.xyz * nearPlane.w
+//                let b = farPlane.xyz * farPlane.w
+//                let c = (b + a) * .half
+//                let d = distance(a, c)
+//                center = c
+//                radius = d
+
                 for (i, plane) in planes.enumerated() {
                     planes[i] = normalize(planes[i])
                 }
+
+
             }
 
             /// Tests to see if the frustum contains the provided bounding box or not.
