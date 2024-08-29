@@ -399,7 +399,7 @@ extension Vim.Camera {
         projectionMatrix = .init(projectiveTransform)
         transform = sceneTransform * deviceAnchor.originFromAnchorTransform
         position *= velocity
-        frustum.update(projectionMatrix * viewMatrix)
+        frustum.update(self)
     }
 }
 
