@@ -25,7 +25,7 @@ extension Geometry {
         /// - Parameter box: the box to check for intersections againts
         /// - Returns: true if intersects, otherwise false.
         func contains(box: MDLAxisAlignedBoundingBox) -> Bool {
-            let r2 = radius * radius
+            let r2 = powf(radius, 2)
             let closest = center.clamped(lowerBound: box.minBounds, upperBound: box.maxBounds)
             let d = distance_squared(center, closest)
             return d <= r2
