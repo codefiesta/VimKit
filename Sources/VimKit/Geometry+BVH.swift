@@ -22,6 +22,7 @@ extension Geometry {
         let radius: Float
 
         /// Returns true if the given box is either inside or intersects this sphere.
+        /// See: https://theorangeduck.com/page/correct-box-sphere-intersection
         /// - Parameter box: the box to check for intersections againts
         /// - Returns: true if intersects, otherwise false.
         func contains(box: MDLAxisAlignedBoundingBox) -> Bool {

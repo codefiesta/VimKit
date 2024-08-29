@@ -334,11 +334,11 @@ extension Vim {
                 let farCenter = p + f * camera.farZ
 
                 let c = (nearCenter + farCenter).negate * .half
-                let d = distance(c, p)
-                let pad = d * camera.nearZ
+                var d = distance(c, p)
+                d += d * camera.nearZ * .half
 
                 center = c
-                radius = d + pad
+                radius = d
 
             }
 
