@@ -146,23 +146,23 @@ extension Geometry {
         /// - Parameter camera: the camera data
         /// - Returns: a list of indices into the `geometry.instancedMeshes` array that are inside the frustum
         func intersectionResults(camera: Vim.Camera) -> [Int] {
-            let sphere = camera.sphere
+            let frustum = camera.frustum
             var results = Set<Int>()
-            intersections(sphere: sphere, node: root, results: &results)
+            intersections(frustum: camera.frustum, node: root, results: &results)
             return results.sorted()
         }
 
-        /// Recursively iterates through the BVH nodes to collect results that are inside the given sphere.
+        /// Recursively iterates through the BVH nodes to collect results that are inside the given frustum.
         /// - Parameters:
-        ///   - sphere: the sphere to test against
+        ///   - frustum: the camera frustum
         ///   - node: the node to recursively look through
         ///   - results: the results to append to
-        fileprivate func intersections(sphere: Sphere, node: Node, results: inout Set<Int>) {
-            guard sphere.contains(box: node.box) else { return }
+        fileprivate func intersections(frustum: Vim.Camera.Frustum, node: Node, results: inout Set<Int>) {
+            guard frustum.contains(node.box) else { return }
             let indices = node.instances.compactMap{ instancedMeshesMap[$0] }
             results.formUnion(indices)
             for child in node.children {
-                intersections(sphere: sphere, node: child, results: &results)
+                intersections(frustum: frustum, node: child, results: &results)
             }
         }
     }

@@ -229,14 +229,10 @@ extension Vim {
             return box.inFront(of: frustum.nearPlane)
         }
 
-        /// Returns the minimum bounding sphere of the frustum,
-        /// See: https://lxjk.github.io/2017/04/15/Calculate-Minimal-Bounding-Sphere-of-Frustum.html
-        var sphere: Geometry.Sphere {
-            return Geometry.Sphere(center: frustum.center, radius: frustum.radius)
-        }
-
         /// A struct that holds the camera frustum information that contains the
         /// region of space in the modeled world that may appear on the screen.
+        /// See: https://lxjk.github.io/2017/04/15/Calculate-Minimal-Bounding-Sphere-of-Frustum.html
+        /// See: https://gamedev.stackexchange.com/questions/19774/determine-corners-of-a-specific-plane-in-the-frustum
         struct Frustum {
 
             /// The plane sides of the camera frustum.
@@ -257,6 +253,11 @@ extension Vim {
 
             /// The minimum bounding sphere radius
             var radius: Float = .zero
+
+            /// Returns the bounding sphere.
+            var sphere: Geometry.Sphere {
+                Geometry.Sphere(center: center, radius: radius)
+            }
 
             /// Convenience var that returns the frustum near plane
             var nearPlane: SIMD4<Float> {
@@ -335,7 +336,6 @@ extension Vim {
 
                 let c = (nearCenter + farCenter).negate * .half
                 var d = distance(c, p)
-                d += d * camera.nearZ * .half
 
                 center = c
                 radius = d
@@ -347,7 +347,10 @@ extension Vim {
             ///   - box: the bounding box to test
             ///   - radius: the sphere radius
             /// - Returns: true if contains, otherwise false
-            fileprivate func contains(_ box: MDLAxisAlignedBoundingBox) -> Bool {
+            func contains(_ box: MDLAxisAlignedBoundingBox) -> Bool {
+                if sphere.contains(box: box) { return true }
+
+                // Test the frustum planes
                 let position = box.center
                 let radius = box.radius
                 for plane in planes {
