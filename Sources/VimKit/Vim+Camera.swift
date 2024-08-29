@@ -252,7 +252,7 @@ extension Vim {
             /// The frustum clipping planes.
             var planes = [SIMD4<Float>](repeating: .zero, count: 6)
 
-            /// The center point of the frustum
+            /// The center point of the frustum bounding sphere.
             var center: SIMD3<Float> = .zero
 
             /// The minimum bounding sphere radius
@@ -328,27 +328,17 @@ extension Vim {
                 }
 
                 // Calculate the sphere center + radius
-                // See: https://gamedev.stackexchange.com/questions/19774/determine-corners-of-a-specific-plane-in-the-frustum
                 let p = camera.position
                 let f = camera.forward
-                let u = camera.up
-                let r = camera.right
-
-                let nearHeight = 2 * tanf(camera.fovDegrees.radians / 2) * camera.nearZ
-                let nearWidth = nearHeight * camera.aspectRatio
-                let farHeight = 2 * tanf(camera.fovDegrees.radians / 2) * camera.farZ
-                let farWidth = farHeight * camera.aspectRatio
-
                 let nearCenter = p + f * camera.nearZ
                 let farCenter = p + f * camera.farZ
 
-                let nearTopLeft = nearCenter + (u * (nearHeight / 2)) - (r * (nearWidth / 2))
-                let farBottomRight = farCenter - (u * (farHeight / 2)) + (r * (farWidth / 2))
-                let c = (nearTopLeft + farBottomRight).negate * .half
-                let d = distance(nearCenter, c) + camera.nearZ
+                let c = (nearCenter + farCenter).negate * .half
+                let d = distance(c, p)
+                let pad = d * camera.nearZ
 
                 center = c
-                radius = d
+                radius = d + pad
 
             }
 

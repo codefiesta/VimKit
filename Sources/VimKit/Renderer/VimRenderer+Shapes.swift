@@ -80,9 +80,7 @@ extension VimRenderer {
         /// Draws the shapes.
         /// - Parameter renderEncoder: the render encoder
         func draw(renderEncoder: MTLRenderCommandEncoder) {
-            if cullingSphere {
-                drawPoints(renderEncoder: renderEncoder, points: [camera.frustum.center])
-            }
+            // Noop for now ...
         }
 
         /// Draws the points as spheres.

@@ -21,10 +21,10 @@ extension Geometry {
         /// The sphere radius.
         let radius: Float
 
-        /// Returns true if this sphere intersects the given box.
+        /// Returns true if the given box is either inside or intersects this sphere.
         /// - Parameter box: the box to check for intersections againts
         /// - Returns: true if intersects, otherwise false.
-        func intersects(box: MDLAxisAlignedBoundingBox) -> Bool {
+        func contains(box: MDLAxisAlignedBoundingBox) -> Bool {
             let r2 = radius * radius
             let closest = center.clamped(lowerBound: box.minBounds, upperBound: box.maxBounds)
             let d = distance_squared(center, closest)
@@ -136,7 +136,6 @@ extension Geometry {
                     instancedMeshesMap[Int(j)] = i
                 }
             }
-
             root = Node(&data)
         }
 
@@ -158,7 +157,7 @@ extension Geometry {
         ///   - node: the node to recursively look through
         ///   - results: the results to append to
         fileprivate func intersections(sphere: Sphere, node: Node, results: inout Set<Int>) {
-            guard sphere.intersects(box: node.box) else { return }
+            guard sphere.contains(box: node.box) else { return }
             let indices = node.instances.compactMap{ instancedMeshesMap[$0] }
             results.formUnion(indices)
             for child in node.children {
