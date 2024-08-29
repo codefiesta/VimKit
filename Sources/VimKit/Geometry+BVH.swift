@@ -10,7 +10,28 @@ import MetalKit
 import simd
 import Spatial
 
+/// The maximum number of indexes that should be contained in this node.
+private let nodeThreshold = 8
+
 extension Geometry {
+
+    struct Sphere {
+        /// The center of the sphere.
+        let center: SIMD3<Float>
+        /// The sphere radius.
+        let radius: Float
+
+        /// Returns true if the given box is either inside or intersects this sphere.
+        /// See: https://theorangeduck.com/page/correct-box-sphere-intersection
+        /// - Parameter box: the box to check for intersections againts
+        /// - Returns: true if intersects, otherwise false.
+        func contains(box: MDLAxisAlignedBoundingBox) -> Bool {
+            let r2 = powf(radius, 2)
+            let closest = center.clamped(lowerBound: box.minBounds, upperBound: box.maxBounds)
+            let d = distance_squared(center, closest)
+            return d <= r2
+        }
+    }
 
     typealias BVH = BoundingVolumeHierarchy
 
@@ -22,19 +43,17 @@ extension Geometry {
 
             /// The axis aligned bounding box that fully contains the geometry in this node.
             var box: MDLAxisAlignedBoundingBox
-            /// The instance indexes that are contained in this node
+            /// The instanced mesh indexes that are contained in this node
             var instances = [Int]()
             /// The child nodes
             var children = [Node]()
-            /// The maximum number of indexes that should be contained in this node.
-            let threshold: Int = 8
             /// A flag denoting whether the node is a leaf.
             var isLeaf: Bool = false
 
             /// Initializer
             init(_ data: inout [(index: Int, box: MDLAxisAlignedBoundingBox)]) {
                 self.box = MDLAxisAlignedBoundingBox(containing: data.map { $0.box })
-                if data.count > threshold {
+                if data.count > nodeThreshold {
 
                     sort(&data)
 
@@ -91,17 +110,60 @@ extension Geometry {
             return root.box
         }
 
+        /// Provides a hash lookup of instance indices into their instanced meshes index.
+        private var instancedMeshesMap = [Int: Int]()
+
         /// Intializes the bounding volume with the specified geometry.
         /// - Parameter geometry: the geomety to use
         init(_ geometry: Geometry) async {
             self.geometry = geometry
             var data = [(index: Int, box: MDLAxisAlignedBoundingBox)]()
             for (i, instance) in geometry.instances.enumerated() {
+
                 if let box = instance.boundingBox {
+                    data.append((index: i, box: box))
+                } else {
+                    guard let box = await geometry.calculateBoundingBox(instance) else { continue }
                     data.append((index: i, box: box))
                 }
             }
+
+            // Map the instances to their shared meshes
+            for (i, instancedMesh) in geometry.instancedMeshes.enumerated() {
+                for j in instancedMesh.instances {
+                    guard instancedMeshesMap[Int(j)] == nil else {
+                        continue
+                    }
+                    instancedMeshesMap[Int(j)] = i
+                }
+            }
             root = Node(&data)
+        }
+
+        /// Traverses the BVH tree and accumulates a list of indices into the `geometry.instancedMeshes` array
+        /// that are visible on the view frustum and should be rendered,
+        /// See: https://www.flipcode.com/archives/Frustum_Culling.shtml
+        /// - Parameter camera: the camera data
+        /// - Returns: a list of indices into the `geometry.instancedMeshes` array that are inside the frustum
+        func intersectionResults(camera: Vim.Camera) -> [Int] {
+            let frustum = camera.frustum
+            var results = Set<Int>()
+            intersections(frustum: camera.frustum, node: root, results: &results)
+            return results.sorted()
+        }
+
+        /// Recursively iterates through the BVH nodes to collect results that are inside the given frustum.
+        /// - Parameters:
+        ///   - frustum: the camera frustum
+        ///   - node: the node to recursively look through
+        ///   - results: the results to append to
+        fileprivate func intersections(frustum: Vim.Camera.Frustum, node: Node, results: inout Set<Int>) {
+            guard frustum.contains(node.box) else { return }
+            let indices = node.instances.compactMap{ instancedMeshesMap[$0] }
+            results.formUnion(indices)
+            for child in node.children {
+                intersections(frustum: frustum, node: child, results: &results)
+            }
         }
     }
 }

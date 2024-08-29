@@ -77,6 +77,7 @@ open class VimRenderer: NSObject {
         }
     }
 
+    var shapes: Shapes?
     var skycube: Skycube?
 
     /// The max time to render a frame.
@@ -89,6 +90,7 @@ open class VimRenderer: NSObject {
         self.context = context
         super.init()
 
+        shapes = Shapes(context)
         skycube = Skycube(context)
 
         // Load the metal resources

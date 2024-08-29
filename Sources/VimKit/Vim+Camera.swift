@@ -133,7 +133,7 @@ extension Vim {
             let fovyRadians = fov.radians
             let projectiveTransform = ProjectiveTransform3D(fovyRadians: fovyRadians, aspectRatio: aspectRatio, nearZ: nearZ, farZ: farZ)
             projectionMatrix = .init(projectiveTransform)
-            frustum.update(projectionMatrix * viewMatrix)
+            frustum.update(self)
         }
 
         /// Updates the camera by translating and rotating the camera with the specified offsets.
@@ -231,6 +231,8 @@ extension Vim {
 
         /// A struct that holds the camera frustum information that contains the
         /// region of space in the modeled world that may appear on the screen.
+        /// See: https://lxjk.github.io/2017/04/15/Calculate-Minimal-Bounding-Sphere-of-Frustum.html
+        /// See: https://gamedev.stackexchange.com/questions/19774/determine-corners-of-a-specific-plane-in-the-frustum
         struct Frustum {
 
             /// The plane sides of the camera frustum.
@@ -243,41 +245,54 @@ extension Vim {
                 case near
             }
 
+            /// The frustum clipping planes.
             var planes = [SIMD4<Float>](repeating: .zero, count: 6)
 
+            /// The center point of the frustum bounding sphere.
+            var center: SIMD3<Float> = .zero
+
+            /// The minimum bounding sphere radius
+            var radius: Float = .zero
+
+            /// Returns the bounding sphere.
+            var sphere: Geometry.Sphere {
+                Geometry.Sphere(center: center, radius: radius)
+            }
+
             /// Convenience var that returns the frustum near plane
-            public var nearPlane: SIMD4<Float> {
+            var nearPlane: SIMD4<Float> {
                 return planes[.near]
             }
 
             /// Convenience var that returns the frustum far plane
-            public var farPlane: SIMD4<Float> {
+            var farPlane: SIMD4<Float> {
                 return planes[.far]
             }
 
             /// Convenience var that returns the frustum left plane
-            public var leftPlane: SIMD4<Float> {
+            var leftPlane: SIMD4<Float> {
                 return planes[.left]
             }
 
             /// Convenience var that returns the frustum right plane
-            public var rightPlane: SIMD4<Float> {
+            var rightPlane: SIMD4<Float> {
                 return planes[.right]
             }
 
             /// Convenience var that returns the frustum top plane
-            public var topPlane: SIMD4<Float> {
+            var topPlane: SIMD4<Float> {
                 return planes[.top]
             }
 
             /// Convenience var that returns the frustum bottom plane
-            public var bottomPlane: SIMD4<Float> {
+            var bottomPlane: SIMD4<Float> {
                 return planes[.bottom]
             }
 
             /// Updates the frustum from the specified matrix
             /// - Parameter matrix: the matrix to use to build the frustum planes
-            mutating func update(_ matrix: float4x4) {
+            fileprivate mutating func update(_ camera: Camera) {
+                let matrix = camera.projectionMatrix * camera.viewMatrix
                 // Left Plane
                 planes[.left].x = matrix.columns.0.w + matrix.columns.0.x
                 planes[.left].y = matrix.columns.1.w + matrix.columns.1.x
@@ -309,10 +324,22 @@ extension Vim {
                 planes[.far].z = matrix.columns.2.w - matrix.columns.2.z
                 planes[.far].w = matrix.columns.3.w - matrix.columns.3.z
 
-                for (i, plane) in planes.enumerated() {
-                    let length = sqrtf((plane.x * plane.x) + (plane.y * plane.y) + (plane.z * plane.z))
-                    planes[i] /= length
+                for (i, _) in planes.enumerated() {
+                    planes[i] = normalize(planes[i])
                 }
+
+                // Calculate the sphere center + radius
+                let p = camera.position
+                let f = camera.forward
+                let nearCenter = p + f * camera.nearZ
+                let farCenter = p + f * camera.farZ
+
+                let c = (nearCenter + farCenter).negate * .half
+                var d = distance(c, p)
+
+                center = c
+                radius = d
+
             }
 
             /// Tests to see if the frustum contains the provided bounding box or not.
@@ -320,7 +347,10 @@ extension Vim {
             ///   - box: the bounding box to test
             ///   - radius: the sphere radius
             /// - Returns: true if contains, otherwise false
-            fileprivate func contains(_ box: MDLAxisAlignedBoundingBox) -> Bool {
+            func contains(_ box: MDLAxisAlignedBoundingBox) -> Bool {
+                if sphere.contains(box: box) { return true }
+
+                // Test the frustum planes
                 let position = box.center
                 let radius = box.radius
                 for plane in planes {
@@ -369,7 +399,7 @@ extension Vim.Camera {
         projectionMatrix = .init(projectiveTransform)
         transform = sceneTransform * deviceAnchor.originFromAnchorTransform
         position *= velocity
-        frustum.update(projectionMatrix * viewMatrix)
+        frustum.update(self)
     }
 }
 

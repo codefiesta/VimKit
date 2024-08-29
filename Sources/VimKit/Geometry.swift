@@ -138,25 +138,19 @@ public class Geometry: ObservableObject {
         progress.completedUnitCount += 1
 
         // 5) Build the instances buffer
-        let instancingTask = Task {
-            await makeInstancesBuffer(device: device)
-            progress.completedUnitCount += 1
-        }
-        tasks.append(instancingTask)
+        await makeInstancesBuffer(device: device)
+        progress.completedUnitCount += 1
 
         // Start indexing the file
         DispatchQueue.main.async {
             self.state = .indexing
         }
 
-        let indexingTask = Task {
-            await bvh = BVH(self)
-            progress.completedUnitCount += 1
-            DispatchQueue.main.async {
-                self.state = .ready
-            }
+        await bvh = BVH(self)
+        progress.completedUnitCount += 1
+        DispatchQueue.main.async {
+            self.state = .ready
         }
-        tasks.append(indexingTask)
     }
 
     // MARK: Postions (Vertex Buffer Raw Data)
@@ -338,11 +332,11 @@ public class Geometry: ObservableObject {
         // Compute the values
         if results.isEmpty {
             var faceNormals = positions.chunked(into: 3).map { _ in SIMD3<Float>.zero }
-            let verices = positions.chunked(into: 3).map { SIMD3<Float>($0) }
+            let vertices = positions.chunked(into: 3).map { SIMD3<Float>($0) }
             for i in stride(from: 0, to: indices.count, by: 3) {
-                let a = verices[Int(indices[i])]
-                let b = verices[Int(indices[i+1])]
-                let c = verices[Int(indices[i+2])]
+                let a = vertices[Int(indices[i])]
+                let b = vertices[Int(indices[i+1])]
+                let c = vertices[Int(indices[i+2])]
                 let crossProduct = cross(b - a, c - a)
 
                 faceNormals[Int(indices[i])] += crossProduct
@@ -541,7 +535,7 @@ public class Geometry: ObservableObject {
     /// - Parameters:
     ///   - instance: the instance to calculate the bounding box for
     /// - Returns: the axis aligned bounding box for the specified instance or nil if the instance has no mesh information.
-    private func calculateBoundingBox(_ instance: Instance) async -> MDLAxisAlignedBoundingBox? {
+    func calculateBoundingBox(_ instance: Instance) async -> MDLAxisAlignedBoundingBox? {
         guard !Task.isCancelled, let vertices = vertices(for: instance) else { return nil }
         var minBounds: SIMD3<Float> = .zero
         var maxBounds: SIMD3<Float> = .zero
