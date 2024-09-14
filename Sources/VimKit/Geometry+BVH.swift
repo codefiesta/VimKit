@@ -146,7 +146,6 @@ extension Geometry {
         /// - Parameter camera: the camera data
         /// - Returns: a list of indices into the `geometry.instancedMeshes` array that are inside the frustum
         func intersectionResults(camera: Vim.Camera) -> [Int] {
-            let frustum = camera.frustum
             var results = Set<Int>()
             intersections(frustum: camera.frustum, node: root, results: &results)
             return results.sorted()

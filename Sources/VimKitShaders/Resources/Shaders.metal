@@ -43,7 +43,7 @@ typedef struct {
     float glossiness;
     // The material smoothness
     float smoothness;
-    // The instance index
+    // The instance index (-1 indicates a non-selectable or invalid instance)
     int32_t index;
 } VertexOut;
 
@@ -51,7 +51,7 @@ typedef struct {
 typedef struct {
     // The colorAttachments[0] that holds the color information
     float4 color [[color(0)]];
-    // The colorAttachments[1] that holds the instance index (-1 indicates an invalid instance)
+    // The colorAttachments[1] that holds the instance index (-1 indicates a non-selectable or invalid instance)
     int32_t index [[color(1)]];
 } ColorOut;
 
@@ -63,6 +63,7 @@ typedef struct {
 //   - uniformsArray: The per frame uniforms.
 //   - meshUniforms: The per mesh uniforms.
 //   - instances: The instances pointer.
+//   - colorOverrides: The color overrides pointer used to apply custom color profiles to instances.
 //   - xRay: Flag indicating if this frame is being rendered in xray mode.
 vertex VertexOut vertexMain(Vertex in [[stage_in]],
                             ushort amp_id [[amplification_id]],
@@ -71,17 +72,13 @@ vertex VertexOut vertexMain(Vertex in [[stage_in]],
                             constant UniformsArray &uniformsArray [[buffer(BufferIndexUniforms)]],
                             constant MeshUniforms &meshUniforms [[buffer(BufferIndexMeshUniforms)]],
                             constant Instances *instances [[buffer(BufferIndexInstances)]],
-                            constant float4 &selectionColor [[buffer(BufferIndexSelectionColor)]],
+                            constant float4 *colorOverrides [[buffer(BufferIndexColorOverrides)]],
                             constant bool &xRay [[buffer(BufferIndexXRay)]]) {
 
     VertexOut out;
     Instances instance = instances[instance_id];
-    uint32_t instanceIndex = instance.index;
-
-    // If the instance is hidden, just bail
-    if (instance.state == InstanceStateHidden) {
-        return out;
-    }
+    uint instanceIndex = instance.index;
+    int colorIndex = instance.colorIndex;
     
     Uniforms uniforms = uniformsArray.uniforms[amp_id];
 
@@ -107,15 +104,20 @@ vertex VertexOut vertexMain(Vertex in [[stage_in]],
         float alpha = meshUniforms.color.w * 0.1;
         out.color = float4(grayscale, grayscale, grayscale, alpha);
     }
-    
-    // Override the color based on the instance state
+        
     switch (instance.state) {
         case InstanceStateDefault:
+            // If the color override is set, pluck the color from the colors buffer
+            if (colorIndex > 0) {
+                out.color = colorOverrides[colorIndex];
+            }
             break;
         case InstanceStateHidden:
+            out.position = float4(0, 0, 0, 0);
+            out.color = float4(0, 0, 0, 0);
             break;
         case InstanceStateSelected:
-            out.color = selectionColor;
+            out.color = colorOverrides[0];
             break;
     }
 

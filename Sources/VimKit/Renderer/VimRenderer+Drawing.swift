@@ -6,7 +6,6 @@
 //
 
 import MetalKit
-import SwiftUI
 import VimKitShaders
 
 ///  The render encoder label.
@@ -82,7 +81,8 @@ public extension VimRenderer {
               let pipelineState,
               let positionsBuffer = geometry.positionsBuffer,
               let normalsBuffer = geometry.normalsBuffer,
-              let instancesBuffer = geometry.instancesBuffer else { return }
+              let instancesBuffer = geometry.instancesBuffer,
+              let colorsBuffer = geometry.colorsBuffer else { return }
 
         renderEncoder.setRenderPipelineState(pipelineState)
         renderEncoder.setFrontFacing(.clockwise)
@@ -95,6 +95,7 @@ public extension VimRenderer {
         renderEncoder.setVertexBuffer(positionsBuffer, offset: 0, index: .positions)
         renderEncoder.setVertexBuffer(normalsBuffer, offset: 0, index: .normals)
         renderEncoder.setVertexBuffer(instancesBuffer, offset: 0, index: .instances)
+        renderEncoder.setVertexBuffer(colorsBuffer, offset: 0, index: .colorOverrides)
         renderEncoder.setFragmentTexture(baseColorTexture, index: 0)
         renderEncoder.setFragmentSamplerState(samplerState, index: 0)
 
@@ -102,9 +103,6 @@ public extension VimRenderer {
         var xRay = xRayMode
         renderEncoder.setVertexBytes(&xRay, length: MemoryLayout<Bool>.size, index: .xRay)
 
-        // Set the selection color
-        var selectionColor = Color.objectSelectionColor.channels
-        renderEncoder.setVertexBytes(&selectionColor, length: MemoryLayout<SIMD4<Float>>.size, index: .selectionColor)
     }
 
     /// Draws the entire scene.
@@ -142,8 +140,6 @@ public extension VimRenderer {
     ///   - renderEncoder: the render encoder
     private func drawInstanced(_ instanced: Geometry.InstancedMesh, renderEncoder: MTLRenderCommandEncoder) {
         guard let geometry, let range = instanced.mesh.submeshes else { return }
-
-        // TODO: Perform a check to make sure any of the instances are contained inside the camera frustum
 
         let submeshes = geometry.submeshes[range]
         for (i, submesh) in submeshes.enumerated() {
