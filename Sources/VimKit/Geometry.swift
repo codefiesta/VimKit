@@ -155,7 +155,6 @@ public class Geometry: ObservableObject {
             self.state = .indexing
         }
 
-        setColor(ids: [85], color: Color.red.channels)
         await bvh = BVH(self)
         progress.completedUnitCount += 1
         DispatchQueue.main.async {
