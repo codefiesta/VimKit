@@ -63,6 +63,7 @@ typedef struct {
 //   - uniformsArray: The per frame uniforms.
 //   - meshUniforms: The per mesh uniforms.
 //   - instances: The instances pointer.
+//   - colorOverride: The override color to use if the instance is highlighted or selected.
 //   - xRay: Flag indicating if this frame is being rendered in xray mode.
 vertex VertexOut vertexMain(Vertex in [[stage_in]],
                             ushort amp_id [[amplification_id]],
@@ -71,7 +72,7 @@ vertex VertexOut vertexMain(Vertex in [[stage_in]],
                             constant UniformsArray &uniformsArray [[buffer(BufferIndexUniforms)]],
                             constant MeshUniforms &meshUniforms [[buffer(BufferIndexMeshUniforms)]],
                             constant Instances *instances [[buffer(BufferIndexInstances)]],
-                            constant float4 &selectionColor [[buffer(BufferIndexSelectionColor)]],
+                            constant float4 &colorOverride [[buffer(BufferIndexColorOverride)]],
                             constant bool &xRay [[buffer(BufferIndexXRay)]]) {
 
     VertexOut out;
@@ -115,7 +116,10 @@ vertex VertexOut vertexMain(Vertex in [[stage_in]],
         case InstanceStateHidden:
             break;
         case InstanceStateSelected:
-            out.color = selectionColor;
+            out.color = colorOverride;
+            break;
+        case InstanceStateHighlighted:
+            out.color = colorOverride;
             break;
     }
 

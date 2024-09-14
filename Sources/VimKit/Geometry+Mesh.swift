@@ -74,7 +74,7 @@ extension Geometry {
         let transparent: Bool
         /// The instance indexes.
         let instances: [UInt32]
-        /// Provides an offset into the transforms buffer.
+        /// Provides an offset into the instances buffer.
         var baseInstance: Int
 
         /// Initalizes the instanced mesh.
@@ -82,7 +82,7 @@ extension Geometry {
         ///   - mesh: the mesh that should be instanced
         ///   - transparent: a flag indicating if the instance is transparent or not (used primarily for sorting).
         ///   - instances: the instance indexes
-        ///   - baseInstance: the offset used by the GPU used to lookup the starting index into the transforms buffer.
+        ///   - baseInstance: the offset used by the GPU used to lookup the starting index into the instances buffer.
         init(mesh: Mesh, transparent: Bool, instances: [UInt32], _ baseInstance: Int = 0) {
             self.mesh = mesh
             self.transparent = transparent

@@ -45,6 +45,7 @@ typedef NS_ENUM(EnumBackingType, InstanceState) {
     InstanceStateDefault = 0,
     InstanceStateHidden = 1,
     InstanceStateSelected = 2,
+    InstanceStateHighlighted = 3,
 };
 
 // Instancing Data
@@ -61,7 +62,7 @@ typedef NS_ENUM(EnumBackingType, BufferIndex) {
     BufferIndexUniforms = 2,
     BufferIndexMeshUniforms = 3,
     BufferIndexInstances = 4,
-    BufferIndexSelectionColor = 5,
+    BufferIndexColorOverride = 5,
     BufferIndexXRay = 6
 };
 
