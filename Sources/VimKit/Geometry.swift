@@ -264,7 +264,7 @@ public class Geometry: ObservableObject {
         // Build the array of instances
         var instanced = instanceOffsets.map {
             Instances(index: $0,
-                      colorIndex: -1,
+                      colorIndex: .empty,
                       matrix: instances[Int($0)].matrix,
                       state: instances[Int($0)].flags != .zero ? .hidden : .default
             )
@@ -717,7 +717,6 @@ extension Geometry {
     public func select(id: Int) -> Bool {
         guard let pointer: UnsafeMutablePointer<Instances> = instancesBuffer?.toUnsafeMutablePointer(),
               let index = instanceOffsets.firstIndex(of: UInt32(id)) else { return false }
-
         let instance = pointer[index]
         switch instance.state {
         case .default, .hidden:
@@ -755,7 +754,7 @@ extension Geometry {
         return pointer[0..<pointer.count].filter{ $0.state == .selected }.count
     }
 
-    /// Applies the color override for all instances in the specified ids.
+    /// Applies the color override to all instances in the specified ids.
     ///
     /// This example shows how to use the `setColor(ids:color:)`.
     ///
@@ -764,20 +763,20 @@ extension Geometry {
     ///     geometry.setColor(ids: ids, color: color)
     ///
     /// - Parameters:
-    ///   - ids: the ids of the instances to apply this color override for
     ///   - color: the override color to apply
-    public func setColor(ids: [Int], color: SIMD4<Float>) {
+    ///   - ids: the ids of the instances to apply this color override for
+    public func apply(color: SIMD4<Float>, to ids: [Int]) {
 
-        guard let colorOverrides: UnsafeMutableBufferPointer<SIMD4<Float>> = colorsBuffer?.toUnsafeMutableBufferPointer() else { return }
+        guard let colors: UnsafeMutableBufferPointer<SIMD4<Float>> = colorsBuffer?.toUnsafeMutableBufferPointer() else { return }
 
         // Find the index of the color if it's already in the colors buffer
         var colorIndex: Int32 = 0
-        if let index = colorOverrides.firstIndex(of: color) {
+        if let index = colors.firstIndex(of: color) {
             // Use the index of the found color
             colorIndex = Int32(index)
-        } else if let index = colorOverrides.firstIndex(of: .zero) {
+        } else if let index = colors.firstIndex(of: .zero) {
             // Push the color into the first empty slot
-            colorOverrides[index] = color
+            colors[index] = color
             colorIndex = Int32(index)
         } else {
             // No empty color slots
@@ -785,10 +784,56 @@ extension Geometry {
         }
 
         // Update the instances buffer with the color override index
-        guard let pointer: UnsafeMutablePointer<Instances> = instancesBuffer?.toUnsafeMutablePointer() else { return }
+        guard let instances: UnsafeMutableBufferPointer<Instances> = instancesBuffer?.toUnsafeMutableBufferPointer() else { return }
         for id in ids {
             guard let index = instanceOffsets.firstIndex(of: UInt32(id)) else { continue }
-            pointer.advanced(by: index).pointee.colorIndex = colorIndex
+            instances[index].colorIndex = colorIndex
+        }
+    }
+
+    /// Unapplies the color override to all instances in the specified ids
+    /// - Parameter ids: the ids of the instances to apply this color override for
+    public func unapply(ids: [Int]) {
+        guard let instances: UnsafeMutableBufferPointer<Instances> = instancesBuffer?.toUnsafeMutableBufferPointer() else { return }
+        var erasables = Set<Int>() // Collect the erasable color indices
+        for id in ids {
+            guard let index = instanceOffsets.firstIndex(of: UInt32(id)) else { continue }
+            let instance = instances[index]
+            if instance.colorIndex != .empty {
+                erasables.insert(Int(instance.colorIndex))
+            }
+            instances[index].colorIndex = .empty
+        }
+
+        // Check no other instances have a reference to the same color override
+        for (_, value) in instances.enumerated() {
+            let index = Int(value.colorIndex)
+            if erasables.contains(index) {
+                erasables.remove(index)
+            }
+        }
+
+        // Finally, erase any unused color overrides
+        guard let colors: UnsafeMutableBufferPointer<SIMD4<Float>> = colorsBuffer?.toUnsafeMutableBufferPointer() else { return }
+        for i in erasables {
+            colors[i] = .zero
+        }
+    }
+
+    /// Removes all color overrides.
+    public func unapplyAll() {
+        guard let instances: UnsafeMutableBufferPointer<Instances> = instancesBuffer?.toUnsafeMutableBufferPointer() else { return }
+
+        // Erase all of the color indices from the instances
+        for (i, _) in instances.enumerated() {
+            instances[i].colorIndex = .empty
+        }
+
+        guard let colors: UnsafeMutableBufferPointer<SIMD4<Float>> = colorsBuffer?.toUnsafeMutableBufferPointer() else { return }
+        for (i, _) in colors.enumerated() {
+            if i > 0 {
+                colors[i] = .zero
+            }
         }
     }
 }
