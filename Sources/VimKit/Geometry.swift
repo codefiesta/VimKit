@@ -8,12 +8,15 @@ import Combine
 import Foundation
 import MetalKit
 import simd
+import SwiftUI
 import VimKitShaders
 
 // The MPS function name for computing the vertex normals on the GPU
 private let computeVertexNormalsFunctionName = "computeVertexNormals"
 // File extensions for mmap'd metal buffers
 private let normalsBufferExtension = ".normals"
+// The max number of color overrides to apply (2MB worth of colors)
+private let maxColorOverrides = 128
 
 /// See: https://github.com/vimaec/vim#geometry-buffer
 /// This class was largely translated from VIM's CSharp + JS implementtions:
@@ -31,7 +34,7 @@ public class Geometry: ObservableObject {
     }
 
     /// Progress Reporting for loading the geometry data.
-    public dynamic let progress = Progress(totalUnitCount: 9)
+    public dynamic let progress = Progress(totalUnitCount: 10)
 
     @Published
     public var state: State = .unknown
@@ -44,6 +47,8 @@ public class Geometry: ObservableObject {
     public private(set) var normalsBuffer: MTLBuffer?
     /// Returns the combinded buffer of all of the instance transforms and their state information.
     public private(set) var instancesBuffer: MTLBuffer?
+    /// Returns the combinded buffer of all of the color overrides that can be applied to each instance.
+    public private(set) var colorsBuffer: MTLBuffer?
 
     /// The Geometry Bounding Volume Hierarchy
     var bvh: BVH?
@@ -141,11 +146,16 @@ public class Geometry: ObservableObject {
         await makeInstancesBuffer(device: device)
         progress.completedUnitCount += 1
 
+        // 6) Build the colors buffer
+        await makeColorsBuffer(device: device)
+        progress.completedUnitCount += 1
+
         // Start indexing the file
         DispatchQueue.main.async {
             self.state = .indexing
         }
 
+        setColor(ids: [85], color: Color.red.channels)
         await bvh = BVH(self)
         progress.completedUnitCount += 1
         DispatchQueue.main.async {
@@ -251,20 +261,37 @@ public class Geometry: ObservableObject {
     private func makeInstancesBuffer(device: MTLDevice) async {
 
         guard !Task.isCancelled else { return }
+
         // Build the array of instances
         var instanced = instanceOffsets.map {
             Instances(index: $0,
+                      colorIndex: -1,
                       matrix: instances[Int($0)].matrix,
                       state: instances[Int($0)].flags != .zero ? .hidden : .default
             )
         }
 
+        // Make the metal buffer
         guard let instancesBuffer = device.makeBuffer(
             bytes: &instanced,
             length: MemoryLayout<Instances>.stride * instanced.count) else {
             fatalError("💀 Unable to create instances buffer")
         }
         self.instancesBuffer = instancesBuffer
+    }
+
+    /// Makes the color overrides buffer
+    /// - Parameter device: the metal device to use
+    private func makeColorsBuffer(device: MTLDevice) async {
+        guard !Task.isCancelled else { return }
+        var colors = [SIMD4<Float>](repeating: .zero, count: maxColorOverrides)
+        colors[0] = Color.objectSelectionColor.channels // Set the first color override as the selection color
+        guard let colorsBuffer = device.makeBuffer(
+            bytes: &colors,
+            length: MemoryLayout<SIMD4<Float>>.stride * colors.count, options: [.storageModeShared]) else {
+            fatalError("💀 Unable to create colors buffer")
+        }
+        self.colorsBuffer = colorsBuffer
     }
 
     /// Calculates the vertex normals.
@@ -727,5 +754,42 @@ extension Geometry {
         guard let pointer: UnsafeMutableBufferPointer<Instances> = instancesBuffer?.toUnsafeMutableBufferPointer() else { return 0 }
         // TODO: Must be a better way to filter the pointer values
         return pointer[0..<pointer.count].filter{ $0.state == .selected }.count
+    }
+
+    /// Applies the color override for all instances in the specified ids.
+    ///
+    /// This example shows how to use the `setColor(ids:color:)`.
+    ///
+    ///     let ids = [0, 1, 2]
+    ///     let color = Color.red.channels
+    ///     geometry.setColor(ids: ids, color: color)
+    ///
+    /// - Parameters:
+    ///   - ids: the ids of the instances to apply this color override for
+    ///   - color: the override color to apply
+    public func setColor(ids: [Int], color: SIMD4<Float>) {
+
+        guard let colorOverrides: UnsafeMutableBufferPointer<SIMD4<Float>> = colorsBuffer?.toUnsafeMutableBufferPointer() else { return }
+
+        // Find the index of the color if it's already in the colors buffer
+        var colorIndex: Int32 = 0
+        if let index = colorOverrides.firstIndex(of: color) {
+            // Use the index of the found color
+            colorIndex = Int32(index)
+        } else if let index = colorOverrides.firstIndex(of: .zero) {
+            // Push the color into the first empty slot
+            colorOverrides[index] = color
+            colorIndex = Int32(index)
+        } else {
+            // No empty color slots
+            return
+        }
+
+        // Update the instances buffer with the color override index
+        guard let pointer: UnsafeMutablePointer<Instances> = instancesBuffer?.toUnsafeMutablePointer() else { return }
+        for id in ids {
+            guard let index = instanceOffsets.firstIndex(of: UInt32(id)) else { continue }
+            pointer.advanced(by: index).pointee.colorIndex = colorIndex
+        }
     }
 }

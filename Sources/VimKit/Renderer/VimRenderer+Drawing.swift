@@ -6,7 +6,6 @@
 //
 
 import MetalKit
-import SwiftUI
 import VimKitShaders
 
 ///  The render encoder label.
@@ -82,7 +81,8 @@ public extension VimRenderer {
               let pipelineState,
               let positionsBuffer = geometry.positionsBuffer,
               let normalsBuffer = geometry.normalsBuffer,
-              let instancesBuffer = geometry.instancesBuffer else { return }
+              let instancesBuffer = geometry.instancesBuffer,
+              let colorsBuffer = geometry.colorsBuffer else { return }
 
         renderEncoder.setRenderPipelineState(pipelineState)
         renderEncoder.setFrontFacing(.clockwise)
@@ -95,6 +95,7 @@ public extension VimRenderer {
         renderEncoder.setVertexBuffer(positionsBuffer, offset: 0, index: .positions)
         renderEncoder.setVertexBuffer(normalsBuffer, offset: 0, index: .normals)
         renderEncoder.setVertexBuffer(instancesBuffer, offset: 0, index: .instances)
+        renderEncoder.setVertexBuffer(colorsBuffer, offset: 0, index: .colorOverrides)
         renderEncoder.setFragmentTexture(baseColorTexture, index: 0)
         renderEncoder.setFragmentSamplerState(samplerState, index: 0)
 
@@ -102,9 +103,6 @@ public extension VimRenderer {
         var xRay = xRayMode
         renderEncoder.setVertexBytes(&xRay, length: MemoryLayout<Bool>.size, index: .xRay)
 
-        // Set the override color (for selection or highlighting)
-        var color = Color.objectSelectionColor.channels
-        renderEncoder.setVertexBytes(&color, length: MemoryLayout<SIMD4<Float>>.size, index: .colorOverride)
     }
 
     /// Draws the entire scene.

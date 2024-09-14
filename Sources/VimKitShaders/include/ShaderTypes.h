@@ -17,7 +17,6 @@ typedef metal::int32_t EnumBackingType;
 #import <Foundation/Foundation.h>
 typedef NSInteger EnumBackingType;
 #endif
-
 #import <simd/simd.h>
 
 // Per Frame Uniforms
@@ -45,13 +44,17 @@ typedef NS_ENUM(EnumBackingType, InstanceState) {
     InstanceStateDefault = 0,
     InstanceStateHidden = 1,
     InstanceStateSelected = 2,
-    InstanceStateHighlighted = 3,
 };
 
 // Instancing Data
 typedef struct {
+    // The index of the instance.
     uint32_t index;
+    // The index of the color override to use from the colors buffer (-1 indicates no override)
+    int32_t colorIndex;
+    // The 4x4 row-major matrix representing the node's world-space transform.
     simd_float4x4 matrix;
+    // The state of the instance
     InstanceState state;
 } Instances;
 
@@ -62,7 +65,7 @@ typedef NS_ENUM(EnumBackingType, BufferIndex) {
     BufferIndexUniforms = 2,
     BufferIndexMeshUniforms = 3,
     BufferIndexInstances = 4,
-    BufferIndexColorOverride = 5,
+    BufferIndexColorOverrides = 5,
     BufferIndexXRay = 6
 };
 
