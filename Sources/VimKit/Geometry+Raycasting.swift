@@ -93,31 +93,15 @@ extension Geometry {
     }
 }
 
+// MARK: Hit Testing
+
 extension Geometry.RaycastQuery {
 
-    func intersection(sphere: Geometry.Sphere) -> Geometry.RaycastResult? {
-//        var t0, t1: Float
-//        let radius2 = radius * radius
-//        if (radius2 == 0) { return nil }
-//        let L = center - ray.origin
-//        let tca = simd_dot(L, ray.direction)
-//        
-//        let d2 = simd_dot(L, L) - tca * tca
-//        if (d2 > radius2) { return nil }
-//        let thc = sqrt(radius2 - d2)
-//        t0 = tca - thc
-//        t1 = tca + thc
-//        
-//        if (t0 > t1) { swap(&t0, &t1) }
-//        
-//        if t0 < 0 {
-//            t0 = t1
-//            if t0 < 0 { return nil }
-//        }
-//        
-//        return float4(ray.origin + ray.direction * t0, 1)
-
-        return nil
+    /// Convenience method that tests if the query intersects the face.
+    /// - Parameter face: the face to test
+    /// - Returns: the raycast result if the face intersects.
+    fileprivate func hitTest(face: Geometry.Face) -> Geometry.RaycastResult? {
+        hitTest(face.a, face.b, face.c)
     }
 
     /// Tests if the query intersects the triangle.
@@ -126,9 +110,8 @@ extension Geometry.RaycastQuery {
     ///   - pa: the first point of the triange
     ///   - pb: the second point of the triangle
     ///   - pc: the third point of the triangle
-    ///   - target: the target ray
     /// - Returns: the raycast result if the triangle intersects.
-    fileprivate func intersection(_ pa: SIMD3<Float>, _ pb: SIMD3<Float>, _ pc: SIMD3<Float>) -> Geometry.RaycastResult? {
+    fileprivate func hitTest(_ pa: SIMD3<Float>, _ pb: SIMD3<Float>, _ pc: SIMD3<Float>) -> Geometry.RaycastResult? {
 
         let edgeA = pb - pa
         let edgeB = pc - pa
@@ -168,7 +151,6 @@ extension Geometry.RaycastQuery {
     }
 }
 
-
 // MARK: Instance Querying
 
 extension Geometry.Instance {
@@ -181,20 +163,18 @@ extension Geometry.Instance {
     /// - Returns: the result of the query.
     func raycast(_ geometry: Geometry, query: Geometry.RaycastQuery) -> Geometry.RaycastResult? {
 
-        guard let vertices = geometry.vertices(for: self)?.chunked(into: 3), vertices.isNotEmpty else { return nil }
+        guard let faces = geometry.faces(for: self), faces.isNotEmpty else { return nil }
         var results = [Geometry.RaycastResult]()
-        for vertex in vertices {
-            if let result = query.intersection(vertex[0], vertex[1], vertex[2]) {
+
+        for face in faces {
+            if let result = query.hitTest(face: face) {
                 results.append(result)
             }
         }
-
         // Sort the results by distance and return the first one
         return results.sorted{ $0.distance < $1.distance }.first
     }
 }
-
-
 
 // MARK: MDLAxisAlignedBoundingBox Querying
 

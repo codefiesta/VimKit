@@ -143,10 +143,10 @@ extension VimRenderer {
             return
         }
         let id = Int(pixel)
-                
+
         let query = camera.unprojectPoint(point)
         var point3D: SIMD3<Float> = .zero
-        
+
         // Raycast into the instance
         if let result = geometry.instances[id].raycast(geometry, query: query) {
             point3D = result.position
