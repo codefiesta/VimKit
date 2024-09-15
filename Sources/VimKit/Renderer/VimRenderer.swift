@@ -79,6 +79,7 @@ open class VimRenderer: NSObject {
 
     var shapes: Shapes?
     var skycube: Skycube?
+    var points = [SIMD3<Float>]()
 
     /// The max time to render a frame.
     /// TODO: Calculate from frame rate.
@@ -132,7 +133,7 @@ extension VimRenderer {
     /// grabs the byte encoded at that pixel on the instance index texture.
     /// - Parameter point: the screen point
     public func didTap(at point: SIMD2<Float>) {
-        guard let texture = instanceIndexTexture else { return }
+        guard let geometry, let texture = instanceIndexTexture else { return }
         let region = MTLRegionMake2D(Int(point.x), Int(point.y), 1, 1)
         let bytesPerRow = MemoryLayout<Int32>.stride * texture.width
         var pixel: Int32 = .empty
@@ -142,13 +143,16 @@ extension VimRenderer {
             return
         }
         let id = Int(pixel)
-        /// Raycast into the instance
-        var point3D: SIMD3<Float> = .zero
+                
         let query = camera.unprojectPoint(point)
-        if let geometry,
-           let result = geometry.instances[id].raycast(geometry, query: query) {
+        var point3D: SIMD3<Float> = .zero
+        
+        // Raycast into the instance
+        if let result = geometry.instances[id].raycast(geometry, query: query) {
             point3D = result.position
+            points.append(result.position)
         }
+
         // Select the instance so the event gets published.
         context.vim.select(id: id, point: point3D)
     }

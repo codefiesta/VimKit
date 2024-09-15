@@ -287,13 +287,13 @@ public extension ProjectiveTransform3D {
 /// - SeeAlso: [SGLMath](https://github.com/SwiftGL/Math/blob/master/Sources/SGLMath/glm.swift)
 /// - Parameters:
 ///   - point: the point to project
-///   - modelViewMatrix: the model view matrix
+///   - viewMatrix: the view matrix
 ///   - projectionMatrix: the projection matrix
 ///   - viewport: the viewpoint
 /// - Returns: the computed position in 3D space.
-func unproject(point: SIMD3<Float>, modelViewMatrix: float4x4, projectionMatrix: float4x4, viewport: SIMD4<Float>) -> SIMD3<Float> {
+func unproject(point: SIMD3<Float>, viewMatrix: float4x4, projectionMatrix: float4x4, viewport: SIMD4<Float>) -> SIMD3<Float> {
 
-    let inverse = (projectionMatrix * modelViewMatrix).inverse
+    let inverse = (projectionMatrix * viewMatrix).inverse
     var tmp = SIMD4<Float>(point, 1)
     tmp.x = (tmp.x - viewport.x) / viewport.z
     tmp.y = (tmp.y - viewport.y) / viewport.w
@@ -301,7 +301,6 @@ func unproject(point: SIMD3<Float>, modelViewMatrix: float4x4, projectionMatrix:
 
     var result = inverse * tmp
     result /= result.w
-
     return result.xyz
 }
 

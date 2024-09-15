@@ -27,6 +27,28 @@ extension Geometry {
             self.direction = direction
         }
 
+        /// Determine the point along this ray at the given parameter
+        func extrapolate(_ parameter: Float) -> SIMD4<Float> {
+            return .init(origin + parameter * direction, 1)
+        }
+
+        /// Determine the parameter corresponding to the point,
+        /// assuming it lies on this ray
+        func interpolate(_ point: SIMD4<Float>) -> Float {
+            return length(point.xyz - origin) / length(direction)
+        }
+
+        /// Convenience operator that performs multiplication of the transform against the query.
+        /// - Parameters:
+        ///   - transform: the transform
+        ///   - query: the raycast query
+        /// - Returns: a new raycast query multiplied by the transform.
+        static func * (transform: float4x4, query: RaycastQuery) -> RaycastQuery {
+            let o = (transform * SIMD4<Float>(query.origin, 1)).xyz
+            let d = (transform * SIMD4<Float>(query.direction, 0)).xyz
+            return RaycastQuery(origin: o, direction: d)
+        }
+
         /// Returns the plane intersection result if found.
         /// - Parameter plane: the plane to intersect
         /// - Returns: the plane intersection result.
@@ -42,23 +64,61 @@ extension Geometry {
     /// A type that holds information about the result for a raycast query.
     public struct RaycastResult {
 
-        /// The distance to the result
+        /// The query that produced this result.
+        public let query: RaycastQuery
+        /// The distance from the origin to the result.
         public let distance: Float
         /// The position of the intersection result in world space
-        public let position: SIMD3<Float>
+        public var position: SIMD3<Float> {
+            query.origin + distance * query.direction
+        }
 
         /// Initializer.
         /// - Parameters:
+        ///   - query: the query that produced this result
         ///   - distance: the distance to the face that was intersected
-        ///   - position: the position of the face that was intersected
-        init(distance: Float, position: SIMD3<Float>) {
+        init(query: RaycastQuery, distance: Float) {
+            self.query = query
             self.distance = distance
-            self.position = position
+        }
+
+        /// Convenience operator that tests if the lest hand side result is less than the right hand result.
+        /// - Parameters:
+        ///   - lhs: the left hand result to test against
+        ///   - rhs: the right hand result to test against
+        /// - Returns: true if the left hand result distance is less than the right hand side result.
+        static func < (lhs: RaycastResult, rhs: RaycastResult) -> Bool {
+            lhs.distance < rhs.distance
         }
     }
 }
 
 extension Geometry.RaycastQuery {
+
+    func intersection(sphere: Geometry.Sphere) -> Geometry.RaycastResult? {
+//        var t0, t1: Float
+//        let radius2 = radius * radius
+//        if (radius2 == 0) { return nil }
+//        let L = center - ray.origin
+//        let tca = simd_dot(L, ray.direction)
+//        
+//        let d2 = simd_dot(L, L) - tca * tca
+//        if (d2 > radius2) { return nil }
+//        let thc = sqrt(radius2 - d2)
+//        t0 = tca - thc
+//        t1 = tca + thc
+//        
+//        if (t0 > t1) { swap(&t0, &t1) }
+//        
+//        if t0 < 0 {
+//            t0 = t1
+//            if t0 < 0 { return nil }
+//        }
+//        
+//        return float4(ray.origin + ray.direction * t0, 1)
+
+        return nil
+    }
 
     /// Tests if the query intersects the triangle.
     /// - SeeAlso: https://en.wikipedia.org/wiki/M%C3%B6ller%E2%80%93Trumbore_intersection_algorithm
@@ -100,8 +160,7 @@ extension Geometry.RaycastQuery {
         let distance = invDet * dot(edgeB, q)
 
         if distance > epsilon {
-            let position = origin + (direction * distance)
-            return Geometry.RaycastResult(distance: distance, position: position)
+            return Geometry.RaycastResult(query: self, distance: distance)
         } else {
             // Line intersection, but not a ray intersection.
             return nil
@@ -204,7 +263,7 @@ extension MDLAxisAlignedBoundingBox {
         intersection(query, sideNormal: .znegative, position: &position)
         guard position != .invalid else { return nil }
         let d = distance(query.origin, position.xyz)
-        return Geometry.RaycastResult(distance: d, position: position.xyz)
+        return Geometry.RaycastResult(query: query, distance: d)
     }
 
     /// Performs an intersection test of the bounding box against the query.

@@ -126,6 +126,7 @@ public extension VimRenderer {
 
         // Draw the shapes
         shapes?.draw(renderEncoder: renderEncoder)
+        shapes?.drawPoints(renderEncoder: renderEncoder, points: points)
     }
 
     /// Performs any draws after the main scene draw.
