@@ -144,6 +144,7 @@ public class Geometry: ObservableObject {
 
         // 5) Build the instances buffer
         await makeInstancesBuffer(device: device)
+        _ = instancedMeshesMap
         progress.completedUnitCount += 1
 
         // 6) Build the colors buffer
@@ -541,6 +542,22 @@ public class Geometry: ObservableObject {
         return instancedMeshes.map { $0.instances }.reduce( [], + )
     }()
 
+    /// Provides a hash lookup of instance indices into their respective instanced meshes index.
+    /// The key is the instance index and the value is the index into it's shared `instancedMeshes`.
+    lazy var instancedMeshesMap: [Int: Int] = {
+        var map = [Int: Int]()
+        for (i, instancedMesh) in instancedMeshes.enumerated() {
+            for j in instancedMesh.instances {
+                guard map[Int(j)] == nil else { continue }
+                map[Int(j)] = i
+            }
+        }
+        return map
+    }()
+
+    /// Holds a set of hidden instanced meshes.
+    var hiddeninstancedMeshes = Set<Int>()
+
     /// Determines mesh transparency. This allows us to sort or
     /// split instances into opaque or transparent continuous ranges.
     /// - Parameters:
@@ -723,7 +740,7 @@ public class Geometry: ObservableObject {
     }
 }
 
-// MARK: Instance Mutation (MTLBuffer content)
+// MARK: Instance Hiding
 
 extension Geometry {
 
@@ -732,32 +749,23 @@ extension Geometry {
     ///   - ids: the ids of the instances to hide
     /// - Returns: the total count of hidden instances.
     public func hide(ids: [Int]) -> Int {
-        guard let pointer: UnsafeMutablePointer<Instances> = instancesBuffer?.toUnsafeMutablePointer() else { return 0 }
+        guard let pointer: UnsafeMutableBufferPointer<Instances> = instancesBuffer?.toUnsafeMutableBufferPointer() else { return 0 }
         for id in ids {
             guard let index = instanceOffsets.firstIndex(of: UInt32(id)) else { continue }
-            pointer.advanced(by: index).pointee.state = .hidden
+            pointer[index].state = .hidden
         }
-        return hiddenCount
-    }
 
-    /// Toggles the instance hidden state to `.selected` or
-    /// - Parameters:
-    ///   - id: the index of the instances to select or deselect
-    /// - Returns: true if the instance was selected, otherwise false
-    public func select(id: Int) -> Bool {
-        guard let pointer: UnsafeMutablePointer<Instances> = instancesBuffer?.toUnsafeMutablePointer(),
-              let index = instanceOffsets.firstIndex(of: UInt32(id)) else { return false }
-        let instance = pointer[index]
-        switch instance.state {
-        case .default, .hidden:
-            pointer.advanced(by: index).pointee.state = .selected
-            return true
-        case .selected:
-            pointer.advanced(by: index).pointee.state = .default
-            return false
-        @unknown default:
-            return false
+        let hidden = pointer[0..<pointer.count].filter{ $0.state == .hidden }.map { Int($0.index) }
+        let hiddenSet = Set<Int>(hidden)
+
+        // Hide all of the instanced meshes where all shared instances are hidden
+        for (i, instancedMesh) in instancedMeshes.enumerated() {
+            let instancesSet = Set<Int>(instancedMesh.instances.map { Int($0) })
+            if instancesSet.isSubset(of: hiddenSet) {
+                hiddeninstancedMeshes.insert(i)
+            }
         }
+        return hidden.count
     }
 
     /// Unhides all hidden instances.
@@ -768,21 +776,50 @@ extension Geometry {
                 pointer[i].state = .default
             }
         }
+        hiddeninstancedMeshes.removeAll()
     }
 
     /// Convenience var that returns a count of the hidden instances.
     public var hiddenCount: Int {
         guard let pointer: UnsafeMutableBufferPointer<Instances> = instancesBuffer?.toUnsafeMutableBufferPointer() else { return 0 }
-        // TODO: Must be a better way to filter the pointer values
         return pointer[0..<pointer.count].filter{ $0.state == .hidden }.count
+    }
+}
+
+// MARK: Instance Selection
+
+extension Geometry {
+
+    /// Toggles the instance hidden state to `.selected` or
+    /// - Parameters:
+    ///   - id: the index of the instances to select or deselect
+    /// - Returns: true if the instance was selected, otherwise false
+    public func select(id: Int) -> Bool {
+        guard let pointer: UnsafeMutableBufferPointer<Instances> = instancesBuffer?.toUnsafeMutableBufferPointer(),
+              let index = instanceOffsets.firstIndex(of: UInt32(id)) else { return false }
+        let instance = pointer[index]
+        switch instance.state {
+        case .default, .hidden:
+            pointer[index].state = .selected
+            return true
+        case .selected:
+            pointer[index].state = .default
+            return false
+        @unknown default:
+            return false
+        }
     }
 
     /// Convenience var that returns a count of the selected instances.
     public var selectedCount: Int {
         guard let pointer: UnsafeMutableBufferPointer<Instances> = instancesBuffer?.toUnsafeMutableBufferPointer() else { return 0 }
-        // TODO: Must be a better way to filter the pointer values
         return pointer[0..<pointer.count].filter{ $0.state == .selected }.count
     }
+}
+
+// MARK: Instance Color Overrides
+
+extension Geometry {
 
     /// Applies the color override to all instances in the specified ids.
     ///
