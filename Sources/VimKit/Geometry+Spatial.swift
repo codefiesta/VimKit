@@ -1,5 +1,5 @@
 //
-//  Geometry+BVH.swift
+//  Geometry+Spatial.swift
 //  
 //
 //  Created by Kevin McKee
@@ -15,6 +15,7 @@ private let nodeThreshold = 8
 
 extension Geometry {
 
+    /// Provides a bounding sphere used for intersection testing.
     struct Sphere {
         /// The center of the sphere.
         let center: SIMD3<Float>
@@ -32,6 +33,23 @@ extension Geometry {
             return d <= r2
         }
     }
+
+    /// Every single 3D model is made out of the same three elements: vertices, edges, and faces.
+    /// A vertex is a single point in space. When you connect two vertices, you've created an edge and if
+    /// you connect three or more vertices in a closed loop, then you've created a face. A face is basically a polygon.
+    struct Face {
+        // Point a
+        let a: SIMD3<Float>
+        // Point b
+        let b: SIMD3<Float>
+        // Point c
+        let c: SIMD3<Float>
+    }
+}
+
+// MARK: Scene Graph
+
+extension Geometry {
 
     typealias BVH = BoundingVolumeHierarchy
 

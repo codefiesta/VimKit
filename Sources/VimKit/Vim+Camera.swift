@@ -203,15 +203,22 @@ extension Vim {
         }
 
         /// Unprojects a point from the 2D pixel coordinate system to the 3D world coordinate system of the scene.
+        /// See: https://metalbyexample.com/picking-hit-testing/
         /// - Parameters:
         ///   - pixel: A pixel in the screen-space (viewport).
         /// - Returns: the computed position in 3D space
         public func unprojectPoint(_ pixel: SIMD2<Float>) -> Geometry.RaycastQuery {
             let point = SIMD3<Float>(pixel, 1)
-            let viewport = SIMD4<Float>(.zero, .zero, viewportSize.x, viewportSize.y)
-            let result = unproject(point: point, modelViewMatrix: viewMatrix, projectionMatrix: projectionMatrix, viewport: viewport)
-            let direction = normalize(result - position)
-            return Geometry.RaycastQuery(origin: position, direction: direction)
+            let clipX = (2 * point.x) / viewportSize.x - 1
+            let clipY = 1 - (2 * point.y) / viewportSize.y
+            let clipSpace = SIMD4<Float>(clipX, clipY, 0, 1)
+
+            var eyeDirection = projectionMatrix.inverse * clipSpace
+            eyeDirection.z = -1
+            eyeDirection.w = 0
+
+            let worldRayDirection = normalize((viewMatrix.inverse * eyeDirection).xyz)
+            return Geometry.RaycastQuery(origin: position, direction: worldRayDirection)
         }
 
         /// Determines if the camera frustum intersects the bounding box.

@@ -572,16 +572,46 @@ public class Geometry: ObservableObject {
         return MDLAxisAlignedBoundingBox(maxBounds: maxBounds, minBounds: minBounds)
     }
 
+    /// Helper method to retrieve the vertex at the specified index.
+    /// - Parameter index: the indices index
+    /// - Returns: the vertex at the specified index
+    func vertex(at index: Int) -> SIMD3<Float> {
+        let i = Int(indices[index] * 3)
+        return .init(positions[i..<(i+3)])
+    }
+
+    /// Helper method that returns a face for the specifed indices.
+    /// - Parameter indices: the face indices
+    /// - Returns: a face for the specified indices
+    func face(for indices: SIMD3<Int>) -> Face {
+        let a = vertex(at: indices.x)
+        let b = vertex(at: indices.y)
+        let c = vertex(at: indices.z)
+        return Face(a: a, b: b, c: c)
+    }
+
     /// Helper method that returns all of the vertices that are contained in the specified instance.
     /// - Parameter instance: the instance to return all of the vertices for
     /// - Returns: all vertices contained in the specified instance
     func vertices(for instance: Instance) -> [SIMD3<Float>]? {
-        guard let mesh = instance.mesh, let range = mesh.submeshes else { return nil }
+        guard let range = instance.mesh?.submeshes else { return nil }
         var results = [SIMD3<Float>]()
-        let indexes = submeshes[range].map { indices[$0.indices].map { Int($0) * 3 } }.reduce( [], + )
+        let indexes = submeshes[range].map { indices[$0.indices].map { Int($0) * 3} }.reduce( [], + )
         for i in indexes {
             let vertex: SIMD3<Float> = .init(positions[i..<(i+3)])
             results.append(vertex)
+        }
+        return results
+    }
+
+    /// Helper method that returns all of the faces that are contained in the specified instance.
+    /// - Parameter instance: the instance to return all of the faces for
+    /// - Returns: all faces contained in the specified instance
+    func faces(for instance: Instance) -> [Face]? {
+        guard let vertices = vertices(for: instance)?.chunked(into: 3), vertices.isNotEmpty else { return nil }
+        var results = [Face]()
+        for vertex in vertices {
+            results.append(Face(a: vertex[0], b: vertex[1], c: vertex[2]))
         }
         return results
     }
