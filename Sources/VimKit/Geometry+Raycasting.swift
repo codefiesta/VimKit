@@ -56,8 +56,61 @@ extension Geometry {
             let directionDotNorm = dot(direction, plane.xyz)
             guard directionDotNorm != .zero else { return nil }
             let distance = -(dot(origin, plane.xyz) + plane.w) / dot(direction, plane.xyz)
-            let location = origin + (direction * distance)
+            let location = origin + distance * direction
             return .init(location, distance)
+        }
+
+        /// Convenience method that tests if the query intersects the face.
+        /// - Parameter face: the face to test
+        /// - Returns: the raycast result if the face intersects.
+        fileprivate func hitTest(face: Geometry.Face) -> Geometry.RaycastResult? {
+            hitTest(face.a, face.b, face.c)
+        }
+
+        /// Tests if the query intersects the triangle.
+        /// - SeeAlso: https://en.wikipedia.org/wiki/M%C3%B6ller%E2%80%93Trumbore_intersection_algorithm
+        /// - Parameters:
+        ///   - pa: the first point of the triange
+        ///   - pb: the second point of the triangle
+        ///   - pc: the third point of the triangle
+        /// - Returns: the raycast result if the triangle intersects.
+        fileprivate func hitTest(_ pa: SIMD3<Float>, _ pb: SIMD3<Float>, _ pc: SIMD3<Float>) -> Geometry.RaycastResult? {
+
+            let edgeA = pb - pa
+            let edgeB = pc - pa
+            let h = cross(direction, edgeB)
+            let det = dot(edgeA, h)
+            let epsilon: Float = .ulpOfOne
+
+            // The ray is parallel to this triangle
+            if det > -epsilon && det < epsilon {
+                return nil
+            }
+
+            let invDet = 1.0 / det
+            let s = origin - pa
+            let u = invDet * dot(s, h)
+
+            if u < .zero || u > 1.0 {
+                return nil
+            }
+
+            let q = cross(s, edgeA)
+            let v = invDet * dot(direction, q)
+
+            if v < .zero || (u + v) > 1.0 {
+                return nil
+            }
+
+            // At this stage we can compute t to find out where the intersection point is on the line.
+            let distance = invDet * dot(edgeB, q)
+
+            if distance > epsilon {
+                return Geometry.RaycastResult(query: self, distance: distance)
+            } else {
+                // Line intersection, but not a ray intersection.
+                return nil
+            }
         }
     }
 
@@ -93,70 +146,12 @@ extension Geometry {
     }
 }
 
-// MARK: Hit Testing
-
-extension Geometry.RaycastQuery {
-
-    /// Convenience method that tests if the query intersects the face.
-    /// - Parameter face: the face to test
-    /// - Returns: the raycast result if the face intersects.
-    fileprivate func hitTest(face: Geometry.Face) -> Geometry.RaycastResult? {
-        hitTest(face.a, face.b, face.c)
-    }
-
-    /// Tests if the query intersects the triangle.
-    /// - SeeAlso: https://en.wikipedia.org/wiki/M%C3%B6ller%E2%80%93Trumbore_intersection_algorithm
-    /// - Parameters:
-    ///   - pa: the first point of the triange
-    ///   - pb: the second point of the triangle
-    ///   - pc: the third point of the triangle
-    /// - Returns: the raycast result if the triangle intersects.
-    fileprivate func hitTest(_ pa: SIMD3<Float>, _ pb: SIMD3<Float>, _ pc: SIMD3<Float>) -> Geometry.RaycastResult? {
-
-        let edgeA = pb - pa
-        let edgeB = pc - pa
-        let h = cross(direction, edgeB)
-        let det = dot(edgeA, h)
-        let epsilon: Float = .ulpOfOne
-
-        // The ray is parallel to this triangle
-        if det > -epsilon && det < epsilon {
-            return nil
-        }
-
-        let invDet = 1.0 / det
-        let s = origin - pa
-        let u = invDet * dot(s, h)
-
-        if u < .zero || u > 1.0 {
-            return nil
-        }
-
-        let q = cross(s, edgeA)
-        let v = dot(direction, q) * invDet
-
-        if v < .zero || (u + v) > 1.0 {
-            return nil
-        }
-
-        // At this stage we can compute t to find out where the intersection point is on the line.
-        let distance = invDet * dot(edgeB, q)
-
-        if distance > epsilon {
-            return Geometry.RaycastResult(query: self, distance: distance)
-        } else {
-            // Line intersection, but not a ray intersection.
-            return nil
-        }
-    }
-}
-
 // MARK: Instance Querying
 
 extension Geometry.Instance {
 
     /// Performs an intersection test of the instance against the query.
-    /// If the instance has a large number of submeshes, then the bounding box is used as an estimate.
+    /// See: https://metalbyexample.com/picking-hit-testing/
     /// - Parameters:
     ///   - geometry: the geometry container that holds the instance mesh and submesh
     ///   - query: the raycast query.
@@ -166,13 +161,19 @@ extension Geometry.Instance {
         guard let faces = geometry.faces(for: self), faces.isNotEmpty else { return nil }
         var results = [Geometry.RaycastResult]()
 
+        // Transform the query into local space
+        let localQuery = matrix.inverse * query
         for face in faces {
-            if let result = query.hitTest(face: face) {
+            if let hit = localQuery.hitTest(face: face) {
+                // Transform the result point back into world space
+                let worldPoint = matrix * SIMD4<Float>(hit.position, 1)
+                let worldDistance = query.interpolate(worldPoint)
+                let result = Geometry.RaycastResult(query: query, distance: worldDistance)
                 results.append(result)
             }
         }
         // Sort the results by distance and return the first one
-        return results.sorted{ $0.distance < $1.distance }.first
+        return results.sorted{ $0 < $1 }.first
     }
 }
 

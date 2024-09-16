@@ -79,7 +79,6 @@ open class VimRenderer: NSObject {
 
     var shapes: Shapes?
     var skycube: Skycube?
-    var points = [SIMD3<Float>]()
 
     /// The max time to render a frame.
     /// TODO: Calculate from frame rate.
@@ -150,7 +149,7 @@ extension VimRenderer {
         // Raycast into the instance
         if let result = geometry.instances[id].raycast(geometry, query: query) {
             point3D = result.position
-            points.append(result.position)
+            debugPrint("✅", point3D)
         }
 
         // Select the instance so the event gets published.
