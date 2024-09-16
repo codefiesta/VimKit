@@ -128,31 +128,17 @@ extension Geometry {
             return root.box
         }
 
-        /// Provides a hash lookup of instance indices into their instanced meshes index.
-        private var instancedMeshesMap = [Int: Int]()
-
         /// Intializes the bounding volume with the specified geometry.
         /// - Parameter geometry: the geomety to use
         init(_ geometry: Geometry) async {
             self.geometry = geometry
             var data = [(index: Int, box: MDLAxisAlignedBoundingBox)]()
             for (i, instance) in geometry.instances.enumerated() {
-
                 if let box = instance.boundingBox {
                     data.append((index: i, box: box))
                 } else {
                     guard let box = await geometry.calculateBoundingBox(instance) else { continue }
                     data.append((index: i, box: box))
-                }
-            }
-
-            // Map the instances to their shared meshes
-            for (i, instancedMesh) in geometry.instancedMeshes.enumerated() {
-                for j in instancedMesh.instances {
-                    guard instancedMeshesMap[Int(j)] == nil else {
-                        continue
-                    }
-                    instancedMeshesMap[Int(j)] = i
                 }
             }
             root = Node(&data)
@@ -164,8 +150,10 @@ extension Geometry {
         /// - Parameter camera: the camera data
         /// - Returns: a list of indices into the `geometry.instancedMeshes` array that are inside the frustum
         func intersectionResults(camera: Vim.Camera) -> [Int] {
+            guard let geometry else { return [] }
             var results = Set<Int>()
             intersections(frustum: camera.frustum, node: root, results: &results)
+            results.subtract(geometry.hiddeninstancedMeshes) // Remove any hidden instanced meshes
             return results.sorted()
         }
 
@@ -175,8 +163,8 @@ extension Geometry {
         ///   - node: the node to recursively look through
         ///   - results: the results to append to
         fileprivate func intersections(frustum: Vim.Camera.Frustum, node: Node, results: inout Set<Int>) {
-            guard frustum.contains(node.box) else { return }
-            let indices = node.instances.compactMap{ instancedMeshesMap[$0] }
+            guard let geometry, frustum.contains(node.box) else { return }
+            let indices = node.instances.compactMap{ geometry.instancedMeshesMap[$0] }
             results.formUnion(indices)
             for child in node.children {
                 intersections(frustum: frustum, node: child, results: &results)
