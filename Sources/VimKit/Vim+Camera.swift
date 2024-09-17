@@ -17,7 +17,7 @@ import Spatial
 private let cameraDefaultFovDegrees: Float = 65
 private let cameraDefaultAspectRatio: Float = 1.3
 private let cameraDefaultNearZ: Float = 0.01
-private let cameraDefaultFarZ: Float = 10000.0
+private let cameraDefaultFarZ: Float = 1000.0
 private let cameraMaxFov: Float = 179.9
 
 extension Vim {
@@ -339,9 +339,9 @@ extension Vim {
                 let p = camera.position
                 let f = camera.forward
                 let nearCenter = p + f * camera.nearZ
-                let farCenter = p + f * camera.farZ
+                let farCenter = p + f * -camera.farZ
 
-                let c = (nearCenter + farCenter).negate * .half
+                let c = (nearCenter + farCenter) * .half
                 let d = distance(c, p)
 
                 center = c
