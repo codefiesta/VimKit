@@ -342,11 +342,10 @@ extension Vim {
                 let farCenter = p + f * -camera.farZ
 
                 let c = (nearCenter + farCenter) * .half
-                let d = distance(c, p)
+                let d = distance(c, p) * .half
 
                 center = c
                 radius = d
-
             }
 
             /// Tests to see if the frustum contains the provided bounding box or not.
