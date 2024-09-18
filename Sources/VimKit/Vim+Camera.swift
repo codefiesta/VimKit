@@ -14,11 +14,11 @@ import ModelIO
 import simd
 import Spatial
 
-private let cameraDefaultFovDegrees: Float = 65
-private let cameraDefaultAspectRatio: Float = 1.3
-private let cameraDefaultNearZ: Float = 0.01
-private let cameraDefaultFarZ: Float = 1000.0
-private let cameraMaxFov: Float = 179.9
+private let defaultFovDegrees: Float = 65
+private let defaultAspectRatio: Float = 1.3
+private let defaultNearZ: Float = 0.01
+private let defaultFarZ: Float = 1000.0
+private let maxFov: Float = 179.9
 
 extension Vim {
 
@@ -49,7 +49,7 @@ extension Vim {
         }
 
         /// The field of view in degrees.
-        var fovDegrees: Float = cameraDefaultFovDegrees {
+        var fovDegrees: Float = defaultFovDegrees {
             didSet { updateProjection() }
         }
 
@@ -57,17 +57,17 @@ extension Vim {
         public var viewportSize: SIMD2<Float> = .zero
 
         /// The aspect ratio.
-        var aspectRatio: Float = cameraDefaultAspectRatio {
+        var aspectRatio: Float = defaultAspectRatio {
             didSet { updateProjection() }
         }
 
         /// The near clipping plane.
-        var nearZ: Float = cameraDefaultNearZ {
+        var nearZ: Float = defaultNearZ {
             didSet { updateProjection() }
         }
 
         /// The far clipping plane.
-        var farZ: Float = cameraDefaultFarZ {
+        var farZ: Float = defaultFarZ {
             didSet { updateProjection() }
         }
 
@@ -129,7 +129,7 @@ extension Vim {
 
         /// Updates the projection matrix when any of the relevant projection values change.
         private func updateProjection() {
-            let fov = min(fovDegrees, cameraMaxFov)
+            let fov = min(fovDegrees, maxFov)
             let fovyRadians = fov.radians
             let projectiveTransform = ProjectiveTransform3D(fovyRadians: fovyRadians, aspectRatio: aspectRatio, nearZ: nearZ, farZ: farZ)
             projectionMatrix = .init(projectiveTransform)
