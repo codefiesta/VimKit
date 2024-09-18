@@ -346,15 +346,15 @@ extension Vim {
             ///   - radius: the sphere radius
             /// - Returns: true if contains, otherwise false
             func contains(_ box: MDLAxisAlignedBoundingBox) -> Bool {
-                if sphere.contains(box: box) { return true }
-
-                // Test the frustum planes
-                let position = box.center
-                let radius = box.radius
-                for plane in planes {
-                    let value = (plane.x * position.x) + (plane.y * position.y) + (plane.z * position.z) + plane.w
-                    if value <= -radius {
-                        return false
+                if !sphere.contains(box: box) {
+                    // Test the planes against the box
+                    let position = box.center
+                    let radius = box.radius
+                    for plane in planes {
+                        let d = (plane.x * position.x) + (plane.y * position.y) + (plane.z * position.z) + plane.w
+                        if d <= -radius {
+                            return false
+                        }
                     }
                 }
                 return true
