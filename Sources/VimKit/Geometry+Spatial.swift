@@ -152,22 +152,22 @@ extension Geometry {
         func intersectionResults(camera: Vim.Camera) -> [Int] {
             guard let geometry else { return [] }
             var results = Set<Int>()
-            intersections(frustum: camera.frustum, node: root, results: &results)
+            intersections(camera: camera, node: root, results: &results)
             results.subtract(geometry.hiddeninstancedMeshes) // Remove any hidden instanced meshes
             return results.sorted()
         }
 
         /// Recursively iterates through the BVH nodes to collect results that are inside the given frustum.
         /// - Parameters:
-        ///   - frustum: the camera frustum
+        ///   - camera: the camera data
         ///   - node: the node to recursively look through
         ///   - results: the results to append to
-        fileprivate func intersections(frustum: Vim.Camera.Frustum, node: Node, results: inout Set<Int>) {
-            guard let geometry, frustum.contains(node.box) else { return }
+        fileprivate func intersections(camera: Vim.Camera, node: Node, results: inout Set<Int>) {
+            guard let geometry, camera.contains(node.box) else { return }
             let indices = node.instances.compactMap{ geometry.instancedMeshesMap[$0] }
             results.formUnion(indices)
             for child in node.children {
-                intersections(frustum: frustum, node: child, results: &results)
+                intersections(camera: camera, node: child, results: &results)
             }
         }
     }

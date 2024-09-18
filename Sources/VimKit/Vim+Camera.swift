@@ -225,15 +225,7 @@ extension Vim {
         /// - Parameter box: the bounding box to test
         /// - Returns: false if the box is outside the viewing frustum and should be culled.
         func contains(_ box: MDLAxisAlignedBoundingBox) -> Bool {
-            let longestEdge = box.longestEdge
-            let dist = distance(box.center, position)
-            let maxLongestEdge: Float = 4.0
-            let minDistance: Float = 200
-            if longestEdge > maxLongestEdge && dist < minDistance {
-                return true
-            }
-            // Cheap test to make sure the box is in front of the plane
-            return box.inFront(of: frustum.nearPlane)
+            frustum.contains(box)
         }
 
         /// A struct that holds the camera frustum information that contains the
@@ -299,7 +291,7 @@ extension Vim {
             /// Updates the frustum from the specified matrix
             /// - Parameter matrix: the matrix to use to build the frustum planes
             fileprivate mutating func update(_ camera: Camera) {
-                let matrix = camera.projectionMatrix * camera.viewMatrix
+                let matrix = camera.viewMatrix * camera.projectionMatrix
                 // Left Plane
                 planes[.left].x = matrix.columns.0.w + matrix.columns.0.x
                 planes[.left].y = matrix.columns.1.w + matrix.columns.1.x
@@ -342,7 +334,7 @@ extension Vim {
                 let farCenter = p + f * -camera.farZ
 
                 let c = (nearCenter + farCenter) * .half
-                let d = distance(c, p) * .half
+                let d = distance(c, nearCenter) - camera.nearZ
 
                 center = c
                 radius = d
