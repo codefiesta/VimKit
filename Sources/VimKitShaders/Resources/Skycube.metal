@@ -35,8 +35,12 @@ typedef struct {
     int32_t index [[color(1)]];
 } ColorOut;
 
+// The skycube vertex shader function.
+// - Parameters:
+//   - in: The vertex position data.
+//   - amp_id: The index into the uniforms array used for stereoscopic views in visionOS.
+//   - uniformsArray: The per frame uniforms.
 vertex SkyCubeOut vertexSkycube(SkyCubeIn in [[stage_in]],
-                                uint vertex_id [[vertex_id]],
                                 ushort amp_id [[amplification_id]],
                                 constant UniformsArray &uniformsArray [[ buffer(BufferIndexUniforms) ]]) {
     
@@ -47,6 +51,7 @@ vertex SkyCubeOut vertexSkycube(SkyCubeIn in [[stage_in]],
     float4x4 viewMatrix = uniforms.viewMatrix;
     viewMatrix[3] = float4(0, 0, 0, 1);
 
+    // Use the sceneTransform as the model matrix as most scenes are z-up
     float4x4 modelViewProjectionMatrix = projectionMatrix * viewMatrix * uniforms.sceneTransform;
     
     SkyCubeOut out;
@@ -57,6 +62,11 @@ vertex SkyCubeOut vertexSkycube(SkyCubeIn in [[stage_in]],
     return out;
 }
 
+// The skycube fragment shader function.
+// - Parameters:
+//   - in: the data passed from the vertex function.
+//   - cubeTexture: the cube texture.
+//   - colorSampler: The color sampler.
 fragment ColorOut fragmentSkycube(SkyCubeOut in [[stage_in]],
                                   texturecube<float> cubeTexture [[texture(0)]],
                                   sampler colorSampler [[sampler(0)]]) {

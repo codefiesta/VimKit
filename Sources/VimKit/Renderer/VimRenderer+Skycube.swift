@@ -8,7 +8,7 @@
 import MetalKit
 import VimKitShaders
 
-private let skycubeDebugGroupName = "Skycube"
+private let skycubeGroupName = "Skycube"
 private let skycubeVertexFunctionName = "vertexSkycube"
 private let skycubeFragmentFunctionName = "fragmentSkycube"
 
@@ -51,7 +51,7 @@ extension VimRenderer {
 
             let textureDimensions: SIMD2<Int32> = [256, 256]
             let textureLoader = MTKTextureLoader(device: device)
-            let mdkSkycubeTexture = MDLSkyCubeTexture(name: nil,
+            let mdkSkycubeTexture = MDLSkyCubeTexture(name: skycubeGroupName,
                                                       channelEncoding: .uInt8,
                                                       textureDimensions: textureDimensions,
                                                       turbidity: turbidity,
@@ -103,7 +103,7 @@ extension VimRenderer {
         func draw(renderEncoder: MTLRenderCommandEncoder) {
 
             guard let pipelineState else { return }
-            renderEncoder.pushDebugGroup(skycubeDebugGroupName)
+            renderEncoder.pushDebugGroup(skycubeGroupName)
             renderEncoder.setRenderPipelineState(pipelineState)
             renderEncoder.setDepthStencilState(depthStencilState)
 
