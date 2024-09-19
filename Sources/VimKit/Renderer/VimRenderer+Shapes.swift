@@ -106,7 +106,7 @@ extension VimRenderer {
             renderEncoder.setTriangleFillMode(.lines)
 
             // Set the buffers to pass to the GPU
-            renderEncoder.setVertexBuffer(mesh.vertexBuffers[0].buffer, offset: 0, index: .positions)
+            renderEncoder.setVertexBuffer(mesh.vertexBuffers.first?.buffer, offset: 0, index: .positions)
             // Execute the draw closure
             draw(mesh)
             // Pop the debug group
