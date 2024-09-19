@@ -14,11 +14,11 @@ import ModelIO
 import simd
 import Spatial
 
-private let cameraDefaultFovDegrees: Float = 65
-private let cameraDefaultAspectRatio: Float = 1.3
-private let cameraDefaultNearZ: Float = 0.01
-private let cameraDefaultFarZ: Float = 10000.0
-private let cameraMaxFov: Float = 179.9
+private let defaultFovDegrees: Float = 65
+private let defaultAspectRatio: Float = 1.3
+private let defaultNearZ: Float = 0.01
+private let defaultFarZ: Float = 1000.0
+private let maxFov: Float = 179.9
 
 extension Vim {
 
@@ -49,7 +49,7 @@ extension Vim {
         }
 
         /// The field of view in degrees.
-        var fovDegrees: Float = cameraDefaultFovDegrees {
+        var fovDegrees: Float = defaultFovDegrees {
             didSet { updateProjection() }
         }
 
@@ -57,17 +57,17 @@ extension Vim {
         public var viewportSize: SIMD2<Float> = .zero
 
         /// The aspect ratio.
-        var aspectRatio: Float = cameraDefaultAspectRatio {
+        var aspectRatio: Float = defaultAspectRatio {
             didSet { updateProjection() }
         }
 
         /// The near clipping plane.
-        var nearZ: Float = cameraDefaultNearZ {
+        var nearZ: Float = defaultNearZ {
             didSet { updateProjection() }
         }
 
         /// The far clipping plane.
-        var farZ: Float = cameraDefaultFarZ {
+        var farZ: Float = defaultFarZ {
             didSet { updateProjection() }
         }
 
@@ -129,7 +129,7 @@ extension Vim {
 
         /// Updates the projection matrix when any of the relevant projection values change.
         private func updateProjection() {
-            let fov = min(fovDegrees, cameraMaxFov)
+            let fov = min(fovDegrees, maxFov)
             let fovyRadians = fov.radians
             let projectiveTransform = ProjectiveTransform3D(fovyRadians: fovyRadians, aspectRatio: aspectRatio, nearZ: nearZ, farZ: farZ)
             projectionMatrix = .init(projectiveTransform)
@@ -225,15 +225,7 @@ extension Vim {
         /// - Parameter box: the bounding box to test
         /// - Returns: false if the box is outside the viewing frustum and should be culled.
         func contains(_ box: MDLAxisAlignedBoundingBox) -> Bool {
-            let longestEdge = box.longestEdge
-            let dist = distance(box.center, position)
-            let maxLongestEdge: Float = 4.0
-            let minDistance: Float = 200
-            if longestEdge > maxLongestEdge && dist < minDistance {
-                return true
-            }
-            // Cheap test to make sure the box is in front of the plane
-            return box.inFront(of: frustum.nearPlane)
+            frustum.contains(box)
         }
 
         /// A struct that holds the camera frustum information that contains the
@@ -299,7 +291,7 @@ extension Vim {
             /// Updates the frustum from the specified matrix
             /// - Parameter matrix: the matrix to use to build the frustum planes
             fileprivate mutating func update(_ camera: Camera) {
-                let matrix = camera.projectionMatrix * camera.viewMatrix
+                let matrix = camera.viewMatrix * camera.projectionMatrix
                 // Left Plane
                 planes[.left].x = matrix.columns.0.w + matrix.columns.0.x
                 planes[.left].y = matrix.columns.1.w + matrix.columns.1.x
@@ -339,14 +331,13 @@ extension Vim {
                 let p = camera.position
                 let f = camera.forward
                 let nearCenter = p + f * camera.nearZ
-                let farCenter = p + f * camera.farZ
+                let farCenter = p + f * -camera.farZ
 
-                let c = (nearCenter + farCenter).negate * .half
-                let d = distance(c, p)
+                let c = (nearCenter + farCenter) * .half
+                let d = distance(c, nearCenter) - camera.nearZ
 
                 center = c
                 radius = d
-
             }
 
             /// Tests to see if the frustum contains the provided bounding box or not.
@@ -355,15 +346,15 @@ extension Vim {
             ///   - radius: the sphere radius
             /// - Returns: true if contains, otherwise false
             func contains(_ box: MDLAxisAlignedBoundingBox) -> Bool {
-                if sphere.contains(box: box) { return true }
-
-                // Test the frustum planes
-                let position = box.center
-                let radius = box.radius
-                for plane in planes {
-                    let value = (plane.x * position.x) + (plane.y * position.y) + (plane.z * position.z) + plane.w
-                    if value <= -radius {
-                        return false
+                if !sphere.contains(box: box) {
+                    // Test the planes against the box
+                    let position = box.center
+                    let radius = box.radius
+                    for plane in planes {
+                        let d = (plane.x * position.x) + (plane.y * position.y) + (plane.z * position.z) + plane.w
+                        if d <= -radius {
+                            return false
+                        }
                     }
                 }
                 return true
