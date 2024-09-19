@@ -8,9 +8,9 @@
 import MetalKit
 import VimKitShaders
 
-private let sphereGroupName = "Sphere"
-private let sphereVertexFunctionName = "vertexSphere"
-private let sphereFragmentFunctionName = "fragmentSphere"
+private let shapeGroupName = "Shape"
+private let shapeVertexFunctionName = "vertexShape"
+private let shapeFragmentFunctionName = "fragmentShape"
 
 extension VimRenderer {
 
@@ -30,6 +30,8 @@ extension VimRenderer {
             return context.vim.options[.cullingSphere] ?? false
         }
 
+        let boxMesh: MTKMesh
+        let planeMesh: MTKMesh
         let sphereMesh: MTKMesh
         let pipelineState: MTLRenderPipelineState?
         let depthStencilState: MTLDepthStencilState?
@@ -43,16 +45,27 @@ extension VimRenderer {
                 return nil
             }
 
-            let extents: SIMD3<Float> = [1.0, 1.0, 1.0]
-            let segment: UInt32 = 100
+            let extents: SIMD3<Float> = [1, 1, 1]
+            let segment: UInt32 = 12
 
             let allocator = MTKMeshBufferAllocator(device: device)
+            let mdl = MDLMesh(bufferAllocator: allocator)
+            let box = MDLMesh(boxWithExtent: extents, segments: [segment, segment, segment], inwardNormals: false, geometryType: .triangles, allocator: allocator)
+            let plane = MDLMesh(planeWithExtent: extents, segments: [segment, segment], geometryType: .triangles, allocator: allocator)
             let sphere = MDLMesh(sphereWithExtent: extents, segments: [segment, segment], inwardNormals: false, geometryType: .triangles, allocator: allocator)
 
-            guard let mesh = try? MTKMesh(mesh: sphere, device: device) else { return nil }
-            sphereMesh = mesh
+            guard let boxMesh = try? MTKMesh(mesh: box, device: device),
+                  let planeMesh = try? MTKMesh(mesh: plane, device: device),
+                  let sphereMesh = try? MTKMesh(mesh: sphere, device: device)
+                   else { return nil }
+            self.boxMesh = boxMesh
+            self.planeMesh = planeMesh
+            self.sphereMesh = sphereMesh
 
-            let vertexDescriptor = MTKMetalVertexDescriptorFromModelIO(sphere.vertexDescriptor)
+
+
+
+            let vertexDescriptor = MTKMetalVertexDescriptorFromModelIO(sphereMesh.vertexDescriptor)
             let pipelineDescriptor = MTLRenderPipelineDescriptor()
 
             // Color Attachment
@@ -61,8 +74,8 @@ extension VimRenderer {
             pipelineDescriptor.depthAttachmentPixelFormat = context.destinationProvider.depthFormat
             pipelineDescriptor.stencilAttachmentPixelFormat = context.destinationProvider.depthFormat
 
-            pipelineDescriptor.vertexFunction = library.makeFunction(name: sphereVertexFunctionName)
-            pipelineDescriptor.fragmentFunction = library.makeFunction(name: sphereFragmentFunctionName)
+            pipelineDescriptor.vertexFunction = library.makeFunction(name: shapeVertexFunctionName)
+            pipelineDescriptor.fragmentFunction = library.makeFunction(name: shapeFragmentFunctionName)
             pipelineDescriptor.vertexDescriptor = vertexDescriptor
 
             let depthStencilDescriptor = MTLDepthStencilDescriptor()
@@ -80,32 +93,26 @@ extension VimRenderer {
         /// Draws the shapes.
         /// - Parameter renderEncoder: the render encoder
         func draw(renderEncoder: MTLRenderCommandEncoder) {
-            // Noop for now ...
+            // Noop
         }
 
-        /// Draws the points as spheres.
+        /// Draws the shapes with the specified render encoder, mesh, and draw closure.
         /// - Parameters:
         ///   - renderEncoder: the render encoder
-        ///   - points: the points to draw
-        func drawPoints(renderEncoder: MTLRenderCommandEncoder, points: [SIMD3<Float>]) {
-
+        ///   - mesh: the mesh
+        ///   - draw: the main draw closure
+        private func drawShapes(renderEncoder: MTLRenderCommandEncoder, mesh: MTKMesh, draw: (MTKMesh) -> Void) {
             guard let pipelineState else { return }
-            renderEncoder.pushDebugGroup(sphereGroupName)
+            renderEncoder.pushDebugGroup(shapeGroupName)
             renderEncoder.setRenderPipelineState(pipelineState)
             renderEncoder.setDepthStencilState(depthStencilState)
             renderEncoder.setTriangleFillMode(.lines)
 
             // Set the buffers to pass to the GPU
-            renderEncoder.setVertexBuffer(sphereMesh.vertexBuffers[0].buffer, offset: 0, index: .positions)
-
-            for point in points {
-                var matrix: float4x4 = .identity
-                matrix.position = point
-                renderEncoder.setVertexBytes(&matrix, length: MemoryLayout<float4x4>.size, index: .instances)
-                for submesh in sphereMesh.submeshes {
-                    renderEncoder.drawIndexedPrimitives(type: .triangle, indexCount: submesh.indexCount, indexType: submesh.indexType, indexBuffer: submesh.indexBuffer.buffer, indexBufferOffset: 0)
-                }
-            }
+            renderEncoder.setVertexBuffer(mesh.vertexBuffers[0].buffer, offset: 0, index: .positions)
+            // Execute the draw closure
+            draw(mesh)
+            // Pop the debug group
             renderEncoder.popDebugGroup()
         }
     }
