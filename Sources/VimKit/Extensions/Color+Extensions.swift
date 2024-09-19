@@ -11,10 +11,10 @@ import SwiftUI
 extension Color {
 
     /// Represents the default object selection color
-    static let objectSelectionColor = Color("objectSelectionColor", bundle: Bundle.module)
+    static let objectSelectionColor = Color("objectSelectionColor", bundle: .module)
 
     /// Represents the sky blue color
-    static let skyBlue = Color("skyBlueColor", bundle: Bundle.module)
+    static let skyBlue = Color("skyBlueColor", bundle: .module)
 
     /// Provides a convenience var for accessing the color channels
     var channels: SIMD4<Float> {
