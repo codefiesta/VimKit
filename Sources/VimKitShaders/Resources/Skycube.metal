@@ -47,7 +47,6 @@ vertex SkyCubeOut vertexSkycube(SkyCubeIn in [[stage_in]],
     Uniforms uniforms = uniformsArray.uniforms[amp_id];
     float4x4 projectionMatrix = uniforms.projectionMatrix;
 
-    float4 up = uniforms.sceneTransform[1];
     float4x4 viewMatrix = uniforms.viewMatrix;
     viewMatrix[3] = float4(0, 0, 0, 1);
 
