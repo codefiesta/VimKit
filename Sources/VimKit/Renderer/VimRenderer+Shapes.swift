@@ -62,9 +62,6 @@ extension VimRenderer {
             self.planeMesh = planeMesh
             self.sphereMesh = sphereMesh
 
-
-
-
             let vertexDescriptor = MTKMetalVertexDescriptorFromModelIO(sphereMesh.vertexDescriptor)
             let pipelineDescriptor = MTLRenderPipelineDescriptor()
 
