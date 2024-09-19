@@ -110,7 +110,8 @@ extension VimRenderer {
         let uniforms = Uniforms(
             cameraPosition: camera.position,
             viewMatrix: camera.viewMatrix,
-            projectionMatrix: camera.projectionMatrix
+            projectionMatrix: camera.projectionMatrix,
+            sceneTransform: camera.sceneTransform
         )
         uniformBufferAddress[0].uniforms.0 = uniforms
     }

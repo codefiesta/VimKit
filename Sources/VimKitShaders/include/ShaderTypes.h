@@ -25,6 +25,7 @@ typedef struct {
     simd_float3 cameraPosition;
     simd_float4x4 viewMatrix;
     simd_float4x4 projectionMatrix;
+    simd_float4x4 sceneTransform;
 } Uniforms;
 
 // Provides an array of uniforms for rendering stereoscopic views

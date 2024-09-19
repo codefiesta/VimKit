@@ -36,30 +36,33 @@ typedef struct {
 } ColorOut;
 
 vertex SkyCubeOut vertexSkycube(SkyCubeIn in [[stage_in]],
-                              constant UniformsArray &uniformsArray [[ buffer(BufferIndexUniforms) ]],
-                              uint vertex_id [[vertex_id]],
-                              ushort amp_id [[amplification_id]]) {
+                                uint vertex_id [[vertex_id]],
+                                ushort amp_id [[amplification_id]],
+                                constant UniformsArray &uniformsArray [[ buffer(BufferIndexUniforms) ]]) {
     
     Uniforms uniforms = uniformsArray.uniforms[amp_id];
     float4x4 projectionMatrix = uniforms.projectionMatrix;
 
+    float4 up = uniforms.sceneTransform[1];
     float4x4 viewMatrix = uniforms.viewMatrix;
     viewMatrix[3] = float4(0, 0, 0, 1);
 
-    float4x4 viewProjectionMatrix = viewMatrix * projectionMatrix;
+    float4x4 modelViewProjectionMatrix = projectionMatrix * viewMatrix * uniforms.sceneTransform;
     
     SkyCubeOut out;
-    out.position = (viewProjectionMatrix * in.position).xyww;
-    out.color = float4(0, 0, 0, 0);
+    float4 position = (modelViewProjectionMatrix * in.position).xyww;
+    out.position = position;
     out.textureCoordinates = in.position.xyz;
     out.index = -1; // Denotes an invalid selection
     return out;
 }
 
 fragment ColorOut fragmentSkycube(SkyCubeOut in [[stage_in]],
-                                  texturecube<float> cubeTexture [[texture(0)]]) {
+                                  texturecube<float> cubeTexture [[texture(0)]],
+                                  sampler colorSampler [[sampler(0)]]) {
     ColorOut out;
-    out.color = in.color;
+    float4 color = cubeTexture.sample(colorSampler, in.textureCoordinates);
+    out.color = color;
     out.index = in.index;
     return out;
 }
