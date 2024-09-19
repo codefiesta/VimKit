@@ -23,20 +23,18 @@ extension VimRenderer {
         let depthStencilState: MTLDepthStencilState?
 
         /// Haze in the sky. 0 is a clear - 1 spreads the sun’s color
-        var turbidity: Float = .half
+        var turbidity: Float = 1.0
         /// How high the sun is in the sky. 0.5 is on the horizon. 1.0 is overhead.
         var sunElevation: Float = 0.75
         /// Atmospheric scattering influences the color of the sky from reddish through orange tones to the sky at midday.
-        var upperAtmosphereScattering: Float = .half
+        var upperAtmosphereScattering: Float = 0.75
         /// How clear the sky is. 0 is clear, while 10 can produce intense colors. It’s best to keep turbidity and upper atmosphere scattering low if you have high albedo.
         var groundAlbedo: Float = 0.1
 
+        /// Initializes the skycube with the provided context.
+        /// - Parameter context: the rendering context.
         init?(_ context: VimRendererContext) {
 
-            // Determine how high the sun is based on the hour of day
-            let hour = Calendar.current.component(.hour, from: .now)
-            sunElevation = Float(hour) / Float(24)
-            
             guard let library = MTLContext.makeLibrary(),
                   let device = context.destinationProvider.device else {
                 return nil
@@ -100,6 +98,8 @@ extension VimRenderer {
             self.pipelineState = pipelineState
         }
 
+        /// Draws the skycube.
+        /// - Parameter renderEncoder: the render encoder to use.
         func draw(renderEncoder: MTLRenderCommandEncoder) {
 
             guard let pipelineState else { return }
