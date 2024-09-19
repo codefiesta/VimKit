@@ -45,11 +45,10 @@ extension VimRenderer {
                 return nil
             }
 
-            let extents: SIMD3<Float> = [1, 1, 1]
+            let extents: SIMD3<Float> = .one
             let segment: UInt32 = 12
 
             let allocator = MTKMeshBufferAllocator(device: device)
-            let mdl = MDLMesh(bufferAllocator: allocator)
             let box = MDLMesh(boxWithExtent: extents, segments: [segment, segment, segment], inwardNormals: false, geometryType: .triangles, allocator: allocator)
             let plane = MDLMesh(planeWithExtent: extents, segments: [segment, segment], geometryType: .triangles, allocator: allocator)
             let sphere = MDLMesh(sphereWithExtent: extents, segments: [segment, segment], inwardNormals: false, geometryType: .triangles, allocator: allocator)

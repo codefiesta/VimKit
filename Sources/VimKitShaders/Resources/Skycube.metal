@@ -13,7 +13,7 @@ using namespace metal;
 // The struct that is passed to the vertex function
 typedef struct {
     float4 position [[attribute(VertexAttributePosition)]];
-} VertexIn;
+} SkyCubeIn;
 
 // The struct that is passed from the vertex function to the fragment function
 typedef struct {
@@ -25,7 +25,7 @@ typedef struct {
     float3 textureCoordinates;
     // The instance index (-1 indicates a non-selectable or invalid instance)
     int32_t index;
-} VertexOut;
+} SkyCubeOut;
 
 // The struct that is returned from the fragment function
 typedef struct {
@@ -35,7 +35,7 @@ typedef struct {
     int32_t index [[color(1)]];
 } ColorOut;
 
-vertex VertexOut vertexSkycube(VertexIn in [[stage_in]],
+vertex SkyCubeOut vertexSkycube(SkyCubeIn in [[stage_in]],
                               constant UniformsArray &uniformsArray [[ buffer(BufferIndexUniforms) ]],
                               uint vertex_id [[vertex_id]],
                               ushort amp_id [[amplification_id]]) {
@@ -48,7 +48,7 @@ vertex VertexOut vertexSkycube(VertexIn in [[stage_in]],
 
     float4x4 viewProjectionMatrix = viewMatrix * projectionMatrix;
     
-    VertexOut out;
+    SkyCubeOut out;
     out.position = (viewProjectionMatrix * in.position).xyww;
     out.color = float4(0, 0, 0, 0);
     out.textureCoordinates = in.position.xyz;
@@ -56,7 +56,7 @@ vertex VertexOut vertexSkycube(VertexIn in [[stage_in]],
     return out;
 }
 
-fragment ColorOut fragmentSkycube(VertexOut in [[stage_in]],
+fragment ColorOut fragmentSkycube(SkyCubeOut in [[stage_in]],
                                   texturecube<float> cubeTexture [[texture(0)]]) {
     ColorOut out;
     out.color = in.color;

@@ -22,6 +22,15 @@ extension VimRenderer {
         let pipelineState: MTLRenderPipelineState?
         let depthStencilState: MTLDepthStencilState?
 
+        /// Haze in the sky. 0 is a clear - 1 spreads the sun’s color
+        var turbidity: Float = 0.28
+        /// How high the sun is in the sky. 0.5 is on the horizon. 1.0 is overhead.
+        var sunElevation: Float = 0.6
+        /// Atmospheric scattering influences the color of the sky from reddish through orange tones to the sky at midday.
+        var upperAtmosphereScattering: Float = 0.1
+        /// How clear the sky is. 0 is clear, while 10 can produce intense colors. It’s best to keep turbidity and upper atmosphere scattering low if you have high albedo.
+        var groundAlbedo: Float = 4.0
+
         init?(_ context: VimRendererContext) {
 
             guard let library = MTLContext.makeLibrary(),
@@ -41,12 +50,12 @@ extension VimRenderer {
             let textureDimensions: SIMD2<Int32> = [160, 160]
             let textureLoader = MTKTextureLoader(device: device)
             let mdkSkycubeTexture = MDLSkyCubeTexture(name: nil,
-                                        channelEncoding: .uInt8,
-                                        textureDimensions: textureDimensions,
-                                        turbidity: 0,
-                                        sunElevation: 0,
-                                        upperAtmosphereScattering: 0,
-                                        groundAlbedo: 0)
+                                                      channelEncoding: .uInt8,
+                                                      textureDimensions: textureDimensions,
+                                                      turbidity: turbidity,
+                                                      sunElevation: sunElevation,
+                                                      upperAtmosphereScattering: upperAtmosphereScattering,
+                                                      groundAlbedo: groundAlbedo)
             guard let skycubeTexture = try? textureLoader.newTexture(texture: mdkSkycubeTexture, options: [.SRGB: false]) else { return nil }
             texture = skycubeTexture
 
