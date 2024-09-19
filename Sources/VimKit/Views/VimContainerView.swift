@@ -32,7 +32,7 @@ public struct VimContainerView: UIViewRepresentable {
         // Render Pass Descriptor Options
         self.mtkView.colorPixelFormat = .rgba16Float
         self.mtkView.depthStencilPixelFormat = .depth32Float_stencil8
-        self.mtkView.clearColor = .skyBlue
+        self.mtkView.clearColor = Color.skyBlue.mtlClearColor
         self.renderContext = VimContainerViewRendererContext(vim: vim, destinationProvider: mtkView)
     }
 

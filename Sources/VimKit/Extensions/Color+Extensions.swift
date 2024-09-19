@@ -5,16 +5,27 @@
 //  Created by Kevin McKee
 //
 
+import Metal
 import SwiftUI
 
 extension Color {
 
     /// Represents the default object selection color
-    static let objectSelectionColor = Color("objectSelectionColor", bundle: Bundle.module)
+    static let objectSelectionColor = Color("objectSelectionColor", bundle: .module)
+
+    /// Represents the sky blue color
+    static let skyBlue = Color("skyBlueColor", bundle: .module)
 
     /// Provides a convenience var for accessing the color channels
     var channels: SIMD4<Float> {
         let resolved = resolve(in: .init())
         return [resolved.red, resolved.green, resolved.blue, resolved.opacity]
     }
+
+    /// Returns a MTLClearColor equivalent of this color.
+    var mtlClearColor: MTLClearColor {
+        let c = channels
+        return MTLClearColor(red: Double(c.x), green: Double(c.y), blue: Double(c.z), alpha: Double(c.w))
+    }
+
 }

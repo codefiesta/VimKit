@@ -8,7 +8,7 @@
 import MetalKit
 import VimKitShaders
 
-private let skycubeDebugGroupName = "Skycube"
+private let skycubeGroupName = "Skycube"
 private let skycubeVertexFunctionName = "vertexSkycube"
 private let skycubeFragmentFunctionName = "fragmentSkycube"
 
@@ -22,6 +22,17 @@ extension VimRenderer {
         let pipelineState: MTLRenderPipelineState?
         let depthStencilState: MTLDepthStencilState?
 
+        /// Haze in the sky. 0 is a clear - 1 spreads the sun’s color
+        var turbidity: Float = 1.0
+        /// How high the sun is in the sky. 0.5 is on the horizon. 1.0 is overhead.
+        var sunElevation: Float = 0.75
+        /// Atmospheric scattering influences the color of the sky from reddish through orange tones to the sky at midday.
+        var upperAtmosphereScattering: Float = 0.75
+        /// How clear the sky is. 0 is clear, while 10 can produce intense colors. It’s best to keep turbidity and upper atmosphere scattering low if you have high albedo.
+        var groundAlbedo: Float = 0.1
+
+        /// Initializes the skycube with the provided context.
+        /// - Parameter context: the rendering context.
         init?(_ context: VimRendererContext) {
 
             guard let library = MTLContext.makeLibrary(),
@@ -38,16 +49,17 @@ extension VimRenderer {
             guard let cubeMesh = try? MTKMesh(mesh: cube, device: device) else { return nil }
             mesh = cubeMesh
 
-            let textureDimensions: SIMD2<Int32> = [160, 160]
+            let textureDimensions: SIMD2<Int32> = [256, 256]
             let textureLoader = MTKTextureLoader(device: device)
-            let mdkSkycubeTexture = MDLSkyCubeTexture(name: nil,
-                                        channelEncoding: .uInt8,
-                                        textureDimensions: textureDimensions,
-                                        turbidity: 0,
-                                        sunElevation: 0,
-                                        upperAtmosphereScattering: 0,
-                                        groundAlbedo: 0)
-            guard let skycubeTexture = try? textureLoader.newTexture(texture: mdkSkycubeTexture, options: [.SRGB: false]) else { return nil }
+            let mdkSkycubeTexture = MDLSkyCubeTexture(name: skycubeGroupName,
+                                                      channelEncoding: .uInt8,
+                                                      textureDimensions: textureDimensions,
+                                                      turbidity: turbidity,
+                                                      sunElevation: sunElevation,
+                                                      upperAtmosphereScattering: upperAtmosphereScattering,
+                                                      groundAlbedo: groundAlbedo)
+
+            guard let skycubeTexture = try? textureLoader.newTexture(texture: mdkSkycubeTexture) else { return nil }
             texture = skycubeTexture
 
             let vertexDescriptor = MTKMetalVertexDescriptorFromModelIO(cube.vertexDescriptor)
@@ -86,10 +98,12 @@ extension VimRenderer {
             self.pipelineState = pipelineState
         }
 
+        /// Draws the skycube.
+        /// - Parameter renderEncoder: the render encoder to use.
         func draw(renderEncoder: MTLRenderCommandEncoder) {
 
             guard let pipelineState else { return }
-            renderEncoder.pushDebugGroup(skycubeDebugGroupName)
+            renderEncoder.pushDebugGroup(skycubeGroupName)
             renderEncoder.setRenderPipelineState(pipelineState)
             renderEncoder.setDepthStencilState(depthStencilState)
 
