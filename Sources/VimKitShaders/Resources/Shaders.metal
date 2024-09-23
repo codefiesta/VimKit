@@ -63,17 +63,17 @@ typedef struct {
 //   - uniformsArray: The per frame uniforms.
 //   - meshUniforms: The per mesh uniforms.
 //   - instances: The instances pointer.
-//   - colorOverrides: The color overrides pointer used to apply custom color profiles to instances.
+//   - colors: The colors pointer used to apply custom color profiles to instances.
 //   - xRay: Flag indicating if this frame is being rendered in xray mode.
 vertex VertexOut vertexMain(Vertex in [[stage_in]],
                             ushort amp_id [[amplification_id]],
                             uint vertex_id [[vertex_id]],
                             uint instance_id [[instance_id]],
-                            constant UniformsArray &uniformsArray [[buffer(BufferIndexUniforms)]],
-                            constant MeshUniforms &meshUniforms [[buffer(BufferIndexMeshUniforms)]],
-                            constant Instances *instances [[buffer(BufferIndexInstances)]],
-                            constant float4 *colorOverrides [[buffer(BufferIndexColorOverrides)]],
-                            constant bool &xRay [[buffer(BufferIndexXRay)]]) {
+                            constant UniformsArray &uniformsArray [[buffer(VertexBufferIndexUniforms)]],
+                            constant MeshUniforms &meshUniforms [[buffer(VertexBufferIndexMeshUniforms)]],
+                            constant Instances *instances [[buffer(VertexBufferIndexInstances)]],
+                            constant float4 *colors [[buffer(VertexBufferIndexColors)]],
+                            constant bool &xRay [[buffer(VertexBufferIndexXRay)]]) {
 
     VertexOut out;
     Instances instance = instances[instance_id];
@@ -109,7 +109,7 @@ vertex VertexOut vertexMain(Vertex in [[stage_in]],
         case InstanceStateDefault:
             // If the color override is set, pluck the color from the colors buffer
             if (colorIndex > 0) {
-                out.color = colorOverrides[colorIndex];
+                out.color = colors[colorIndex];
             }
             break;
         case InstanceStateHidden:
@@ -117,7 +117,7 @@ vertex VertexOut vertexMain(Vertex in [[stage_in]],
             out.color = float4(0, 0, 0, 0);
             break;
         case InstanceStateSelected:
-            out.color = colorOverrides[0];
+            out.color = colors[0];
             break;
     }
 
@@ -138,8 +138,8 @@ vertex VertexOut vertexMain(Vertex in [[stage_in]],
 //   - texture: the texture.
 //   - colorSampler: The color sampler.
 fragment ColorOut fragmentMain(VertexOut in [[stage_in]],
-                              texture2d<float, access::sample> texture [[texture(0)]],
-                              sampler colorSampler [[sampler(0)]]) {
+                               texture2d<float, access::sample> texture [[texture(0)]],
+                               sampler colorSampler [[sampler(0)]]) {
 
     ColorOut out;
     float4 materialPureColor = in.color * 0.66;

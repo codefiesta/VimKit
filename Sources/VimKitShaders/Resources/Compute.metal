@@ -19,11 +19,11 @@ using namespace metal;
 //   - positionsCount: The count of positions.
 //   - indicesCount: The count of indices.
 kernel void computeVertexNormals(device const float *positions,
-                           device const uint32_t *indices,
-                           device float3 *faceNormals,
-                           device float *normals,
-                           constant int &positionsCount,
-                           constant int &indicesCount) {
+                                 device const uint32_t *indices,
+                                 device float3 *faceNormals,
+                                 device float *normals,
+                                 constant int &positionsCount,
+                                 constant int &indicesCount) {
     
     const int verticesCount = positionsCount / 3;
     

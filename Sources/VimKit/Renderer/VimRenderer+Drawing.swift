@@ -95,7 +95,7 @@ public extension VimRenderer {
         renderEncoder.setVertexBuffer(positionsBuffer, offset: 0, index: .positions)
         renderEncoder.setVertexBuffer(normalsBuffer, offset: 0, index: .normals)
         renderEncoder.setVertexBuffer(instancesBuffer, offset: 0, index: .instances)
-        renderEncoder.setVertexBuffer(colorsBuffer, offset: 0, index: .colorOverrides)
+        renderEncoder.setVertexBuffer(colorsBuffer, offset: 0, index: .colors)
         renderEncoder.setFragmentTexture(baseColorTexture, index: 0)
         renderEncoder.setFragmentSamplerState(samplerState, index: 0)
 

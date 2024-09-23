@@ -33,9 +33,9 @@ struct ShapeOut {
 vertex ShapeOut vertexShape(ShapeIn in [[stage_in]],
                             ushort amp_id [[amplification_id]],
                             uint vertex_id [[vertex_id]],
-                            constant UniformsArray &uniformsArray [[ buffer(BufferIndexUniforms) ]],
-                            constant float4x4 &modelMatrix [[buffer(BufferIndexInstances)]],
-                            constant float4 &color [[buffer(BufferIndexColorOverrides)]]) {
+                            constant UniformsArray &uniformsArray [[ buffer(VertexBufferIndexUniforms) ]],
+                            constant float4x4 &modelMatrix [[buffer(VertexBufferIndexInstances)]],
+                            constant float4 &color [[buffer(VertexBufferIndexColors)]]) {
     ShapeOut out;
     Uniforms uniforms = uniformsArray.uniforms[amp_id];
     float4x4 viewMatrix = uniforms.viewMatrix;

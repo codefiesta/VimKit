@@ -34,12 +34,12 @@ public class MTLContext {
 
         // Positions
         vertexDescriptor.attributes[.position].format = .float3
-        vertexDescriptor.attributes[.position].bufferIndex = BufferIndex.positions.rawValue
+        vertexDescriptor.attributes[.position].bufferIndex = VertexAttribute.position.rawValue
         vertexDescriptor.attributes[.position].offset = 0
 
         // Normals
         vertexDescriptor.attributes[.normal].format = .float3
-        vertexDescriptor.attributes[.normal].bufferIndex = BufferIndex.normals.rawValue
+        vertexDescriptor.attributes[.normal].bufferIndex = VertexAttribute.normal.rawValue
         vertexDescriptor.attributes[.normal].offset = 0
 
         // Descriptor Layouts
