@@ -21,16 +21,6 @@ public class Vim: NSObject, ObservableObject {
         case error(String)
     }
 
-    /// Keys and values used to specify loading or runtime options.
-    public struct Option: Hashable, Equatable, RawRepresentable, @unchecked Sendable {
-
-        public var rawValue: String
-
-        public init(rawValue: String) {
-            self.rawValue = rawValue
-        }
-    }
-
     /// Represnts a broadcastable event that can be published to downstream subscribers.
     public enum Event: Equatable {
 
@@ -77,11 +67,13 @@ public class Vim: NSObject, ObservableObject {
     /// See: https://github.com/vimaec/vim#geometry-buffer
     public var geometry: Geometry?
 
-    /// The dictionary of loading and runtime options to apply.
-    public var options: [Option: Bool] = [:]
-
     /// The camera
+    @Published
     public var camera: Camera
+
+    /// A set of options to apply.
+    @Published
+    public var options: Options
 
     /// BFast Data Container
     private var bfast: BFast!
@@ -106,10 +98,9 @@ public class Vim: NSObject, ObservableObject {
     /// Initializes the VIM file from the specified url
     /// - Parameters:
     ///   - url: the url of the vim file
-    ///   - options: the options to apply
-    public init(_ url: URL, options: [Option: Bool]? = nil) {
+    public init(_ url: URL) {
         self.camera = Camera()
-        self.options = options ?? [.xRay: false, .wireFrame: false]
+        self.options = Options()
         super.init()
         Task {
             await self.initialize(url)
@@ -344,19 +335,4 @@ extension Vim {
             self.eventPublisher.send(.hidden(0))
         }
     }
-}
-
-// MARK: Options
-
-public extension Vim.Option {
-
-    /// A key used to specify whether wireframing or fill mode should be applied.
-    static let wireFrame: Vim.Option = .init(rawValue: "wireFrame")
-
-    /// A key used to specify whether the file should be rendered in xray mode or not.
-    static let xRay: Vim.Option = .init(rawValue: "xRay")
-
-    /// A key used to specify whether the frustum culling sphere should be rendererd or not.
-    static let cullingSphere: Vim.Option = .init(rawValue: "cullingSphere")
-
 }

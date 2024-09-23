@@ -25,11 +25,6 @@ extension VimRenderer {
             return context.vim.camera
         }
 
-        /// Configuration option for rendering the culling sphere (for debugging purposes).
-        var cullingSphere: Bool {
-            return context.vim.options[.cullingSphere] ?? false
-        }
-
         let boxMesh: MTKMesh
         let planeMesh: MTKMesh
         let sphereMesh: MTKMesh
