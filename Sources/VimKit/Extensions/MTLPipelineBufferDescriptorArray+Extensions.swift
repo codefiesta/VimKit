@@ -11,7 +11,7 @@ import VimKitShaders
 public extension MTLPipelineBufferDescriptorArray {
 
     // Convenience subscript using BufferIndex enum
-    subscript(index: BufferIndex) -> MTLPipelineBufferDescriptor {
+    subscript(index: VertexBufferIndex) -> MTLPipelineBufferDescriptor {
         return self[index.rawValue]
     }
 }

@@ -19,7 +19,7 @@ public extension MTLVertexAttributeDescriptorArray {
 public extension MTLVertexBufferLayoutDescriptorArray {
 
     // Convenience subscript using BufferIndex enum
-    subscript(index: BufferIndex) -> MTLVertexBufferLayoutDescriptor! {
+    subscript(index: VertexBufferIndex) -> MTLVertexBufferLayoutDescriptor! {
         return self[index.rawValue]
     }
 }

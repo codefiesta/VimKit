@@ -42,7 +42,7 @@ typedef struct {
 //   - uniformsArray: The per frame uniforms.
 vertex SkyCubeOut vertexSkycube(SkyCubeIn in [[stage_in]],
                                 ushort amp_id [[amplification_id]],
-                                constant UniformsArray &uniformsArray [[ buffer(BufferIndexUniforms) ]]) {
+                                constant UniformsArray &uniformsArray [[ buffer(VertexBufferIndexUniforms) ]]) {
     
     Uniforms uniforms = uniformsArray.uniforms[amp_id];
     float4x4 projectionMatrix = uniforms.projectionMatrix;

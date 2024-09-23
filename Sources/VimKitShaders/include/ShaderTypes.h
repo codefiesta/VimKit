@@ -59,20 +59,22 @@ typedef struct {
     InstanceState state;
 } Instances;
 
-// Enum constants for the association of a specific buffer index argument passed into the shader function
-typedef NS_ENUM(EnumBackingType, BufferIndex) {
-    BufferIndexPositions = 0,
-    BufferIndexNormals = 1,
-    BufferIndexUniforms = 2,
-    BufferIndexMeshUniforms = 3,
-    BufferIndexInstances = 4,
-    BufferIndexColorOverrides = 5,
-    BufferIndexXRay = 6
+// Enum constants for the association of a specific buffer index argument passed into the shader vertex function
+typedef NS_ENUM(EnumBackingType, VertexBufferIndex) {
+    VertexBufferIndexPositions = 0,
+    VertexBufferIndexNormals = 1,
+    VertexBufferIndexUniforms = 2,
+    VertexBufferIndexMeshUniforms = 3,
+    VertexBufferIndexInstances = 4,
+    VertexBufferIndexColors = 5,
+    VertexBufferIndexXRay = 6
 };
 
+// Enum constances for the attribute index of an incoming vertex
 typedef NS_ENUM(EnumBackingType, VertexAttribute) {
     VertexAttributePosition = 0,
     VertexAttributeNormal = 1,
+    VertexAttributeUv = 2
 };
 
 #endif /* ShaderTypes_h */
