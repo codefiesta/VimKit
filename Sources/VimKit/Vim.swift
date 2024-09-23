@@ -83,6 +83,10 @@ public class Vim: NSObject, ObservableObject {
     /// The camera
     public var camera: Camera
 
+    /// The scene settings
+    @Published
+    public var scene: Scene
+
     /// BFast Data Container
     private var bfast: BFast!
 
@@ -109,6 +113,7 @@ public class Vim: NSObject, ObservableObject {
     ///   - options: the options to apply
     public init(_ url: URL, options: [Option: Bool]? = nil) {
         self.camera = Camera()
+        self.scene = Scene()
         self.options = options ?? [.xRay: false, .wireFrame: false]
         super.init()
         Task {

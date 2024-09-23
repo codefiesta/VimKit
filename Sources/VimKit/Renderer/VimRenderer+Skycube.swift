@@ -5,6 +5,7 @@
 //  Created by Kevin McKee
 //
 
+import Combine
 import MetalKit
 import VimKitShaders
 
@@ -15,30 +16,35 @@ private let skycubeFragmentFunctionName = "fragmentSkycube"
 extension VimRenderer {
 
     /// A struct that draws the scene background skycube.
-    struct Skycube {
+    class Skycube {
+
+        /// The context that provides all of the data we need
+        let context: VimRendererContext
+
+        /// Returns the scene.
+        var scene: Vim.Scene {
+            return context.vim.scene
+        }
 
         let mesh: MTKMesh
-        let texture: MTLTexture?
+        let textureLoader: MTKTextureLoader
+        var texture: MTLTexture?
+        let sky: MDLSkyCubeTexture
         let pipelineState: MTLRenderPipelineState?
         let depthStencilState: MTLDepthStencilState?
 
-        /// Haze in the sky. 0 is a clear - 1 spreads the sun’s color
-        var turbidity: Float = 1.0
-        /// How high the sun is in the sky. 0.5 is on the horizon. 1.0 is overhead.
-        var sunElevation: Float = 0.75
-        /// Atmospheric scattering influences the color of the sky from reddish through orange tones to the sky at midday.
-        var upperAtmosphereScattering: Float = 0.75
-        /// How clear the sky is. 0 is clear, while 10 can produce intense colors. It’s best to keep turbidity and upper atmosphere scattering low if you have high albedo.
-        var groundAlbedo: Float = 0.1
+        /// Combine Subscribers which drive rendering events
+        var subscribers = Set<AnyCancellable>()
 
         /// Initializes the skycube with the provided context.
         /// - Parameter context: the rendering context.
         init?(_ context: VimRendererContext) {
-
             guard let library = MTLContext.makeLibrary(),
                   let device = context.destinationProvider.device else {
                 return nil
             }
+            self.context = context
+            self.textureLoader = MTKTextureLoader(device: device)
 
             let allocator = MTKMeshBufferAllocator(device: device)
             let cube = MDLMesh(boxWithExtent: .one,
@@ -47,20 +53,20 @@ extension VimRenderer {
                                geometryType: .triangles,
                                allocator: allocator)
             guard let cubeMesh = try? MTKMesh(mesh: cube, device: device) else { return nil }
-            mesh = cubeMesh
+            self.mesh = cubeMesh
 
+            let scene = context.vim.scene
             let textureDimensions: SIMD2<Int32> = [256, 256]
-            let textureLoader = MTKTextureLoader(device: device)
-            let mdkSkycubeTexture = MDLSkyCubeTexture(name: skycubeGroupName,
+            self.sky = MDLSkyCubeTexture(name: skycubeGroupName,
                                                       channelEncoding: .uInt8,
                                                       textureDimensions: textureDimensions,
-                                                      turbidity: turbidity,
-                                                      sunElevation: sunElevation,
-                                                      upperAtmosphereScattering: upperAtmosphereScattering,
-                                                      groundAlbedo: groundAlbedo)
+                                                      turbidity: scene.turbidity,
+                                                      sunElevation: scene.sunElevation,
+                                                      upperAtmosphereScattering: scene.upperAtmosphereScattering,
+                                                      groundAlbedo: scene.groundAlbedo)
 
-            guard let skycubeTexture = try? textureLoader.newTexture(texture: mdkSkycubeTexture) else { return nil }
-            texture = skycubeTexture
+            guard let newTexture = try? textureLoader.newTexture(texture: sky) else { return nil }
+            self.texture = newTexture
 
             let vertexDescriptor = MTKMetalVertexDescriptorFromModelIO(cube.vertexDescriptor)
 
@@ -96,6 +102,22 @@ extension VimRenderer {
             }
             self.depthStencilState = depthStencilState
             self.pipelineState = pipelineState
+
+            // Observe the scene settings
+            context.vim.scene.objectWillChange.sink {
+                self.updateSkycube()
+            }.store(in: &subscribers)
+        }
+
+        /// Updates the sky cube texture from the scene settings.
+        private func updateSkycube() {
+            sky.turbidity = scene.turbidity
+            sky.sunElevation = scene.sunElevation
+            sky.upperAtmosphereScattering = scene.upperAtmosphereScattering
+            sky.groundAlbedo = scene.groundAlbedo
+            sky.update()
+            guard let newTexture = try? textureLoader.newTexture(texture: sky) else { return }
+            texture = newTexture
         }
 
         /// Draws the skycube.
