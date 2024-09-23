@@ -22,8 +22,8 @@ extension VimRenderer {
         let context: VimRendererContext
 
         /// Returns the scene.
-        var scene: Vim.Scene {
-            return context.vim.scene
+        var options: Vim.Options {
+            return context.vim.options
         }
 
         let mesh: MTKMesh
@@ -55,15 +55,15 @@ extension VimRenderer {
             guard let cubeMesh = try? MTKMesh(mesh: cube, device: device) else { return nil }
             self.mesh = cubeMesh
 
-            let scene = context.vim.scene
+            let options = context.vim.options
             let textureDimensions: SIMD2<Int32> = [256, 256]
             self.sky = MDLSkyCubeTexture(name: skycubeGroupName,
                                                       channelEncoding: .uInt8,
                                                       textureDimensions: textureDimensions,
-                                                      turbidity: scene.turbidity,
-                                                      sunElevation: scene.sunElevation,
-                                                      upperAtmosphereScattering: scene.upperAtmosphereScattering,
-                                                      groundAlbedo: scene.groundAlbedo)
+                                                      turbidity: options.turbidity,
+                                                      sunElevation: options.sunElevation,
+                                                      upperAtmosphereScattering: options.upperAtmosphereScattering,
+                                                      groundAlbedo: options.groundAlbedo)
 
             guard let newTexture = try? textureLoader.newTexture(texture: sky) else { return nil }
             self.texture = newTexture
@@ -103,18 +103,18 @@ extension VimRenderer {
             self.depthStencilState = depthStencilState
             self.pipelineState = pipelineState
 
-            // Observe the scene settings
-            context.vim.scene.objectWillChange.sink {
+            // Observe the options.
+            context.vim.$options.sink { _ in
                 self.updateSkycube()
             }.store(in: &subscribers)
         }
 
         /// Updates the sky cube texture from the scene settings.
         private func updateSkycube() {
-            sky.turbidity = scene.turbidity
-            sky.sunElevation = scene.sunElevation
-            sky.upperAtmosphereScattering = scene.upperAtmosphereScattering
-            sky.groundAlbedo = scene.groundAlbedo
+            sky.turbidity = options.turbidity
+            sky.sunElevation = options.sunElevation
+            sky.upperAtmosphereScattering = options.upperAtmosphereScattering
+            sky.groundAlbedo = options.groundAlbedo
             sky.update()
             guard let newTexture = try? textureLoader.newTexture(texture: sky) else { return }
             texture = newTexture

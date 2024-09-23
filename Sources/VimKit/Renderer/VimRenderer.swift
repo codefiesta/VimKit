@@ -59,12 +59,12 @@ open class VimRenderer: NSObject {
 
     /// Configuration option for wireframing the model.
     open var fillMode: MTLTriangleFillMode {
-        return context.vim.options[.wireFrame] == true ? .lines : .fill
+        return context.vim.options.wireFrame == true ? .lines : .fill
     }
 
     /// Configuration option for rendering in xray mode.
     open var xRayMode: Bool {
-        return context.vim.options[.xRay] ?? false
+        return context.vim.options.xRay
     }
 
     /// The viewport size.
