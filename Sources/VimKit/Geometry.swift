@@ -580,11 +580,16 @@ public class Geometry: ObservableObject {
     /// - Returns: the axis aligned bounding box for the specified instance or nil if the instance has no mesh information.
     func calculateBoundingBox(_ instance: Instance) async -> MDLAxisAlignedBoundingBox? {
         guard !Task.isCancelled, let vertices = vertices(for: instance), vertices.isNotEmpty else { return nil }
-        var minBounds: SIMD3<Float> = vertices[0]
-        var maxBounds: SIMD3<Float> = vertices[0]
+        let matrix = instance.matrix
+        let point: SIMD4<Float> = .init(vertices[0], 1.0)
+        let worldPoint = matrix * point
+        var minBounds = worldPoint.xyz
+        var maxBounds = worldPoint.xyz
         for vertex in vertices {
-            minBounds = min(minBounds, vertex)
-            maxBounds = max(maxBounds, vertex)
+            let point: SIMD4<Float> = .init(vertex, 1.0)
+            let worldPoint = matrix * point
+            minBounds = min(minBounds, worldPoint.xyz)
+            maxBounds = max(maxBounds, worldPoint.xyz)
         }
         return MDLAxisAlignedBoundingBox(maxBounds: maxBounds, minBounds: minBounds)
     }
