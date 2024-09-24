@@ -5,8 +5,6 @@
 //  Created by Kevin McKee
 //
 
-//  Header containing types and enums shared between Metal shaders and Swift
-
 #ifndef ShaderTypes_h
 #define ShaderTypes_h
 
@@ -18,6 +16,10 @@ typedef metal::int32_t EnumBackingType;
 typedef NSInteger EnumBackingType;
 #endif
 #import <simd/simd.h>
+
+//***********************************************************************
+// SWIFT/METAL STRUCTURES THAT ARE SHARED BETWEEN METAL SHADERS AND SWIFT
+//***********************************************************************
 
 // Per Frame Uniforms
 typedef struct {
@@ -77,4 +79,55 @@ typedef NS_ENUM(EnumBackingType, VertexAttribute) {
     VertexAttributeUv = 2
 };
 
+//***********************************************************************
+// METAL ONLY STRUCTURES THAT CAN BE SHARED ACROSS METAL SHADERS
+//***********************************************************************
+
+#ifdef __METAL_VERSION__
+
+#include <metal_stdlib>
+using namespace metal;
+
+// Describes the incoming vertex data that is sent to a shader vertex function.
+typedef struct {
+    float4 position [[attribute(VertexAttributePosition)]];
+    float3 normal [[attribute(VertexAttributeNormal)]];
+    float2 uv [[attribute(VertexAttributeUv)]];
+} VertexIn;
+
+// The struct that is passed from the vertex function to the fragment function
+typedef struct {
+    // The position of the vertex
+    float4 position [[position]];
+    // The normal from the perspective of the camera
+    float3 cameraNormal;
+    // The directional vector from the perspective of the camera
+    float3 cameraDirection;
+    // The direction of the light from the position of the camera
+    float3 cameraLightDirection;
+    // The distance from camera to the vertex
+    float cameraDistance;
+    // The material color
+    float4 color;
+    // The material glossiness
+    float glossiness;
+    // The material smoothness
+    float smoothness;
+    // The texture coordinates
+    float3 textureCoordinates;
+    // The instance index (-1 indicates a non-selectable or invalid instance)
+    int32_t index;
+} VertexOut;
+
+// The struct that is returned from the fragment function
+typedef struct {
+    // The colorAttachments[0] that holds the color information
+    float4 color [[color(0)]];
+    // The colorAttachments[1] that holds the instance index (-1 indicates a non-selectable or invalid instance)
+    int32_t index [[color(1)]];
+} FragmentOut;
+
+#endif
+
 #endif /* ShaderTypes_h */
+

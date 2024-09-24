@@ -17,44 +17,6 @@ constant float4 lightColor = float4(0.55, 0.55, 0.4, 1.0);
 constant float4 materialAmbientColor = float4(0.04, 0.04, 0.04, 1.0);
 constant float4 materialSpecularColor = float4(1.0, 1.0, 1.0, 1.0);
 
-// The struct that is passed to the vertex function
-typedef struct {
-    // 3D coordinates representing a position in space
-    float3 position [[attribute(VertexAttributePosition)]];
-    // Used for lighting calculations (such as Phong shading)
-    float3 normal [[attribute(VertexAttributeNormal)]];
-} Vertex;
-
-// The struct that is passed from the vertex function to the fragment function
-typedef struct {
-    // The position of the vertex
-    float4 position [[position]];
-    // The normal from the perspective of the camera
-    float3 cameraNormal;
-    // The directional vector from the perspective of the camera
-    float3 cameraDirection;
-    // The direction of the light from the position of the camera
-    float3 cameraLightDirection;
-    // The distance from camera to the vertex
-    float cameraDistance;
-    // The material color
-    float4 color;
-    // The material glossiness
-    float glossiness;
-    // The material smoothness
-    float smoothness;
-    // The instance index (-1 indicates a non-selectable or invalid instance)
-    int32_t index;
-} VertexOut;
-
-// The struct that is returned from the fragment function
-typedef struct {
-    // The colorAttachments[0] that holds the color information
-    float4 color [[color(0)]];
-    // The colorAttachments[1] that holds the instance index (-1 indicates a non-selectable or invalid instance)
-    int32_t index [[color(1)]];
-} ColorOut;
-
 // The main vertex shader function.
 // - Parameters:
 //   - in: The vertex position + normal data.
@@ -65,7 +27,7 @@ typedef struct {
 //   - instances: The instances pointer.
 //   - colors: The colors pointer used to apply custom color profiles to instances.
 //   - xRay: Flag indicating if this frame is being rendered in xray mode.
-vertex VertexOut vertexMain(Vertex in [[stage_in]],
+vertex VertexOut vertexMain(VertexIn in [[stage_in]],
                             ushort amp_id [[amplification_id]],
                             uint vertex_id [[vertex_id]],
                             uint instance_id [[instance_id]],
@@ -89,8 +51,7 @@ vertex VertexOut vertexMain(Vertex in [[stage_in]],
     float4x4 modelViewMatrix = viewMatrix * modelMatrix;
 
     // Position
-    float4 position = float4(in.position, 1.0);
-    out.position = modelViewProjectionMatrix * position;
+    out.position = modelViewProjectionMatrix * in.position;
     
     // Pass color information to the fragment shader
     float3 normal = in.normal.xyz;
@@ -123,9 +84,9 @@ vertex VertexOut vertexMain(Vertex in [[stage_in]],
 
     // Pass lighting information to the fragment shader
     out.cameraNormal = (normalize(modelViewMatrix * float4(normal, 0))).xyz;
-    out.cameraDirection = float3(0, 0, 0) - (modelViewMatrix * position).xyz;
+    out.cameraDirection = float3(0, 0, 0) - (modelViewMatrix * in.position).xyz;
     out.cameraLightDirection = (viewMatrix * float4(normalize(lightDirection), 0)).xyz;
-    out.cameraDistance = length_squared((modelMatrix * position).xyz - uniforms.cameraPosition);
+    out.cameraDistance = length_squared((modelMatrix * in.position).xyz - uniforms.cameraPosition);
 
     // Pass the instance index
     out.index = instanceIndex;
@@ -137,11 +98,11 @@ vertex VertexOut vertexMain(Vertex in [[stage_in]],
 //   - in: the data passed from the vertex function.
 //   - texture: the texture.
 //   - colorSampler: The color sampler.
-fragment ColorOut fragmentMain(VertexOut in [[stage_in]],
+fragment FragmentOut fragmentMain(VertexOut in [[stage_in]],
                                texture2d<float, access::sample> texture [[texture(0)]],
                                sampler colorSampler [[sampler(0)]]) {
 
-    ColorOut out;
+    FragmentOut out;
     float4 materialPureColor = in.color * 0.66;
     
     float3 normal = normalize(in.cameraNormal);
