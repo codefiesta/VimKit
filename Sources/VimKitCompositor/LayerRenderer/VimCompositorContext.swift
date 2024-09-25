@@ -6,6 +6,7 @@
 //
 #if os(visionOS)
 import CompositorServices
+import SwiftUI
 import VimKit
 
 public struct VimCompositorContext: VimRendererContext, VimRenderDestinationProvider {
@@ -40,7 +41,7 @@ public struct VimCompositorContext: VimRendererContext, VimRenderDestinationProv
     }
 
     public var clearColor: MTLClearColor {
-        return .skyBlue
+        return Color.skyBlue.mtlClearColor
     }
 
     public var depthFormat: MTLPixelFormat {

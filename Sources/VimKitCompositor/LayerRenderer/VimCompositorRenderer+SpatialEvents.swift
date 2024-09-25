@@ -41,13 +41,16 @@ public extension VimCompositorRenderer {
     /// Handles touch events generated from a touch directly targeting content.
     /// - Parameter event: The event to handle
     private func handleTouch(_ event: SpatialEventCollection.Element) {
+        let point: SIMD2<Float> = [Float(event.location.x), Float(event.location.y)]
+        debugPrint("Touch", point)
 
     }
 
     /// Handles direct pinch events generated from a pinching hand in close proximity to content.
     /// - Parameter event: The event to handle
     private func handleDirectPinch(_ event: SpatialEventCollection.Element) {
-
+        let point: SIMD2<Float> = [Float(event.location.x), Float(event.location.y)]
+        debugPrint("Direct Pinch", point)
     }
 
     /// Handles indirect pinch events generated from an indirectly targeted pinching hand.
@@ -74,7 +77,10 @@ public extension VimCompositorRenderer {
             // TODO: The location is always at zero - need to calculate the screen position
             let point: SIMD2<Float> = [Float(event.location.x), Float(event.location.y)]
             didTap(at: point)
+            debugPrint("Active", point)
         case .ended:
+            let point: SIMD2<Float> = [Float(event.location.x), Float(event.location.y)]
+            debugPrint("Ended", point)
             break
         case .cancelled:
             break

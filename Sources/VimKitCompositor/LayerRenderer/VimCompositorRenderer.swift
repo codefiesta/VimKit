@@ -181,9 +181,10 @@ extension VimCompositorRenderer {
             // Update our camera from the drawable view
             camera.update(drawable, index: index)
             return Uniforms(
-                cameraPosition: context.vim.camera.position,
-                viewMatrix: context.vim.camera.viewMatrix,
-                projectionMatrix: context.vim.camera.projectionMatrix
+                cameraPosition: camera.position,
+                viewMatrix: camera.viewMatrix,
+                projectionMatrix: camera.projectionMatrix,
+                sceneTransform: camera.transform
             )
         }
 
