@@ -85,8 +85,8 @@ public extension VimRenderer {
               let colorsBuffer = geometry.colorsBuffer else { return }
 
         renderEncoder.setRenderPipelineState(pipelineState)
-        renderEncoder.setFrontFacing(.clockwise)
-        renderEncoder.setCullMode(.none)
+        renderEncoder.setFrontFacing(.counterClockwise)
+        renderEncoder.setCullMode(options.cullMode)
         renderEncoder.setDepthStencilState(depthStencilState)
         renderEncoder.setTriangleFillMode(fillMode)
 

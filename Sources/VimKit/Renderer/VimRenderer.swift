@@ -20,17 +20,22 @@ open class VimRenderer: NSObject {
 
     /// Allow override for subclasses
     open var geometry: Geometry? {
-        return context.vim.geometry
+        context.vim.geometry
     }
 
     /// Returns the camera.
     open var camera: Vim.Camera {
-        return context.vim.camera
+        context.vim.camera
+    }
+
+    /// Returns the rendering options.
+    open var options: Vim.Options {
+        context.vim.options
     }
 
     /// The Metal device.
     open var device: MTLDevice {
-        return context.destinationProvider.device!
+        context.destinationProvider.device!
     }
 
     open var commandQueue: MTLCommandQueue!

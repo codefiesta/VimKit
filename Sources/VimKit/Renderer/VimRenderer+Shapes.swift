@@ -22,7 +22,7 @@ extension VimRenderer {
 
         /// Returns the camera.
         var camera: Vim.Camera {
-            return context.vim.camera
+            context.vim.camera
         }
 
         let boxMesh: MTKMesh

@@ -21,9 +21,9 @@ extension VimRenderer {
         /// The context that provides all of the data we need
         let context: VimRendererContext
 
-        /// Returns the scene.
+        /// Returns the rendering options.
         var options: Vim.Options {
-            return context.vim.options
+            context.vim.options
         }
 
         let mesh: MTKMesh

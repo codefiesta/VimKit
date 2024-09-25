@@ -6,11 +6,11 @@
 //
 
 import Foundation
+import MetalKit
 
 extension Vim {
 
     /// Holds observable rendering options.
-    //public class Options: ObservableObject {
     public struct Options {
 
         /// A bool used to specify whether wireframing or fill mode should be applied while rendering.
@@ -18,6 +18,9 @@ extension Vim {
 
         /// A bool used to specify whether xray mode should be applied or not.
         public var xRay: Bool = false
+
+        /// Specifies the rendering cull mode to apply.
+        public var cullMode: MTLCullMode = .none
 
         /// Haze in the sky. 0 is a clear - 1 spreads the sun’s color
         public var turbidity: Float = 1.0
