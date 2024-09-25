@@ -16,9 +16,8 @@ import Spatial
 
 private let defaultFovDegrees: Float = 65
 private let defaultAspectRatio: Float = 1.3
-private let defaultNearZ: Float = 0.01
+private let defaultNearZ: Float = 0.1
 private let defaultFarZ: Float = 1000.0
-private let maxFov: Float = 179.9
 
 extension Vim {
 
@@ -129,7 +128,7 @@ extension Vim {
 
         /// Updates the projection matrix when any of the relevant projection values change.
         private func updateProjection() {
-            let fov = min(fovDegrees, maxFov)
+            let fov = fovDegrees
             let fovyRadians = fov.radians
             let projectiveTransform = ProjectiveTransform3D(fovyRadians: fovyRadians, aspectRatio: aspectRatio, nearZ: nearZ, farZ: farZ)
             projectionMatrix = .init(projectiveTransform)
