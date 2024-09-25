@@ -281,7 +281,7 @@ extension Vim {
             /// - Parameter matrix: the matrix to use to build the frustum planes
             fileprivate mutating func update(_ camera: Camera) {
                 let matrix = (camera.projectionMatrix * camera.viewMatrix).transpose
-                
+
                 planes[.left] = matrix.columns.3 + matrix.columns.0
                 planes[.right] = matrix.columns.3 - matrix.columns.0
                 planes[.bottom] = matrix.columns.3 + matrix.columns.1
