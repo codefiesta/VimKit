@@ -114,7 +114,7 @@ public class DataProviderContext: ObservableObject, @unchecked Sendable {
     /// - Parameter timestamp: timestamp the timestamp used to predict the device pose
     /// - Returns: The predicted position and orientation of the device at the given timestamp.
     func queryDeviceAnchor(_ timestamp: TimeInterval) -> DeviceAnchor? {
-        return worldTrackingProvider.queryDeviceAnchor(atTimestamp: timestamp)
+        worldTrackingProvider.queryDeviceAnchor(atTimestamp: timestamp)
     }
 }
 

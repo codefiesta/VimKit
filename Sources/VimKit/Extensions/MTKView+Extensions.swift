@@ -11,17 +11,11 @@ import MetalKit
 
 extension MTKView: VimRenderDestinationProvider {
 
-    public var colorFormat: MTLPixelFormat {
-        return colorPixelFormat
-    }
+    public var colorFormat: MTLPixelFormat { colorPixelFormat }
 
-    public var depthFormat: MTLPixelFormat {
-        return depthStencilPixelFormat
-    }
+    public var depthFormat: MTLPixelFormat { depthStencilPixelFormat }
 
-    public var viewCount: Int {
-        return 1
-    }
+    public var viewCount: Int { 1 }
 }
 
 #endif

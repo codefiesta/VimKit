@@ -17,15 +17,14 @@ extension MDLAxisAlignedBoundingBox {
 
     /// Returns the 8 corner points of the bounding box.
     var corners: [SIMD3<Float>] {
-        return [
-            minBounds,
-            [minBounds.x, minBounds.y, maxBounds.z],
-            [minBounds.x, maxBounds.y, minBounds.z],
-            [minBounds.x, maxBounds.y, maxBounds.z],
-            [maxBounds.x, minBounds.y, minBounds.z],
-            [maxBounds.x, minBounds.y, maxBounds.z],
-            [maxBounds.x, maxBounds.y, minBounds.z],
-            maxBounds
+        [minBounds,
+         [minBounds.x, minBounds.y, maxBounds.z],
+         [minBounds.x, maxBounds.y, minBounds.z],
+         [minBounds.x, maxBounds.y, maxBounds.z],
+         [maxBounds.x, minBounds.y, minBounds.z],
+         [maxBounds.x, minBounds.y, maxBounds.z],
+         [maxBounds.x, maxBounds.y, minBounds.z],
+         maxBounds
         ]
     }
 

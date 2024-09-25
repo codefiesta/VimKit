@@ -19,7 +19,7 @@ public class Assets {
 
     /// Returns all of the asset names
     public lazy var names: [String] = {
-        return bfast.buffers.map { $0.name }
+        bfast.buffers.map { $0.name }
     }()
 
     /// Returns the raw data for the asset name

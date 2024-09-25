@@ -20,12 +20,12 @@ public class MTLContext {
 
     /// Convenience lazy texture loader.
     public static var textureLoader: MTKTextureLoader = {
-        return MTKTextureLoader(device: device)
+        MTKTextureLoader(device: device)
     }()
 
     /// Makes a library from the VImKitShaders library.
     public static func makeLibrary() -> MTLLibrary? {
-        return try? device.makeDefaultLibrary(bundle: Bundle.shaders())
+        try? device.makeDefaultLibrary(bundle: Bundle.shaders())
     }
 
     /// Builds the vertex descriptor which informs Metal of the incoming buffer data

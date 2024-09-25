@@ -29,7 +29,7 @@ extension Geometry {
 
         /// Returns the longest edge of this instance
         public var longestEdge: Float {
-            return boundingBox?.longestEdge ?? .zero
+            boundingBox?.longestEdge ?? .zero
         }
 
         /// Initializes the instance.
@@ -100,7 +100,7 @@ extension Geometry {
 
         /// The submesh's byte offset into the index buffer.
         public var indexBufferOffset: Int {
-            return indices.lowerBound * MemoryLayout<UInt32>.size
+            indices.lowerBound * MemoryLayout<UInt32>.size
         }
 
         /// The mesh material.

@@ -80,7 +80,7 @@ public class Vim: NSObject, ObservableObject {
 
     /// Convenience var for accessing the SHA 256 hash of this file.
     public lazy var sha256Hash: String = {
-        return bfast.sha256Hash
+        bfast.sha256Hash
     }()
 
     /// Convenience var for accessing the buffer names sorted alphabetically.
@@ -280,7 +280,7 @@ protocol IndexedStringDataProvider: AnyObject {
 extension Vim: IndexedStringDataProvider {
 
     func string(at index: Int) -> String? {
-        return strings.indices.contains(index) ? strings[index] : nil
+        strings.indices.contains(index) ? strings[index] : nil
     }
 }
 

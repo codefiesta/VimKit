@@ -12,7 +12,7 @@ public extension MTLVertexAttributeDescriptorArray {
 
     // Convenience subscript using VertexAttribute enum
     subscript(index: VertexAttribute) -> MTLVertexAttributeDescriptor! {
-        return self[index.rawValue]
+        self[index.rawValue]
     }
 }
 
@@ -20,6 +20,6 @@ public extension MTLVertexBufferLayoutDescriptorArray {
 
     // Convenience subscript using BufferIndex enum
     subscript(index: VertexBufferIndex) -> MTLVertexBufferLayoutDescriptor! {
-        return self[index.rawValue]
+        self[index.rawValue]
     }
 }

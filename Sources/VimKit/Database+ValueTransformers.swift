@@ -32,9 +32,7 @@ public class SIMD3FloatValueTransformer: ValueTransformer {
         return "\(value.x),\(value.y),\(value.z)"
     }
 
-    override public class func allowsReverseTransformation() -> Bool {
-        return true
-    }
+    override public class func allowsReverseTransformation() -> Bool { true }
 
     public static func register() {
         ValueTransformer.setValueTransformer(SIMD3FloatValueTransformer(), forName: name)
@@ -64,9 +62,7 @@ public class SIMD3DoubleValueTransformer: ValueTransformer {
         return "\(value.x),\(value.y),\(value.z)"
     }
 
-    override public class func allowsReverseTransformation() -> Bool {
-        return true
-    }
+    override public class func allowsReverseTransformation() -> Bool { true }
 
     public static func register() {
         ValueTransformer.setValueTransformer(SIMD3DoubleValueTransformer(), forName: name)

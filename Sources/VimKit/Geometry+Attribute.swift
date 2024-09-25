@@ -19,7 +19,7 @@ extension Geometry {
 
         // Returns the number elememts inside this attribute's data buffer
         var count: Int {
-            return descriptor.dataType.size * descriptor.arity
+            descriptor.dataType.size * descriptor.arity
         }
     }
 }
