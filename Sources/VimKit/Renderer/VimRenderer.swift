@@ -20,17 +20,32 @@ open class VimRenderer: NSObject {
 
     /// Allow override for subclasses
     open var geometry: Geometry? {
-        return context.vim.geometry
+        context.vim.geometry
     }
 
     /// Returns the camera.
     open var camera: Vim.Camera {
-        return context.vim.camera
+        context.vim.camera
+    }
+
+    /// Returns the rendering options.
+    open var options: Vim.Options {
+        context.vim.options
+    }
+
+    /// Configuration option for wireframing the model.
+    open var fillMode: MTLTriangleFillMode {
+        options.wireFrame == true ? .lines : .fill
+    }
+
+    /// Configuration option for rendering in xray mode.
+    open var xRayMode: Bool {
+        options.xRay
     }
 
     /// The Metal device.
     open var device: MTLDevice {
-        return context.destinationProvider.device!
+        context.destinationProvider.device!
     }
 
     open var commandQueue: MTLCommandQueue!
@@ -56,16 +71,6 @@ open class VimRenderer: NSObject {
 
     /// Cancellable tasks.
     open var tasks = [Task<(), Never>]()
-
-    /// Configuration option for wireframing the model.
-    open var fillMode: MTLTriangleFillMode {
-        return context.vim.options.wireFrame == true ? .lines : .fill
-    }
-
-    /// Configuration option for rendering in xray mode.
-    open var xRayMode: Bool {
-        return context.vim.options.xRay
-    }
 
     /// The viewport size.
     open var viewportSize: SIMD2<Float> = .zero {
