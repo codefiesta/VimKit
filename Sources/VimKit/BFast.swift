@@ -27,11 +27,11 @@ struct BFast: Hashable {
         let begin: UInt64
         let end: UInt64
         var count: Int {
-            return Int(end - begin)
+            Int(end - begin)
         }
 
         var isValid: Bool {
-            return begin < end
+            begin < end
         }
     }
 
@@ -209,7 +209,7 @@ fileprivate extension Data {
     /// Converts this data into a string array.
     /// - Returns: an array of strings
     func toStringArray() -> [String] {
-        return String(data: self, encoding: .utf8)?.split(separator: "\0").map { String($0)} ?? []
+        String(data: self, encoding: .utf8)?.split(separator: "\0").map { String($0)} ?? []
     }
 
     /// Returns a slice of this data block from the specified range.

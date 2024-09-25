@@ -35,7 +35,7 @@ extension IndexedPersistentModel {
 
     /// Returns the name of the model.
     static var modelName: String {
-        return String(describing: Self.self)
+        String(describing: Self.self)
     }
 
     /// Finds or creates the model from the cache for the specified index.
@@ -44,7 +44,7 @@ extension IndexedPersistentModel {
     ///   - cache: the import cache
     /// - Returns: the fetched model with the specified index or a new model instance if not found.
     static func findOrCreate(index: Int64, cache: Database.ImportCache) -> Self {
-        return cache.findOrCreate(index)
+        cache.findOrCreate(index)
     }
 
     /// Warms the cache with the specified size.
@@ -53,7 +53,7 @@ extension IndexedPersistentModel {
     ///   - cache: the cache to warm
     /// - Returns: the cached objects.
     static func warm(size: Int, cache: Database.ImportCache) -> [Self] {
-        return cache.warm(size)
+        cache.warm(size)
     }
 
     /// Performs a fetch request for all models in the specified context.
@@ -134,7 +134,7 @@ extension Database {
     public final class Asset: IndexedPersistentModel {
 
         public static func predicate(_ index: Int64) -> Predicate<Asset> {
-            return #Predicate<Asset> { $0.index == index }
+            #Predicate<Asset> { $0.index == index }
         }
 
         @Attribute(.unique)
@@ -155,7 +155,7 @@ extension Database {
     public final class BimDocument: IndexedPersistentModel {
 
         public static func predicate(_ index: Int64) -> Predicate<BimDocument> {
-            return #Predicate<BimDocument> { $0.index == index }
+            #Predicate<BimDocument> { $0.index == index }
         }
 
         @Attribute(.unique)
@@ -186,7 +186,7 @@ extension Database {
     public final class AssemblyInstance: IndexedPersistentModel {
 
         public static func predicate(_ index: Int64) -> Predicate<AssemblyInstance> {
-            return #Predicate<AssemblyInstance> { $0.index == index }
+            #Predicate<AssemblyInstance> { $0.index == index }
         }
 
         @Attribute(.unique)
@@ -197,7 +197,7 @@ extension Database {
         var positionY: Float
         var positionZ: Float
         public var position: SIMD3<Float> {
-            return [positionX, positionY, positionZ]
+            [positionX, positionY, positionZ]
         }
 
         /// Initializer.
@@ -224,7 +224,7 @@ extension Database {
     public final class Camera: IndexedPersistentModel {
 
         public static func predicate(_ index: Int64) -> Predicate<Camera> {
-            return #Predicate<Camera> { $0.index == index }
+            #Predicate<Camera> { $0.index == index }
         }
 
         @Attribute(.unique)
@@ -264,7 +264,7 @@ extension Database {
     public final class Category: IndexedPersistentModel {
 
         public static func predicate(_ index: Int64) -> Predicate<Category> {
-            return #Predicate<Category> { $0.index == index }
+            #Predicate<Category> { $0.index == index }
         }
 
         @Attribute(.unique)
@@ -298,7 +298,7 @@ extension Database {
     public final class CompoundStructure: IndexedPersistentModel {
 
         public static func predicate(_ index: Int64) -> Predicate<CompoundStructure> {
-            return #Predicate<CompoundStructure> { $0.index == index }
+            #Predicate<CompoundStructure> { $0.index == index }
         }
 
         @Attribute(.unique)
@@ -325,7 +325,7 @@ extension Database {
     public final class CompoundStructureLayer: IndexedPersistentModel {
 
         public static func predicate(_ index: Int64) -> Predicate<CompoundStructureLayer> {
-            return #Predicate<CompoundStructureLayer> { $0.index == index }
+            #Predicate<CompoundStructureLayer> { $0.index == index }
         }
 
         @Attribute(.unique)
@@ -354,7 +354,7 @@ extension Database {
     public final class DesignOption: IndexedPersistentModel {
 
         public static func predicate(_ index: Int64) -> Predicate<DesignOption> {
-            return #Predicate<DesignOption> { $0.index == index }
+            #Predicate<DesignOption> { $0.index == index }
         }
 
         @Attribute(.unique)
@@ -380,7 +380,7 @@ extension Database {
     public final class DisplayUnit: IndexedPersistentModel {
 
         public static func predicate(_ index: Int64) -> Predicate<DisplayUnit> {
-            return #Predicate<DisplayUnit> { $0.index == index }
+            #Predicate<DisplayUnit> { $0.index == index }
         }
 
         @Attribute(.unique)
@@ -402,7 +402,7 @@ extension Database {
     public final class Element: IndexedPersistentModel {
 
         public static func predicate(_ index: Int64) -> Predicate<Element> {
-            return #Predicate<Element> { $0.index == index }
+            #Predicate<Element> { $0.index == index }
         }
 
         @Attribute(.unique)
@@ -490,7 +490,7 @@ extension Database {
     public final class Family: IndexedPersistentModel {
 
         public static func predicate(_ index: Int64) -> Predicate<Family> {
-            return #Predicate<Family> { $0.index == index }
+            #Predicate<Family> { $0.index == index }
         }
 
         @Attribute(.unique)
@@ -523,7 +523,7 @@ extension Database {
     public final class FamilyInstance: IndexedPersistentModel {
 
         public static func predicate(_ index: Int64) -> Predicate<FamilyInstance> {
-            return #Predicate<FamilyInstance> { $0.index == index }
+            #Predicate<FamilyInstance> { $0.index == index }
         }
 
         @Attribute(.unique)
@@ -554,7 +554,7 @@ extension Database {
     public final class FamilyType: IndexedPersistentModel {
 
         public static func predicate(_ index: Int64) -> Predicate<FamilyType> {
-            return #Predicate<FamilyType> { $0.index == index }
+            #Predicate<FamilyType> { $0.index == index }
         }
 
         @Attribute(.unique)
@@ -588,7 +588,7 @@ extension Database {
     public final class Group: IndexedPersistentModel {
 
         public static func predicate(_ index: Int64) -> Predicate<Group> {
-            return #Predicate<Group> { $0.index == index }
+            #Predicate<Group> { $0.index == index }
         }
 
         @Attribute(.unique)
@@ -599,7 +599,7 @@ extension Database {
         var positionY: Float
         var positionZ: Float
         public var position: SIMD3<Float> {
-            return [positionX, positionY, positionZ]
+            [positionX, positionY, positionZ]
         }
 
         /// Initializer.
@@ -626,7 +626,7 @@ extension Database {
     public final class Level: IndexedPersistentModel {
 
         public static func predicate(_ index: Int64) -> Predicate<Level> {
-            return #Predicate<Level> { $0.index == index }
+            #Predicate<Level> { $0.index == index }
         }
 
         @Attribute(.unique)
@@ -652,7 +652,7 @@ extension Database {
     public final class Material: IndexedPersistentModel {
 
         public static func predicate(_ index: Int64) -> Predicate<Material> {
-            return #Predicate<Material> { $0.index == index }
+            #Predicate<Material> { $0.index == index }
         }
 
         @Attribute(.unique)
@@ -687,7 +687,7 @@ extension Database {
     public final class MaterialInElement: IndexedPersistentModel {
 
         public static func predicate(_ index: Int64) -> Predicate<MaterialInElement> {
-            return #Predicate<MaterialInElement> { $0.index == index }
+            #Predicate<MaterialInElement> { $0.index == index }
         }
 
         @Attribute(.unique)
@@ -723,7 +723,7 @@ extension Database {
     public final class Node: IndexedPersistentModel {
 
         public static func predicate(_ index: Int64) -> Predicate<Node> {
-            return #Predicate<Node> { $0.index == index }
+            #Predicate<Node> { $0.index == index }
         }
 
         @Attribute(.unique)
@@ -746,7 +746,7 @@ extension Database {
     public final class Parameter: IndexedPersistentModel {
 
         public static func predicate(_ index: Int64) -> Predicate<Parameter> {
-            return #Predicate<Parameter> { $0.index == index }
+            #Predicate<Parameter> { $0.index == index }
         }
 
         @Attribute(.unique)
@@ -781,7 +781,7 @@ extension Database {
     public final class ParameterDescriptor: IndexedPersistentModel {
 
         public static func predicate(_ index: Int64) -> Predicate<ParameterDescriptor> {
-            return #Predicate<ParameterDescriptor> { $0.index == index }
+            #Predicate<ParameterDescriptor> { $0.index == index }
         }
 
         @Attribute(.unique)
@@ -822,7 +822,7 @@ extension Database {
     public final class Room: IndexedPersistentModel {
 
         public static func predicate(_ index: Int64) -> Predicate<Room> {
-            return #Predicate<Room> { $0.index == index }
+            #Predicate<Room> { $0.index == index }
         }
 
         @Attribute(.unique)
@@ -860,7 +860,7 @@ extension Database {
     public final class View: IndexedPersistentModel {
 
         public static func predicate(_ index: Int64) -> Predicate<View> {
-            return #Predicate<View> { $0.index == index }
+            #Predicate<View> { $0.index == index }
         }
 
         @Attribute(.unique)
@@ -869,35 +869,35 @@ extension Database {
         var originY: Float
         var originZ: Float
         public var origin: SIMD3<Float> {
-            return [originX, originY, originZ]
+            [originX, originY, originZ]
         }
 
         var directionX: Float
         var directionY: Float
         var directionZ: Float
         public var direction: SIMD3<Float> {
-            return [directionX, directionY, directionZ]
+            [directionX, directionY, directionZ]
         }
 
         var positionX: Float
         var positionY: Float
         var positionZ: Float
         public var position: SIMD3<Float> {
-            return [positionX, positionY, positionZ]
+            [positionX, positionY, positionZ]
         }
 
         var upX: Float
         var upY: Float
         var upZ: Float
         public var up: SIMD3<Float> {
-            return [upX, upY, upZ]
+            [upX, upY, upZ]
         }
 
         var rightX: Float
         var rightY: Float
         var rightZ: Float
         public var right: SIMD3<Float> {
-            return [rightX, rightY, rightZ]
+            [rightX, rightY, rightZ]
         }
 
         public var scale: Float
@@ -956,7 +956,7 @@ extension Database {
     public final class Workset: IndexedPersistentModel {
 
         public static func predicate(_ index: Int64) -> Predicate<Workset> {
-            return #Predicate<Workset> { $0.index == index }
+            #Predicate<Workset> { $0.index == index }
         }
 
         @Attribute(.unique)
@@ -1030,7 +1030,7 @@ extension Database {
             }
 
             public static func == (lhs: ModelTree.Item, rhs: ModelTree.Item) -> Bool {
-                return lhs.id == rhs.id && lhs.type == rhs.type && lhs.name == rhs.name
+                lhs.id == rhs.id && lhs.type == rhs.type && lhs.name == rhs.name
             }
         }
 

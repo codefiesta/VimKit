@@ -11,6 +11,6 @@ extension Collection {
 
     @inlinable
     public var isNotEmpty: Bool {
-        return !isEmpty
+        !isEmpty
     }
 }

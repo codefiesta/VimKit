@@ -44,7 +44,7 @@ extension Vim {
         /// of the camera effectively making everything relative to the camera
         /// as though the camera was at the origin [0,0,0]
         public var viewMatrix: float4x4 {
-            return transform.inverse
+            transform.inverse
         }
 
         /// The field of view in degrees.
@@ -72,7 +72,7 @@ extension Vim {
 
         /// Provides the camera right vector.
         public var right: SIMD3<Float> {
-            return transform.right
+            transform.right
         }
 
         /// Provides the camera up vector.
@@ -248,32 +248,32 @@ extension Vim {
 
             /// Convenience var that returns the frustum near plane
             var nearPlane: SIMD4<Float> {
-                return planes[.near]
+                planes[.near]
             }
 
             /// Convenience var that returns the frustum far plane
             var farPlane: SIMD4<Float> {
-                return planes[.far]
+                planes[.far]
             }
 
             /// Convenience var that returns the frustum left plane
             var leftPlane: SIMD4<Float> {
-                return planes[.left]
+                planes[.left]
             }
 
             /// Convenience var that returns the frustum right plane
             var rightPlane: SIMD4<Float> {
-                return planes[.right]
+                planes[.right]
             }
 
             /// Convenience var that returns the frustum top plane
             var topPlane: SIMD4<Float> {
-                return planes[.top]
+                planes[.top]
             }
 
             /// Convenience var that returns the frustum bottom plane
             var bottomPlane: SIMD4<Float> {
-                return planes[.bottom]
+                planes[.bottom]
             }
 
             /// Updates the frustum from the specified matrix
@@ -325,7 +325,7 @@ fileprivate extension Array where Element == SIMD4<Float> {
 
     subscript(_ side: Vim.Camera.Frustum.Plane) -> SIMD4<Float> {
         get {
-            return self[side.rawValue]
+            self[side.rawValue]
         }
         set {
             self[side.rawValue] = newValue

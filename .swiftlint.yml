@@ -5,11 +5,13 @@ only_rules:
  - duplicate_imports
  - explicit_init
  - file_header
+ - implicit_return
  - function_body_length
  - legacy_constructor
  - legacy_nsgeometry_functions
  - legacy_constant
  - modifier_order
+ - period_spacing
  - private_subject
  - redundant_self_in_closure
  - sorted_imports

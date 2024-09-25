@@ -29,13 +29,13 @@ extension Geometry {
 
         /// Determine the point along this ray at the given parameter
         func extrapolate(_ parameter: Float) -> SIMD4<Float> {
-            return .init(origin + parameter * direction, 1)
+            .init(origin + parameter * direction, 1)
         }
 
         /// Determine the parameter corresponding to the point,
         /// assuming it lies on this ray
         func interpolate(_ point: SIMD4<Float>) -> Float {
-            return length(point.xyz - origin) / length(direction)
+            length(point.xyz - origin) / length(direction)
         }
 
         /// Convenience operator that performs multiplication of the transform against the query.

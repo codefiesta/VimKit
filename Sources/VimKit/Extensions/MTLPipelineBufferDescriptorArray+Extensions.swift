@@ -12,6 +12,6 @@ public extension MTLPipelineBufferDescriptorArray {
 
     // Convenience subscript using BufferIndex enum
     subscript(index: VertexBufferIndex) -> MTLPipelineBufferDescriptor {
-        return self[index.rawValue]
+        self[index.rawValue]
     }
 }

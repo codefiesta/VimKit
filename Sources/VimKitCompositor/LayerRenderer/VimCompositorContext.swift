@@ -14,7 +14,7 @@ public struct VimCompositorContext: VimRendererContext, VimRenderDestinationProv
     public let vim: Vim
     public let layerRenderer: LayerRenderer
     public var destinationProvider: VimRenderDestinationProvider {
-        return self
+        self
     }
 
     let dataProviderContext: DataProviderContext

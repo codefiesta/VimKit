@@ -11,7 +11,7 @@ public extension CGPoint {
 
     /// A convenience nan point used for comparison.
     static var nan: CGPoint {
-        return CGPoint(x: CGFloat.nan, y: CGFloat.nan)
+        CGPoint(x: CGFloat.nan, y: CGFloat.nan)
     }
 
     /// Convenience operator that performs point multiplication.
@@ -20,7 +20,7 @@ public extension CGPoint {
     ///   - rhs: the mulitplication factor
     /// - Returns: a new point that is multiplied by the right hand side value.
     static func * (lhs: CGPoint, scale: CGFloat) -> CGPoint {
-        return CGPoint(x: lhs.x * scale, y: lhs.y * scale)
+        CGPoint(x: lhs.x * scale, y: lhs.y * scale)
     }
 
     /// Convenience operator that performs point multiplication.
@@ -29,7 +29,7 @@ public extension CGPoint {
     ///   - rhs: the divider
     /// - Returns: a new point that is divided by the right hand side value.
     static func / (lhs: CGPoint, rhs: CGFloat) -> CGPoint {
-        return CGPoint(x: lhs.x / rhs, y: lhs.y / rhs)
+        CGPoint(x: lhs.x / rhs, y: lhs.y / rhs)
     }
 
     /// Convenience initializer.
@@ -37,7 +37,7 @@ public extension CGPoint {
         self.init(x: CGFloat(x), y: CGFloat(y))
     }
 
-    /// Clamp the x,y to the range [`min`, max].  If x or y is
+    /// Clamp the x,y to the range [`min`, max]. If x or y is
     /// NaN, the corresponding result is `min`.
     func clamp(min: CGPoint = .zero, max: CGPoint) -> CGPoint {
         guard self != .nan else { return min }
@@ -47,9 +47,9 @@ public extension CGPoint {
         return result
     }
 
-    /// Clamp the x,y to the range [`min`, max].  If x or y is
+    /// Clamp the x,y to the range [`min`, max]. If x or y is
     /// NaN, the corresponding result is `min`.
     func clamp(min: CGSize = .zero, max: CGSize) -> CGPoint {
-        return clamp(max: CGPoint(x: max.width, y: max.height))
+        clamp(max: CGPoint(x: max.width, y: max.height))
     }
 }

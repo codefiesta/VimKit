@@ -14,7 +14,7 @@ public extension Double {
 
     /// Returns a single precision representation of this double value.
     var singlePrecision: Float {
-        return Float(self)
+        Float(self)
     }
 }
 
@@ -25,12 +25,12 @@ public extension Float {
 
     /// Degrees to radians.
     var radians: Float {
-        return (self / 180) * π
+        (self / 180) * π
     }
 
     /// Radians to degrees.
     var degrees: Float {
-      return (self / π) * 180
+      (self / π) * 180
     }
 }
 
@@ -56,72 +56,72 @@ public extension SIMD3 where Scalar == Float {
 
     /// A vector with one in the x lane - zeros in the y, z lanes.
     static var xpositive: SIMD3<Scalar> {
-        return [1, 0, 0]
+        [1, 0, 0]
     }
 
     /// A vector with a negative one in the x lane - zeros in the y, z lanes.
     static var xnegative: SIMD3<Scalar> {
-        return [-1, 0, 0]
+        [-1, 0, 0]
     }
 
     /// A vector with one in the y lane - zeros in the x, z lanes.
     static var ypositive: SIMD3<Scalar> {
-        return [0, 1, 0]
+        [0, 1, 0]
     }
 
     /// A vector with a negative one in the y lane - zeros in the x, z lanes.
     static var ynegative: SIMD3<Scalar> {
-        return [0, -1, 0]
+        [0, -1, 0]
     }
 
     /// A vector with one in the z lane - zeros in the x, y lanes.
     static var zpositive: SIMD3<Scalar> {
-        return [0, 0, 1]
+        [0, 0, 1]
     }
 
     /// A vector with a negative one in the z lane - zeros in the x, y lanes.
     static var znegative: SIMD3<Scalar> {
-        return [0, 0, -1]
+        [0, 0, -1]
     }
 
     /// Returns the inverse of this vector.
     var inverse: SIMD3<Scalar> {
-        return [Float(Int(x) ^ 1), Float(Int(y) ^ 1), Float(Int(z) ^ 1)]
+        [Float(Int(x) ^ 1), Float(Int(y) ^ 1), Float(Int(z) ^ 1)]
     }
 
     /// Returns the negation of this vector.
     var negate: SIMD3<Scalar> {
-        return self * -1
+        self * -1
     }
 
     /// Returns true if any lane is Nan ("not a number").
     var isNan: Bool {
-        return x.isNaN || y.isNaN || z.isNaN
+        x.isNaN || y.isNaN || z.isNaN
     }
 
     /// Degrees to radians.
     var radians: SIMD3<Scalar> {
-        return (self / 180) * π
+        (self / 180) * π
     }
 
     /// Greater than operator comparing all three lanes of each vector.
     static func > (_ lhs: SIMD3<Scalar>, rhs: SIMD3<Scalar>) -> Bool {
-        return lhs.x > rhs.x && lhs.y > rhs.y && lhs.z > rhs.z
+        lhs.x > rhs.x && lhs.y > rhs.y && lhs.z > rhs.z
     }
 
     /// Greater than or equals operator comparing all three lanes of each vector.
     static func >= (_ lhs: SIMD3<Scalar>, rhs: SIMD3<Scalar>) -> Bool {
-        return lhs.x >= rhs.x && lhs.y >= rhs.y && lhs.z >= rhs.z
+        lhs.x >= rhs.x && lhs.y >= rhs.y && lhs.z >= rhs.z
     }
 
     /// Less than operator comparing all three lanes of each vector.
     static func < (_ lhs: SIMD3<Scalar>, rhs: SIMD3<Scalar>) -> Bool {
-        return lhs.x < rhs.x && lhs.y < rhs.y && lhs.z < rhs.z
+        lhs.x < rhs.x && lhs.y < rhs.y && lhs.z < rhs.z
     }
 
     /// Less than or equals operator comparing all three lanes of each vector.
     static func <= (_ lhs: SIMD3<Scalar>, rhs: SIMD3<Scalar>) -> Bool {
-        return lhs.x <= rhs.x && lhs.y <= rhs.y && lhs.z <= rhs.z
+        lhs.x <= rhs.x && lhs.y <= rhs.y && lhs.z <= rhs.z
     }
 }
 
@@ -129,12 +129,12 @@ public extension SIMD4 where Scalar: BinaryFloatingPoint {
 
     /// Denotes an invalid vector.
     static var invalid: SIMD4<Scalar> {
-        return [.infinity, .infinity, .infinity, .infinity]
+        [.infinity, .infinity, .infinity, .infinity]
     }
 
     /// Returns the x, y, z lanes of this vector.
     var xyz: SIMD3<Scalar> {
-        return [x, y, z]
+        [x, y, z]
     }
 
     /// Divides each lane by the w component unless the vector is
@@ -237,7 +237,7 @@ public extension float4x4 {
 
     /// Convenience var that returns the upper left portion of this matrix into a float3x3 matrix.
     var float3x3: float3x3 {
-        return simd_float3x3(columns.0.xyz, columns.1.xyz, columns.2.xyz)
+        simd_float3x3(columns.0.xyz, columns.1.xyz, columns.2.xyz)
     }
 }
 

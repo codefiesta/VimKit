@@ -62,7 +62,7 @@ public class Geometry: ObservableObject {
 
     /// Convenience var for accessing the SHA 256 hash of this geometry data.
     public lazy var sha256Hash: String = {
-        return bfast.sha256Hash
+        bfast.sha256Hash
     }()
 
     /// Initializer
@@ -539,7 +539,7 @@ public class Geometry: ObservableObject {
 
     /// Returns the instance offsets (used for instancing). 
     lazy var instanceOffsets: [UInt32] = {
-        return instancedMeshes.map { $0.instances }.reduce( [], + )
+        instancedMeshes.map { $0.instances }.reduce( [], + )
     }()
 
     /// Provides a hash lookup of instance indices into their respective instanced meshes index.
@@ -731,7 +731,7 @@ public class Geometry: ObservableObject {
     ///   - semantic: the aatribute descriptotor semantic to match against
     /// - Returns: all attributes that match the soecified association and semantic
     fileprivate func attributes(association: AttributeDescriptor.Association, semantic: AttributeDescriptor.Semantic) -> [Attribute] {
-        return attributes.filter { $0.descriptor.association == association && $0.descriptor.semantic == semantic }
+        attributes.filter { $0.descriptor.association == association && $0.descriptor.semantic == semantic }
     }
 
     /// Convenience method for accessing attribute data into an array of the specified type.

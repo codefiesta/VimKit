@@ -207,7 +207,7 @@ extension Database {
         /// - Parameter index: the model index
         /// - Returns: a found model of the specified type and index or a new instance.
         func findOrCreate<T>(_ index: Int64) -> T where T: IndexedPersistentModel {
-            return cache.findOrCreate(index)
+            cache.findOrCreate(index)
         }
     }
 
@@ -274,7 +274,7 @@ extension Database {
 
         /// Returns true if the cache is empty.
         var isEmpty: Bool {
-            return models.count > 0
+            models.count > 0
         }
 
         /// Warms the cache up to the specified index size. Any entities that

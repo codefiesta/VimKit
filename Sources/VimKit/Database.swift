@@ -34,7 +34,7 @@ public class Database: ObservableObject {
 
             /// Identifiable id
             public var id: String {
-                return name
+                name
             }
 
             /// The name of the column
@@ -143,17 +143,17 @@ public class Database: ObservableObject {
 
         /// The name of the table
         public var name: String {
-            return buffer.name
+            buffer.name
         }
 
         /// Returns the number of rows this table has
         public var count: Int {
-            return columns.values.first?.count ?? 0
+            columns.values.first?.count ?? 0
         }
 
         /// Dynamic subscipt to use `.dot syntax` for referencing a table column
         subscript(dynamicMember member: String) -> Column? {
-            return columns[member]
+            columns[member]
         }
 
         /// Convenience var for accessing the table colum names sorted alphabetically.
@@ -191,7 +191,7 @@ public class Database: ObservableObject {
 
     /// Convenience var for accessing the SHA 256 hash of this database data.
     public lazy var sha256Hash: String = {
-        return bfast.sha256Hash
+        bfast.sha256Hash
     }()
 
     /// The SwiftData model container
@@ -247,7 +247,7 @@ public class Database: ObservableObject {
     ///
     /// `let table = entites.VimGeometry`.
     subscript(dynamicMember member: String) -> Table? {
-        return tables[member]
+        tables[member]
     }
 }
 
@@ -281,23 +281,23 @@ public struct ResultSet: RandomAccessCollection, Sequence {
     public typealias Indices = CountableRange<Int>
 
     public var startIndex: Int {
-        return rows.startIndex
+        rows.startIndex
     }
 
     public var endIndex: Int {
-        return rows.endIndex
+        rows.endIndex
     }
 
     public var count: Int {
-        return rows.count
+        rows.count
     }
 
     public subscript(position: Int) -> [String: AnyHashable] {
-        return rows[position]
+        rows[position]
     }
 
     public subscript(dynamicMember member: String) -> String? {
-        return member
+        member
     }
 
     public let tableName: String
@@ -336,7 +336,7 @@ public struct ResultSet: RandomAccessCollection, Sequence {
     }
 
     public static func == (lhs: ResultSet, rhs: ResultSet) -> Bool {
-        return lhs.tableName == rhs.tableName && lhs.count == rhs.count
+        lhs.tableName == rhs.tableName && lhs.count == rhs.count
     }
 }
 

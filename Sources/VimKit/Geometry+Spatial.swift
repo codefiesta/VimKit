@@ -125,7 +125,7 @@ extension Geometry {
 
         /// Returns the bounds of the entire hierarchy
         var bounds: MDLAxisAlignedBoundingBox {
-            return root.box
+            root.box
         }
 
         /// Intializes the bounding volume with the specified geometry.

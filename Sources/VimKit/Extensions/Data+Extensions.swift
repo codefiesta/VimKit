@@ -21,7 +21,7 @@ extension Data {
 
     /// Returns the data block as a raw byte array.
     var bytes: [UInt8] {
-        return [UInt8](self)
+        [UInt8](self)
     }
 
     /// Convenience var that returns the byte count formatted into a human readable string.
@@ -80,7 +80,7 @@ extension Data {
      /// - Parameter type: the data type to perform a count of
      /// - Returns: the total count of elements for the specified type
      func count<T>(of type: T.Type) -> Int {
-         return Int(self.count / MemoryLayout<T>.size)
+         Int(self.count / MemoryLayout<T>.size)
      }
 }
 
@@ -88,7 +88,7 @@ fileprivate extension Data {
 
     func unsafePointer<T>() -> UnsafePointer<T>? {
         let result = withUnsafeBytes { (pointer) -> UnsafePointer<T>? in
-            return pointer.baseAddress?.assumingMemoryBound(to: T.self)
+            pointer.baseAddress?.assumingMemoryBound(to: T.self)
         }
         return result
     }

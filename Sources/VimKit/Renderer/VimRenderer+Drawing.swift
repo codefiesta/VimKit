@@ -191,7 +191,7 @@ extension VimRenderer {
     ///   - submesh: the submesh
     /// - Returns: the mesh unifroms
     func meshUniforms(submesh: Geometry.Submesh) -> MeshUniforms {
-        return MeshUniforms(
+        MeshUniforms(
             color: submesh.material?.rgba ?? .zero,
             glossiness: submesh.material?.glossiness ?? .half,
             smoothness: submesh.material?.smoothness ?? .half
