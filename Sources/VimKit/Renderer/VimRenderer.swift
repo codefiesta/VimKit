@@ -38,7 +38,7 @@ open class VimRenderer: NSObject {
     open var depthStencilState: MTLDepthStencilState?
     open var samplerState: MTLSamplerState?
     open var baseColorTexture: MTLTexture?
-    open var instanceIndexTexture: MTLTexture?
+    open var instancePickingTexture: MTLTexture?
     open var renderPassDescriptor: MTLRenderPassDescriptor?
 
     // Semaphore
@@ -133,7 +133,7 @@ extension VimRenderer {
     /// grabs the byte encoded at that pixel on the instance index texture.
     /// - Parameter point: the screen point
     public func didTap(at point: SIMD2<Float>) {
-        guard let geometry, let texture = instanceIndexTexture else { return }
+        guard let geometry, let texture = instancePickingTexture else { return }
         let region = MTLRegionMake2D(Int(point.x), Int(point.y), 1, 1)
         let bytesPerRow = MemoryLayout<Int32>.stride * texture.width
         var pixel: Int32 = .empty

@@ -55,25 +55,7 @@ public extension VimCompositorRenderer {
     private func handleIndirectPinch(_ event: SpatialEventCollection.Element) {
         switch event.phase {
         case .active:
-
-            guard let selectionRay = event.selectionRay,
-                  let pose = Pose3D(camera.transform) else { return }
-
-            // Apply the pose from the scene transform to get the correct origin and direction
-            let ray = selectionRay.applying(pose)
-            let _: SIMD3<Float> = [
-                Float(ray.origin.x),
-                Float(ray.origin.y),
-                Float(ray.origin.z)
-            ]
-            let _: SIMD3<Float> = [
-                Float(ray.direction.x),
-                Float(ray.direction.y),
-                Float(ray.direction.z)
-            ]
-            // TODO: The location is always at zero - need to calculate the screen position
-            let point: SIMD2<Float> = [Float(event.location.x), Float(event.location.y)]
-            didTap(at: point)
+            break
         case .ended:
             break
         case .cancelled:

@@ -11,7 +11,7 @@ import VimKitShaders
 private let vertexFunctionName = "vertexMain"
 private let fragmentFunctionName = "fragmentMain"
 private let pipelineLabel = "VimRendererPipeline"
-private let instanceIndexTextureLabel = "InstanceIndexTexture"
+private let instancePickingTextureLabel = "InstancePickingTexture"
 
 extension VimRenderer {
 
@@ -94,7 +94,7 @@ extension VimRenderer {
         let renderPassDescriptor = context.destinationProvider.currentRenderPassDescriptor
 
         // Instance Picking Texture Attachment
-        renderPassDescriptor?.colorAttachments[1].texture = instanceIndexTexture
+        renderPassDescriptor?.colorAttachments[1].texture = instancePickingTexture
         renderPassDescriptor?.colorAttachments[1].loadAction = .clear
         renderPassDescriptor?.colorAttachments[1].storeAction = .store
 
@@ -111,12 +111,11 @@ extension VimRenderer {
         let width = Int(viewportSize.x)
         let height = Int(viewportSize.y)
 
-        // Instance Index Color Attachment
-        let textureDescriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .r32Sint, width: width, height: height, mipmapped: false)
-        textureDescriptor.usage = .renderTarget
+        // Instance Picking Texture
+        let instancePickingTextureDescriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .r32Sint, width: width, height: height, mipmapped: false)
+        instancePickingTextureDescriptor.usage = .renderTarget
 
-        let texture = device.makeTexture(descriptor: textureDescriptor)
-        texture?.label = instanceIndexTextureLabel
-        instanceIndexTexture = texture
+        instancePickingTexture = device.makeTexture(descriptor: instancePickingTextureDescriptor)
+        instancePickingTexture?.label = instancePickingTextureLabel
     }
 }

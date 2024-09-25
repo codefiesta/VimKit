@@ -6,6 +6,7 @@
 //
 #if os(visionOS)
 import CompositorServices
+import SwiftUI
 import VimKit
 
 public struct VimCompositorContext: VimRendererContext, VimRenderDestinationProvider {
@@ -28,35 +29,35 @@ public struct VimCompositorContext: VimRendererContext, VimRenderDestinationProv
     /// - Parameter timestamp: the timestamp of the device to query for
     /// - Returns: the anchor at the specified timestamp
     public func queryDeviceAnchor(_ timestamp: TimeInterval = CACurrentMediaTime()) -> DeviceAnchor? {
-        return dataProviderContext.queryDeviceAnchor(timestamp)
+        dataProviderContext.queryDeviceAnchor(timestamp)
     }
 
     public var device: MTLDevice? {
-        return layerRenderer.device
+        layerRenderer.device
     }
 
     public var colorFormat: MTLPixelFormat {
-        return layerRenderer.configuration.colorFormat
+        layerRenderer.configuration.colorFormat
     }
 
     public var clearColor: MTLClearColor {
-        return .skyBlue
+        Color.skyBlue.mtlClearColor
     }
 
     public var depthFormat: MTLPixelFormat {
-        return layerRenderer.configuration.depthFormat
+        layerRenderer.configuration.depthFormat
     }
 
     public var viewCount: Int {
-        return layerRenderer.properties.viewCount
+        layerRenderer.properties.viewCount
     }
 
     public var currentRenderPassDescriptor: MTLRenderPassDescriptor? {
-        return nil
+        nil
     }
 
     public var currentDrawable: CAMetalDrawable? {
-        return nil
+        nil
     }
 }
 
