@@ -285,6 +285,7 @@ extension Vim {
                 planes[.left] = matrix.columns.3 + matrix.columns.0
                 planes[.right] = matrix.columns.3 - matrix.columns.0
                 planes[.bottom] = matrix.columns.3 + matrix.columns.1
+                planes[.top] = matrix.columns.3 - matrix.columns.1
                 planes[.near] = matrix.columns.3 + matrix.columns.2
                 planes[.far] = matrix.columns.3 - matrix.columns.2
 
