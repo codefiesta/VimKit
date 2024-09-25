@@ -247,17 +247,6 @@ extension Vim {
             /// The frustum clipping planes.
             var planes = [SIMD4<Float>](repeating: .zero, count: 6)
 
-            /// The center point of the frustum bounding sphere.
-            var center: SIMD3<Float> = .zero
-
-            /// The minimum bounding sphere radius
-            var radius: Float = .zero
-
-            /// Returns the bounding sphere.
-            var sphere: Geometry.Sphere {
-                Geometry.Sphere(center: center, radius: radius)
-            }
-
             /// Convenience var that returns the frustum near plane
             var nearPlane: SIMD4<Float> {
                 return planes[.near]
@@ -291,70 +280,40 @@ extension Vim {
             /// Updates the frustum from the specified matrix
             /// - Parameter matrix: the matrix to use to build the frustum planes
             fileprivate mutating func update(_ camera: Camera) {
-                let matrix = camera.viewMatrix * camera.projectionMatrix
-                // Left Plane
-                planes[.left].x = matrix.columns.0.w + matrix.columns.0.x
-                planes[.left].y = matrix.columns.1.w + matrix.columns.1.x
-                planes[.left].z = matrix.columns.2.w + matrix.columns.2.x
-                planes[.left].w = matrix.columns.3.w + matrix.columns.3.x
-                // Right Plane
-                planes[.right].x = matrix.columns.0.w - matrix.columns.0.x
-                planes[.right].y = matrix.columns.1.w - matrix.columns.1.x
-                planes[.right].z = matrix.columns.2.w - matrix.columns.2.x
-                planes[.right].w = matrix.columns.3.w - matrix.columns.3.x
-                // Top Plane
-                planes[.top].x = matrix.columns.0.w - matrix.columns.0.y
-                planes[.top].y = matrix.columns.1.w - matrix.columns.1.y
-                planes[.top].z = matrix.columns.2.w - matrix.columns.2.y
-                planes[.top].w = matrix.columns.3.w - matrix.columns.3.y
-                // Bottom Plane
-                planes[.bottom].x = matrix.columns.0.w + matrix.columns.0.y
-                planes[.bottom].y = matrix.columns.1.w + matrix.columns.1.y
-                planes[.bottom].z = matrix.columns.2.w + matrix.columns.2.y
-                planes[.bottom].w = matrix.columns.3.w + matrix.columns.3.y
-                // Near (Back) Plane
-                planes[.near].x = matrix.columns.0.w + matrix.columns.0.z
-                planes[.near].y = matrix.columns.1.w + matrix.columns.1.z
-                planes[.near].z = matrix.columns.2.w + matrix.columns.2.z
-                planes[.near].w = matrix.columns.3.w + matrix.columns.3.z
-                // Far (Front) Plane
-                planes[.far].x = matrix.columns.0.w - matrix.columns.0.z
-                planes[.far].y = matrix.columns.1.w - matrix.columns.1.z
-                planes[.far].z = matrix.columns.2.w - matrix.columns.2.z
-                planes[.far].w = matrix.columns.3.w - matrix.columns.3.z
+                let matrix = (camera.projectionMatrix * camera.viewMatrix).transpose
+
+                planes[.left] = matrix.columns.3 + matrix.columns.0
+                planes[.right] = matrix.columns.3 - matrix.columns.0
+                planes[.bottom] = matrix.columns.3 + matrix.columns.1
+                planes[.top] = matrix.columns.3 - matrix.columns.1
+                planes[.near] = matrix.columns.3 + matrix.columns.2
+                planes[.far] = matrix.columns.3 - matrix.columns.2
 
                 for (i, _) in planes.enumerated() {
                     planes[i] = normalize(planes[i])
                 }
-
-                // Calculate the sphere center + radius
-                let p = camera.position
-                let f = camera.forward
-                let nearCenter = p + f * camera.nearZ
-                let farCenter = p + f * -camera.farZ
-
-                let c = (nearCenter + farCenter) * .half
-                let d = distance(c, nearCenter) - camera.nearZ
-
-                center = c
-                radius = d
             }
 
             /// Tests to see if the frustum contains the provided bounding box or not.
+            /// See: https://ktstephano.github.io/rendering/stratusgfx/aabbs
             /// - Parameters:
             ///   - box: the bounding box to test
-            ///   - radius: the sphere radius
             /// - Returns: true if contains, otherwise false
             func contains(_ box: MDLAxisAlignedBoundingBox) -> Bool {
-                if !sphere.contains(box: box) {
-                    // Test the planes against the box
-                    let position = box.center
-                    let radius = box.radius
-                    for plane in planes {
-                        let d = (plane.x * position.x) + (plane.y * position.y) + (plane.z * position.z) + plane.w
-                        if d <= -radius {
-                            return false
-                        }
+                let min = box.minBounds
+                let max = box.maxBounds
+                for plane in planes {
+                    if dot(plane, SIMD4<Float>(min, 1.0)) < .zero &&
+                        dot(plane, SIMD4<Float>(max.x, min.y, min.z, 1.0)) < .zero &&
+                        dot(plane, SIMD4<Float>(min.x, max.y, min.z, 1.0)) < .zero &&
+                        dot(plane, SIMD4<Float>(max.x, max.y, min.z, 1.0)) < .zero &&
+                        dot(plane, SIMD4<Float>(min.x, min.y, max.z, 1.0)) < .zero &&
+                        dot(plane, SIMD4<Float>(max.x, min.y, max.z, 1.0)) < .zero &&
+                        dot(plane, SIMD4<Float>(min.x, max.y, max.z, 1.0)) < .zero &&
+                        dot(plane, SIMD4<Float>(max, 1.0)) < .zero
+                     {
+                        // Not visible - all returned negative
+                        return false
                     }
                 }
                 return true
