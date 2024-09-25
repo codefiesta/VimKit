@@ -34,7 +34,7 @@ extension VimCompositorRenderer {
         renderPassDescriptor.colorAttachments[0].clearColor = context.destinationProvider.clearColor
 
         // Instance Picking Texture Attachment
-        renderPassDescriptor.colorAttachments[1].texture = instanceIndexTexture
+        renderPassDescriptor.colorAttachments[1].texture = instancePickingTexture
         renderPassDescriptor.colorAttachments[1].loadAction = .clear
         renderPassDescriptor.colorAttachments[1].storeAction = .store
         renderPassDescriptor.colorAttachments[1].clearColor = .black
