@@ -42,7 +42,7 @@ extension Database {
         @MainActor @Published
         var progress = Progress(totalUnitCount: Int64(Database.models.count))
 
-        let batchSize = 1000
+        let batchSize = 1000 * 10
         let database: Database
         let modelContainer: ModelContainer
         let modelExecutor: ModelExecutor
@@ -61,6 +61,11 @@ extension Database {
         /// Starts the import process.
         /// - Parameter limit: the max limit of models per entity to import
         func `import`(_ limit: Int = .max) {
+            
+            defer {
+                try? modelExecutor.modelContext.save()
+            }
+            
             let start = Date.now
 
             // Warm the cache for the models. TODO: This could be reworked ...
@@ -87,12 +92,8 @@ extension Database {
                     debugPrint("􁃎 [\(modelName)] - skipping import")
                     continue
                 }
+
                 importModel(modelType, limit)
-                do {
-                    try modelContext.save()
-                } catch let error {
-                    debugPrint("💀", error)
-                }
             }
             let timeInterval = abs(start.timeIntervalSinceNow)
             debugPrint("􁗫 Database imported in [\(timeInterval.stringFromTimeInterval())]")
@@ -178,11 +179,6 @@ extension Database {
         private func updateMeta(_ modelName: String, state: ModelMetadata.State) {
             let meta = meta(modelName)
             meta.state = state
-            do {
-                try modelContext.save()
-            } catch let error {
-                debugPrint("💀", error)
-            }
         }
 
         /// Upserts a model of the specified type at the specified index with the row data.
