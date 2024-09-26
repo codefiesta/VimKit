@@ -211,9 +211,9 @@ extension Database {
 
         public func update(from data: [String: AnyHashable], cache: ImportCache) {
             typeName = data["AssemblyTypeName"] as? String ?? .empty
-            positionX = data["Position.X"] as? Float ?? .zero
-            positionY = data["Position.Y"] as? Float ?? .zero
-            positionZ = data["Position.Z"] as? Float ?? .zero
+            positionX = data["PositionX"] as? Float ?? .zero
+            positionY = data["PositionY"] as? Float ?? .zero
+            positionZ = data["PositionZ"] as? Float ?? .zero
             if let idx = data["Element"] as? Int64, idx != .empty {
                 element = cache.findOrCreate(idx)
             }
@@ -613,9 +613,9 @@ extension Database {
 
         public func update(from data: [String: AnyHashable], cache: ImportCache) {
             type = data["GroupType"] as? String ?? .empty
-            positionX = data["Position.X"] as? Float ?? .zero
-            positionY = data["Position.Y"] as? Float ?? .zero
-            positionZ = data["Position.Z"] as? Float ?? .zero
+            positionX = data["PositionX"] as? Float ?? .zero
+            positionY = data["PositionY"] as? Float ?? .zero
+            positionZ = data["PositionZ"] as? Float ?? .zero
             if let idx = data["Element"] as? Int64, idx != .empty {
                 element = cache.findOrCreate(idx)
             }
@@ -926,21 +926,21 @@ extension Database {
         }
 
         public func update(from data: [String: AnyHashable], cache: ImportCache) {
-            originX = (data["Origin.X"] as? Double ?? .zero).singlePrecision
-            originY = (data["Origin.Y"] as? Double ?? .zero).singlePrecision
-            originZ = (data["Origin.Z"] as? Double ?? .zero).singlePrecision
-            directionX = (data["ViewDirection.X"] as? Double ?? .zero).singlePrecision
-            directionY = (data["ViewDirection.Y"] as? Double ?? .zero).singlePrecision
-            directionZ = (data["ViewDirection.Z"] as? Double ?? .zero).singlePrecision
-            positionX = (data["ViewPosition.X"] as? Double ?? .zero).singlePrecision
-            positionY = (data["ViewPosition.Y"] as? Double ?? .zero).singlePrecision
-            positionZ = (data["ViewPosition.Z"] as? Double ?? .zero).singlePrecision
-            upX = (data["Up.X"] as? Double ?? .zero).singlePrecision
-            upY = (data["Up.Y"] as? Double ?? .zero).singlePrecision
-            upZ = (data["Up.Z"] as? Double ?? .zero).singlePrecision
-            rightX = (data["Right.X"] as? Double ?? .zero).singlePrecision
-            rightY = (data["Right.Y"] as? Double ?? .zero).singlePrecision
-            rightZ = (data["Right.Z"] as? Double ?? .zero).singlePrecision
+            originX = (data["OriginX"] as? Double ?? .zero).singlePrecision
+            originY = (data["OriginY"] as? Double ?? .zero).singlePrecision
+            originZ = (data["OriginZ"] as? Double ?? .zero).singlePrecision
+            directionX = (data["ViewDirectionX"] as? Double ?? .zero).singlePrecision
+            directionY = (data["ViewDirectionY"] as? Double ?? .zero).singlePrecision
+            directionZ = (data["ViewDirectionZ"] as? Double ?? .zero).singlePrecision
+            positionX = (data["ViewPositionX"] as? Double ?? .zero).singlePrecision
+            positionY = (data["ViewPositionY"] as? Double ?? .zero).singlePrecision
+            positionZ = (data["ViewPositionZ"] as? Double ?? .zero).singlePrecision
+            upX = (data["UpX"] as? Double ?? .zero).singlePrecision
+            upY = (data["UpY"] as? Double ?? .zero).singlePrecision
+            upZ = (data["UpZ"] as? Double ?? .zero).singlePrecision
+            rightX = (data["RightX"] as? Double ?? .zero).singlePrecision
+            rightY = (data["RightY"] as? Double ?? .zero).singlePrecision
+            rightZ = (data["RightZ"] as? Double ?? .zero).singlePrecision
             scale = (data["Scale"] as? Double ?? .zero).singlePrecision
 
             if let idx = data["Camera"] as? Int64, idx != .empty {

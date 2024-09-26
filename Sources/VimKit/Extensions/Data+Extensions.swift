@@ -48,8 +48,16 @@ extension Data {
     func unsafeTypeArray<T>(_ count: Int? = nil) -> [T] {
         let count = count ?? Int(self.count / MemoryLayout<T>.size)
         return withUnsafeBytes { (pointer) -> [T] in
-            let buffer = UnsafeBufferPointer(start: pointer.baseAddress!.assumingMemoryBound(to: T.self), count: count)
+            let buffer = UnsafeBufferPointer(start: pointer.baseAddress?.assumingMemoryBound(to: T.self), count: count)
             return Array(buffer)
+        }
+    }
+
+    /// Builds an UnsafeMutableBufferPointer from the buffer contents of the specifed type.
+    /// - Returns: a mutable buffer pointer of the specified type.
+    func toUnsafeBufferPointer<T>() -> UnsafeBufferPointer<T> {
+        withUnsafeBytes { (pointer) -> UnsafeBufferPointer<T> in
+            pointer.assumingMemoryBound(to: T.self)
         }
     }
 
