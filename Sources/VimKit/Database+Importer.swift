@@ -30,7 +30,7 @@ extension Database {
     ///   - isStoredInMemoryOnly: if set to true, the model container is only stored in memory
     ///   - limit: the max limit of models per entity to import
     public func `import`(limit: Int = .max) async {
-        let importer = Database.ImportActor(self, modelContainer: modelContainer)
+        let importer = Database.ImportActor(self)
         await importer.import(limit)
     }
 
@@ -51,10 +51,9 @@ extension Database {
         /// Initializer
         /// - Parameters:
         ///   - database: the vim database
-        ///   - modelContainer: the model container
-        init(_ database: Database, modelContainer: ModelContainer) {
+        init(_ database: Database) {
             self.database = database
-            self.modelContainer = modelContainer
+            self.modelContainer = database.modelContainer
             self.modelExecutor = DefaultSerialModelExecutor(modelContext: ModelContext(modelContainer))
             self.cache = ImportCache(modelExecutor)
         }
@@ -106,9 +105,7 @@ extension Database {
         ///   - limit: the cache size limit
         private func warmCache(_ modelType: any IndexedPersistentModel.Type, _ limit: Int) {
             guard let table = database.tables[modelType.modelName] else { return }
-            let columns = Array(table.columns.values)
-            let rows = columns.first?.count ?? 0
-            let count = min(rows, limit)
+            let count = min(table.rows.count, limit)
             _ = modelType.warm(size: count, cache: cache)
         }
 
@@ -124,17 +121,13 @@ extension Database {
             }
 
             let start = Date.now
-            let columns = Array(table.columns.values)
-            let count = columns.first?.count ?? 0
+            let count = table.rows.count
             debugPrint("􀈄 [\(modelType.modelName)] - importing [\(count)] models")
             for i in 0..<count {
                 if i >= limit || Task.isCancelled { break }
 
                 let index = Int64(i)
-                var row = [String: AnyHashable]()
-                for column in columns {
-                    row[column.name] = column.rows[i]
-                }
+                let row = table.rows[i]
                 upsert(index: index, modelType, data: row)
 
                 if i % batchSize == .zero {
