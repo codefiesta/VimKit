@@ -61,11 +61,11 @@ extension Database {
         /// Starts the import process.
         /// - Parameter limit: the max limit of models per entity to import
         func `import`(_ limit: Int = .max) {
-            
+
             defer {
                 try? modelExecutor.modelContext.save()
             }
-            
+
             let start = Date.now
 
             // Warm the cache for the models. TODO: This could be reworked ...
