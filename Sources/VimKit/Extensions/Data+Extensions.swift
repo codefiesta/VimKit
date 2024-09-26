@@ -57,7 +57,7 @@ extension Data {
     /// - Returns: a mutable buffer pointer of the specified type.
     func toUnsafeBufferPointer<T>() -> UnsafeBufferPointer<T> {
         withUnsafeBytes { (pointer) -> UnsafeBufferPointer<T> in
-            pointer.bindMemory(to: T.self)
+            pointer.assumingMemoryBound(to: T.self)
         }
     }
 
