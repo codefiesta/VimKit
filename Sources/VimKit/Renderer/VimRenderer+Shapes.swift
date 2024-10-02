@@ -29,6 +29,7 @@ extension VimRenderer {
         let planeMesh: MTKMesh
         let sphereMesh: MTKMesh
         let pipelineState: MTLRenderPipelineState?
+        let pipelineStateBoundingBox: MTLRenderPipelineState?
         let depthStencilState: MTLDepthStencilState?
 
         /// Common initializer.
@@ -41,7 +42,7 @@ extension VimRenderer {
             }
 
             let extents: SIMD3<Float> = .one
-            let segment: UInt32 = 12
+            let segment: UInt32 = 50
 
             let allocator = MTKMeshBufferAllocator(device: device)
             let box = MDLMesh(boxWithExtent: extents, segments: [segment, segment, segment], inwardNormals: false, geometryType: .triangles, allocator: allocator)
@@ -56,11 +57,20 @@ extension VimRenderer {
             self.planeMesh = planeMesh
             self.sphereMesh = sphereMesh
 
-            let vertexDescriptor = MTKMetalVertexDescriptorFromModelIO(sphereMesh.vertexDescriptor)
+            // Build the main pipeline
+            let vertexDescriptor = MTKMetalVertexDescriptorFromModelIO(boxMesh.vertexDescriptor)
             let pipelineDescriptor = MTLRenderPipelineDescriptor()
 
             // Color Attachment
             pipelineDescriptor.colorAttachments[0].pixelFormat = context.destinationProvider.colorFormat
+            pipelineDescriptor.colorAttachments[0].isBlendingEnabled = true
+            pipelineDescriptor.colorAttachments[0].rgbBlendOperation = .add
+            pipelineDescriptor.colorAttachments[0].alphaBlendOperation = .add
+            pipelineDescriptor.colorAttachments[0].sourceRGBBlendFactor = .sourceAlpha
+            pipelineDescriptor.colorAttachments[0].sourceAlphaBlendFactor = .sourceAlpha
+            pipelineDescriptor.colorAttachments[0].destinationRGBBlendFactor = .oneMinusSourceAlpha
+            pipelineDescriptor.colorAttachments[0].destinationAlphaBlendFactor = .oneMinusSourceAlpha
+
             pipelineDescriptor.colorAttachments[1].pixelFormat = .r32Sint
             pipelineDescriptor.depthAttachmentPixelFormat = context.destinationProvider.depthFormat
             pipelineDescriptor.stencilAttachmentPixelFormat = context.destinationProvider.depthFormat
@@ -79,6 +89,10 @@ extension VimRenderer {
             }
             self.depthStencilState = depthStencilState
             self.pipelineState = pipelineState
+
+            // Build the box pipeline
+            pipelineDescriptor.vertexDescriptor = MTLContext.buildVertexDescriptor()
+            self.pipelineStateBoundingBox = try? device.makeRenderPipelineState(descriptor: pipelineDescriptor)
         }
 
         /// Draws the shapes.
@@ -92,7 +106,7 @@ extension VimRenderer {
         ///   - renderEncoder: the render encoder
         ///   - mesh: the mesh
         ///   - draw: the main draw closure
-        private func drawShapes(renderEncoder: MTLRenderCommandEncoder, mesh: MTKMesh, draw: (MTKMesh) -> Void) {
+        func drawShapes(renderEncoder: MTLRenderCommandEncoder, mesh: MTKMesh, draw: (MTKMesh) -> Void) {
             guard let pipelineState else { return }
             renderEncoder.pushDebugGroup(shapeGroupName)
             renderEncoder.setRenderPipelineState(pipelineState)
@@ -104,6 +118,41 @@ extension VimRenderer {
             // Execute the draw closure
             draw(mesh)
             // Pop the debug group
+            renderEncoder.popDebugGroup()
+        }
+
+        /// Draws a box from the specified axis aligned bounding box.
+        /// - Parameters:
+        ///   - renderEncoder: the render encoder
+        ///   - box: the axis aligned bounding box
+        ///   - matrix: the transform matrix to apply
+        func drawBoundingBox(renderEncoder: MTLRenderCommandEncoder, _ box: MDLAxisAlignedBoundingBox?, _ matrix: float4x4 = .identity) {
+
+            guard let box,
+                  let pipelineStateBoundingBox,
+                  let vertexBuffer = box.vertexBuffer,
+                  let indexBuffer = box.indexBuffer else { return }
+
+            renderEncoder.pushDebugGroup(shapeGroupName + "Box")
+            renderEncoder.setRenderPipelineState(pipelineStateBoundingBox)
+            renderEncoder.setDepthStencilState(depthStencilState)
+            renderEncoder.setTriangleFillMode(.fill)
+            renderEncoder.setCullMode(.none)
+
+            var color: SIMD4<Float> = [.zero, .zero, .half, .half]
+            renderEncoder.setVertexBytes(&color, length: MemoryLayout<SIMD4<Float>>.size, index: .colors)
+
+            var transform = matrix
+            renderEncoder.setVertexBytes(&transform, length: MemoryLayout<float4x4>.size, index: .instances)
+            renderEncoder.setVertexBuffer(vertexBuffer, offset: 0, index: .positions)
+
+            // Draw all triangles in the buffer
+            renderEncoder.drawIndexedPrimitives(type: .triangle,
+                                                indexCount: box.indices.count,
+                                                indexType: .uint16,
+                                                indexBuffer: indexBuffer,
+                                                indexBufferOffset: 0
+            )
             renderEncoder.popDebugGroup()
         }
     }

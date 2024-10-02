@@ -102,7 +102,6 @@ public extension VimRenderer {
         // Set xRay mode
         var xRay = xRayMode
         renderEncoder.setVertexBytes(&xRay, length: MemoryLayout<Bool>.size, index: .xRay)
-
     }
 
     /// Draws the entire scene.
@@ -123,9 +122,6 @@ public extension VimRenderer {
             drawInstanced(instanced, renderEncoder: renderEncoder)
         }
         renderEncoder.popDebugGroup()
-
-        // Draw the shapes
-        shapes?.draw(renderEncoder: renderEncoder)
     }
 
     /// Performs any draws after the main scene draw.
