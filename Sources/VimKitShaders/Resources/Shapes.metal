@@ -44,4 +44,3 @@ vertex VertexOut vertexShape(VertexIn in [[stage_in]],
 fragment float4 fragmentShape(VertexOut in [[stage_in]]) {
     return in.color;
 }
-

@@ -18,13 +18,36 @@ extension MDLAxisAlignedBoundingBox {
     /// Returns the 8 corner points of the bounding box.
     var corners: [SIMD3<Float>] {
         [minBounds,
-         [minBounds.x, minBounds.y, maxBounds.z],
-         [minBounds.x, maxBounds.y, minBounds.z],
-         [minBounds.x, maxBounds.y, maxBounds.z],
-         [maxBounds.x, minBounds.y, minBounds.z],
-         [maxBounds.x, minBounds.y, maxBounds.z],
-         [maxBounds.x, maxBounds.y, minBounds.z],
-         maxBounds
+        [minBounds.x, minBounds.y, maxBounds.z],
+        [minBounds.x, maxBounds.y, minBounds.z],
+        [minBounds.x, maxBounds.y, maxBounds.z],
+        [maxBounds.x, minBounds.y, minBounds.z],
+        [maxBounds.x, minBounds.y, maxBounds.z],
+        [maxBounds.x, maxBounds.y, minBounds.z],
+        maxBounds]
+    }
+
+    /// Returns the corner indices that can be used to draw this bounding box.
+    var indices: [UInt16] {
+        [
+            // Front
+            0, 1, 2,
+            1, 2, 3,
+            // Back
+            4, 5, 6,
+            5, 6, 7,
+            // Bottom
+            0, 4, 6,
+            0, 2, 6,
+            // Top
+            1, 3, 5,
+            3, 5, 7,
+            // Left
+            2, 6, 7,
+            2, 3, 7,
+            // Right
+            0, 4, 5,
+            0, 1, 5,
         ]
     }
 
@@ -36,7 +59,7 @@ extension MDLAxisAlignedBoundingBox {
 
     /// Returns the box positive extents.
     var extents: SIMD3<Float> {
-        maxBounds - center
+        maxBounds - minBounds
     }
 
     /// Returns the radius of the box from the center to it's max bounds.

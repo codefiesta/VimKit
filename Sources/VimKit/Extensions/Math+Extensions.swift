@@ -174,7 +174,7 @@ public extension float4x4 {
         self.init([temp.columns.0, temp.columns.1, temp.columns.2, temp.columns.3])
     }
 
-    /// Scales the matrix by the specified factor.
+    /// Uniformly scales the matrix by the specified factor.
     /// - Parameter value: the scale factor
     /// - Returns: the mutated matrix
     @discardableResult
@@ -183,6 +183,14 @@ public extension float4x4 {
         columns.1.y *= value
         columns.2.z *= value
         return self
+    }
+
+    /// Scales the matrix by the specifed scale factors.
+    /// - Parameter factor: the scale factors to apply.
+    mutating func scale(_ factor: SIMD3<Float>) {
+        columns.0.x *= factor.x
+        columns.1.y *= factor.y
+        columns.2.z *= factor.z
     }
 
     /// Provides the right vector.

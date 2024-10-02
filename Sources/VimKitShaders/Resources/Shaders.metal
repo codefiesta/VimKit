@@ -99,8 +99,8 @@ vertex VertexOut vertexMain(VertexIn in [[stage_in]],
 //   - texture: the texture.
 //   - colorSampler: The color sampler.
 fragment FragmentOut fragmentMain(VertexOut in [[stage_in]],
-                               texture2d<float, access::sample> texture [[texture(0)]],
-                               sampler colorSampler [[sampler(0)]]) {
+                                  texture2d<float, access::sample> texture [[texture(0)]],
+                                  sampler colorSampler [[sampler(0)]]) {
 
     FragmentOut out;
     float4 materialPureColor = in.color * 0.66;
