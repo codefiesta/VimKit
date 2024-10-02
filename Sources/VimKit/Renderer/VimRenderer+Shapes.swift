@@ -112,16 +112,18 @@ extension VimRenderer {
         /// Draws a box from the specified axis aligned bounding box.
         /// - Parameters:
         ///   - renderEncoder: the render encoder
-        ///   - boundingBox: the axis aligned bounding box
+        ///   - box: the axis aligned bounding box (assumes the box is already in world coordinates)
         ///   - color: the color of the shape
-        func drawBoundingBox(renderEncoder: MTLRenderCommandEncoder, _ boundingBox: MDLAxisAlignedBoundingBox?, _ color: SIMD4<Float> = shapeDefaultColor) {
+        func drawBoundingBox(renderEncoder: MTLRenderCommandEncoder,
+                             box: MDLAxisAlignedBoundingBox?,
+                             _ color: SIMD4<Float> = shapeDefaultColor) {
 
-            guard let boundingBox else { return }
+            guard let box else { return }
 
             // Position + Scale
             var transform: float4x4 = .identity
-            transform.position = boundingBox.center
-            transform.scale(boundingBox.extents)
+            transform.position = box.center
+            transform.scale(box.extents)
 
             // Color
             var color = color
