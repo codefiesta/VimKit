@@ -134,7 +134,7 @@ extension VimRenderer {
                 renderEncoder.setVertexBytes(&transform, length: MemoryLayout<float4x4>.size, index: .instances)
                 renderEncoder.setTriangleFillMode(.fill)
 
-                for submesh in boxMesh.submeshes {
+                for submesh in mesh.submeshes {
                     renderEncoder.drawIndexedPrimitives(type: submesh.primitiveType, indexCount: submesh.indexCount, indexType: submesh.indexType, indexBuffer: submesh.indexBuffer.buffer, indexBufferOffset: 0)
                 }
             }
