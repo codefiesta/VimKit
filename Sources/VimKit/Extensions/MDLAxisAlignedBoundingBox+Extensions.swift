@@ -5,7 +5,6 @@
 //  Created by Kevin McKee
 //
 
-import MetalKit
 import ModelIO
 import Spatial
 
@@ -26,11 +25,6 @@ extension MDLAxisAlignedBoundingBox {
         [maxBounds.x, minBounds.y, maxBounds.z],
         [maxBounds.x, maxBounds.y, minBounds.z],
         maxBounds]
-    }
-
-    /// Returns the vertex buffer from the corner positions.
-    var vertexBuffer: MTLBuffer? {
-        corners.makeBuffer(device: MTLContext.device)
     }
 
     /// Returns the corner indices that can be used to draw this bounding box.
@@ -57,12 +51,6 @@ extension MDLAxisAlignedBoundingBox {
         ]
     }
 
-    /// Returns an index buffer from the `indices` that can be used to draw
-    /// this bounding box using `renderEncoder.drawIndexedPrimitives(...)`.
-    var indexBuffer: MTLBuffer? {
-        indices.makeBuffer(device: MTLContext.device)
-    }
-
     /// Returns the longest edge of the bounding box.
     var longestEdge: Float {
         let distance = maxBounds - minBounds
@@ -71,7 +59,7 @@ extension MDLAxisAlignedBoundingBox {
 
     /// Returns the box positive extents.
     var extents: SIMD3<Float> {
-        maxBounds - center
+        maxBounds - minBounds
     }
 
     /// Returns the radius of the box from the center to it's max bounds.

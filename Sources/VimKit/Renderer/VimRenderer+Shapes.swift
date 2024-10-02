@@ -11,6 +11,8 @@ import VimKitShaders
 private let shapeGroupName = "Shape"
 private let shapeVertexFunctionName = "vertexShape"
 private let shapeFragmentFunctionName = "fragmentShape"
+// Default Shape color (Purple with 0.5 opacity)
+private let shapeDefaultColor: SIMD4<Float> = [1.0, .zero, 1.0, .half]
 
 extension VimRenderer {
 
@@ -25,11 +27,11 @@ extension VimRenderer {
             context.vim.camera
         }
 
+        let allocator: MTKMeshBufferAllocator
         let boxMesh: MTKMesh
         let planeMesh: MTKMesh
         let sphereMesh: MTKMesh
         let pipelineState: MTLRenderPipelineState?
-        let pipelineStateBoundingBox: MTLRenderPipelineState?
         let depthStencilState: MTLDepthStencilState?
 
         /// Common initializer.
@@ -37,28 +39,24 @@ extension VimRenderer {
         init?(_ context: VimRendererContext) {
             self.context = context
             guard let library = MTLContext.makeLibrary(),
-                  let device = context.destinationProvider.device else {
-                return nil
-            }
+                  let device = context.destinationProvider.device else { return nil }
 
             let extents: SIMD3<Float> = .one
-            let segment: UInt32 = 50
 
-            let allocator = MTKMeshBufferAllocator(device: device)
-            let box = MDLMesh(boxWithExtent: extents, segments: [segment, segment, segment], inwardNormals: false, geometryType: .triangles, allocator: allocator)
-            let plane = MDLMesh(planeWithExtent: extents, segments: [segment, segment], geometryType: .triangles, allocator: allocator)
-            let sphere = MDLMesh(sphereWithExtent: extents, segments: [segment, segment], inwardNormals: false, geometryType: .triangles, allocator: allocator)
+            self.allocator = MTKMeshBufferAllocator(device: device)
+            let box = MDLMesh(boxWithExtent: extents, segments: [1, 1, 1], inwardNormals: false, geometryType: .triangles, allocator: allocator)
+            let plane = MDLMesh(planeWithExtent: extents, segments: [1, 1], geometryType: .triangles, allocator: allocator)
+            let sphere = MDLMesh(sphereWithExtent: extents, segments: [50, 50], inwardNormals: false, geometryType: .triangles, allocator: allocator)
 
             guard let boxMesh = try? MTKMesh(mesh: box, device: device),
                   let planeMesh = try? MTKMesh(mesh: plane, device: device),
-                  let sphereMesh = try? MTKMesh(mesh: sphere, device: device)
-                   else { return nil }
+                  let sphereMesh = try? MTKMesh(mesh: sphere, device: device) else { return nil }
             self.boxMesh = boxMesh
             self.planeMesh = planeMesh
             self.sphereMesh = sphereMesh
 
             // Build the main pipeline
-            let vertexDescriptor = MTKMetalVertexDescriptorFromModelIO(boxMesh.vertexDescriptor)
+            let vertexDescriptor = MTKMetalVertexDescriptorFromModelIO(sphereMesh.vertexDescriptor)
             let pipelineDescriptor = MTLRenderPipelineDescriptor()
 
             // Color Attachment
@@ -89,16 +87,6 @@ extension VimRenderer {
             }
             self.depthStencilState = depthStencilState
             self.pipelineState = pipelineState
-
-            // Build the box pipeline
-            pipelineDescriptor.vertexDescriptor = MTLContext.buildVertexDescriptor()
-            self.pipelineStateBoundingBox = try? device.makeRenderPipelineState(descriptor: pipelineDescriptor)
-        }
-
-        /// Draws the shapes.
-        /// - Parameter renderEncoder: the render encoder
-        func draw(renderEncoder: MTLRenderCommandEncoder) {
-            // Noop
         }
 
         /// Draws the shapes with the specified render encoder, mesh, and draw closure.
@@ -124,36 +112,31 @@ extension VimRenderer {
         /// Draws a box from the specified axis aligned bounding box.
         /// - Parameters:
         ///   - renderEncoder: the render encoder
-        ///   - box: the axis aligned bounding box
-        ///   - matrix: the transform matrix to apply
-        func drawBoundingBox(renderEncoder: MTLRenderCommandEncoder, _ box: MDLAxisAlignedBoundingBox?, _ matrix: float4x4 = .identity) {
+        ///   - boundingBox: the axis aligned bounding box
+        ///   - color: the color of the shape
+        func drawBoundingBox(renderEncoder: MTLRenderCommandEncoder, _ boundingBox: MDLAxisAlignedBoundingBox?, _ color: SIMD4<Float> = shapeDefaultColor) {
 
-            guard let box,
-                  let pipelineStateBoundingBox,
-                  let vertexBuffer = box.vertexBuffer,
-                  let indexBuffer = box.indexBuffer else { return }
+            guard let boundingBox else { return }
 
-            renderEncoder.pushDebugGroup(shapeGroupName + "Box")
-            renderEncoder.setRenderPipelineState(pipelineStateBoundingBox)
-            renderEncoder.setDepthStencilState(depthStencilState)
-            renderEncoder.setTriangleFillMode(.fill)
-            renderEncoder.setCullMode(.none)
+            // Position + Scale
+            var transform: float4x4 = .identity
+            transform.position = boundingBox.center
+            transform.scale(boundingBox.extents)
 
-            var color: SIMD4<Float> = [.zero, .zero, .half, .half]
-            renderEncoder.setVertexBytes(&color, length: MemoryLayout<SIMD4<Float>>.size, index: .colors)
+            // Color
+            var color = color
 
-            var transform = matrix
-            renderEncoder.setVertexBytes(&transform, length: MemoryLayout<float4x4>.size, index: .instances)
-            renderEncoder.setVertexBuffer(vertexBuffer, offset: 0, index: .positions)
+            drawShapes(renderEncoder: renderEncoder, mesh: boxMesh) { mesh in
 
-            // Draw all triangles in the buffer
-            renderEncoder.drawIndexedPrimitives(type: .triangle,
-                                                indexCount: box.indices.count,
-                                                indexType: .uint16,
-                                                indexBuffer: indexBuffer,
-                                                indexBufferOffset: 0
-            )
-            renderEncoder.popDebugGroup()
+                renderEncoder.setVertexBytes(&color, length: MemoryLayout<SIMD4<Float>>.size, index: .colors)
+                renderEncoder.setVertexBytes(&transform, length: MemoryLayout<float4x4>.size, index: .instances)
+                renderEncoder.setTriangleFillMode(.fill)
+
+                for submesh in boxMesh.submeshes {
+                    renderEncoder.drawIndexedPrimitives(type: submesh.primitiveType, indexCount: submesh.indexCount, indexType: submesh.indexType, indexBuffer: submesh.indexBuffer.buffer, indexBufferOffset: 0)
+                }
+            }
+
         }
     }
 }
