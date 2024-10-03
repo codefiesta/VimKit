@@ -14,7 +14,6 @@ import SwiftUI
 import VimKit
 import VimKitShaders
 
-private let renderThreadName = "VimCompositorRendererThread"
 
 /// A type that provides a Metal Renderer using CompositorServices for rendering VIM files on VisionOS.
 ///
@@ -77,23 +76,17 @@ public class VimCompositorRenderer: VimRenderer {
         subscribers.removeAll()
     }
 
-    /// Starts our main render loop
+    /// Starts the main render loop.
     public func start() {
         Task {
             await startTracking()
         }
-        // Set up and run the Metal render loop.
-        loop()
-//        let renderThread = Thread {
-//            // Start the engine rendering loop
-//            self.loop()
-//        }
-//        renderThread.name = renderThreadName
-//        renderThread.start()
 
+        // Start the run loop
+        loop()
     }
 
-    /// Provides our main render loop
+    /// Runs main render loop.
     private func loop() {
 
         var isRunning = true
