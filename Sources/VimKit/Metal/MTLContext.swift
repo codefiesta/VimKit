@@ -8,10 +8,10 @@
 import MetalKit
 import VimKitShaders
 
-public class MTLContext {
+public class MTLContext: @unchecked Sendable {
 
     /// Convenience lazy var for the system default device.
-    public static var device: MTLDevice = {
+    nonisolated(unsafe) public static var device: MTLDevice = {
         guard let device = MTLCreateSystemDefaultDevice() else {
             fatalError("💀 Metal not supported")
         }
@@ -19,13 +19,13 @@ public class MTLContext {
     }()
 
     /// Convenience lazy texture loader.
-    public static var textureLoader: MTKTextureLoader = {
+    nonisolated(unsafe) public static var textureLoader: MTKTextureLoader = {
         MTKTextureLoader(device: device)
     }()
 
     /// Makes a library from the VImKitShaders library.
     public static func makeLibrary() -> MTLLibrary? {
-        try? device.makeDefaultLibrary(bundle: Bundle.shaders())
+        try? device.makeDefaultLibrary(bundle: .shaders())
     }
 
     /// Builds the vertex descriptor which informs Metal of the incoming buffer data

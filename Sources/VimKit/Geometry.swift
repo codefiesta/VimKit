@@ -15,17 +15,17 @@ import VimKitShaders
 private let computeVertexNormalsFunctionName = "computeVertexNormals"
 // File extensions for mmap'd metal buffers
 private let normalsBufferExtension = ".normals"
-// The max number of color overrides to apply (2MB worth of colors)
-private let maxColorOverrides = 128
+// The max number of color overrides to apply (4MB worth of colors)
+private let maxColorOverrides = 256
 
 /// See: https://github.com/vimaec/vim#geometry-buffer
 /// This class was largely translated from VIM's CSharp + JS implementtions:
 /// https://github.com/vimaec/g3d/blob/master/csharp/Vim.G3d/G3D.cs
 /// https://github.com/vimaec/vim-ts/blob/develop/src/g3d.ts
-public class Geometry: ObservableObject {
+public class Geometry: ObservableObject, @unchecked Sendable {
 
     /// Represents the state of our geometry buffer
-    public enum State: Equatable {
+    public enum State: Equatable, Sendable {
         case unknown
         case loading
         case indexing
@@ -34,9 +34,10 @@ public class Geometry: ObservableObject {
     }
 
     /// Progress Reporting for loading the geometry data.
+    @MainActor
     public dynamic let progress = Progress(totalUnitCount: 10)
 
-    @Published
+    @MainActor @Published
     public var state: State = .unknown
 
     /// Returns the combinded positions (vertex) buffer of all of the vertices for all the meshes layed out in slices of [x,y,z]
@@ -93,18 +94,13 @@ public class Geometry: ObservableObject {
             task.cancel()
         }
         tasks.removeAll()
-
-        DispatchQueue.main.async {
-            self.state = .unknown
-        }
+        publish(state: .unknown)
     }
 
     /// Asynchronously loads the geometry structures and Metal buffers.
     private func load() async {
 
-        DispatchQueue.main.async {
-            self.state = .loading
-        }
+        publish(state: .loading)
 
         let device = MTLContext.device
         let cacheDir = FileManager.default.cacheDirectory
@@ -115,7 +111,7 @@ public class Geometry: ObservableObject {
             fatalError("💀 Unable to create positions buffer")
         }
         self.positionsBuffer = positionsBuffer
-        progress.completedUnitCount += 1
+        incrementProgressCount()
 
         // 2) Build the index buffer
         let indices = attributes(association: .corner, semantic: .index)
@@ -123,43 +119,52 @@ public class Geometry: ObservableObject {
             fatalError("💀 Unable to create index buffer")
         }
         self.indexBuffer = indexBuffer
-        progress.completedUnitCount += 1
+        incrementProgressCount()
 
         // 3) Build the normals buffer
-        let computeTask = Task {
-            await computeVertexNormals(device: device, cacheDirectory: cacheDir)
-            progress.completedUnitCount += 1
-        }
-        tasks.append(computeTask)
+        await computeVertexNormals(device: device, cacheDirectory: cacheDir)
+        incrementProgressCount()
 
         // 4) Build all the data structures
         _ = materials // Build the materials
-        progress.completedUnitCount += 1
+        incrementProgressCount()
         _ = submeshes // Build the submeshes
-        progress.completedUnitCount += 1
+        incrementProgressCount()
         _ = meshes // Build the meshes
-        progress.completedUnitCount += 1
+        incrementProgressCount()
         _ = instances // Build the instances
-        progress.completedUnitCount += 1
+        incrementProgressCount()
 
         // 5) Build the instances buffer
         await makeInstancesBuffer(device: device)
         _ = instancedMeshesMap
-        progress.completedUnitCount += 1
+        incrementProgressCount()
 
         // 6) Build the colors buffer
         await makeColorsBuffer(device: device)
-        progress.completedUnitCount += 1
+        incrementProgressCount()
 
         // Start indexing the file
-        DispatchQueue.main.async {
-            self.state = .indexing
-        }
+        publish(state: .indexing)
 
         await bvh = BVH(self)
-        progress.completedUnitCount += 1
+        incrementProgressCount()
+        publish(state: .ready)
+    }
+
+    /// Publishes the geometry buffer state onto the main thread.
+    /// - Parameter state: the new state to publish
+    private func publish(state: State) {
         DispatchQueue.main.async {
-            self.state = .ready
+            self.state = state
+        }
+    }
+
+    /// Increments the progress count by the specfied number of completed units on the main thread.
+    /// - Parameter count: the number of units completed
+    private func incrementProgressCount(_ count: Int64 = 1) {
+        DispatchQueue.main.async {
+            self.progress.completedUnitCount += count
         }
     }
 

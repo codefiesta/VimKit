@@ -10,6 +10,7 @@ import CompositorServices
 #endif
 import MetalKit
 
+@MainActor
 public protocol VimRenderDestinationProvider {
 
     /// The Metal device used to interface with the GPU.
@@ -36,6 +37,7 @@ public protocol VimRenderDestinationProvider {
     var currentDrawable: CAMetalDrawable? { get }
 }
 
+@MainActor
 public protocol VimRendererContext {
 
     /// The vim file that provides the geometry data.

@@ -9,7 +9,7 @@ import simd
 
 extension Geometry {
 
-    public class Instance {
+    public class Instance: @unchecked Sendable {
 
         /// The index of the instance
         public let index: Int

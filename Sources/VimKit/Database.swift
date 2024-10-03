@@ -14,7 +14,7 @@ private let sqliteExtension = ".sqlite"
 
 // See: https://github.com/vimaec/vim#entities-buffer
 @dynamicMemberLookup
-public class Database: ObservableObject {
+public class Database: ObservableObject, @unchecked Sendable {
 
     public class Table {
 

@@ -9,10 +9,10 @@ import Foundation
 
 /// The Vim Data format
 /// see: https://github.com/vimaec/vim
-public class Vim: NSObject, ObservableObject {
+public class Vim: NSObject, ObservableObject, @unchecked Sendable {
 
     /// Represents the state of our file
-    public enum State: Equatable {
+    public enum State: Equatable, Sendable {
         case unknown
         case initializing
         case downloading
@@ -39,7 +39,7 @@ public class Vim: NSObject, ObservableObject {
         case hidden(Int)
     }
 
-    @Published
+    @MainActor @Published
     public var state: State = .unknown
 
     /// The private pass through event publisher.
@@ -47,9 +47,11 @@ public class Vim: NSObject, ObservableObject {
 
     /// Provides a pass through subject used to broadcast events to downstream subscribers.
     /// The subject will automatically drop events if there are no subscribers, or its current demand is zero.
+    @MainActor
     public lazy var events = eventPublisher.eraseToAnyPublisher()
 
     /// Progress Reporting for reading, mapping, and indexing the file.
+    @MainActor
     public dynamic let progress = Progress(totalUnitCount: 5)
 
     /// See: https://github.com/vimaec/vim#header-buffer
@@ -84,12 +86,14 @@ public class Vim: NSObject, ObservableObject {
     }()
 
     /// Convenience var for accessing the buffer names sorted alphabetically.
+    @MainActor
     public lazy var bufferNames: [String] = {
         assert(state == .ready, "Misuse - wait until the file is ready before you can read buffer data.")
         return bfast.buffers.map { $0.name }
     }()
 
     /// Returns the total bytes in this VIM file.
+    @MainActor
     public lazy var totalByteSize: Int = {
         assert(state == .ready, "Misuse - wait until the file is ready before you can read buffer data.")
         return bfast.totalByteSize
@@ -114,23 +118,17 @@ public class Vim: NSObject, ObservableObject {
         do {
             switch url.scheme {
             case "https":
-                DispatchQueue.main.async {
-                    self.state = .downloading
-                }
+                publish(state: .downloading)
                 let localURL = try await Vim.Downloader.shared.download(url: url, delegate: self)
                 self.load(localURL)
             case "file":
                 self.load(url)
             default:
-                DispatchQueue.main.async {
-                    self.state = .error("💀 Unable to handle url scheme [\(url.scheme ?? "")], please use file:// or https:// scheme")
-                }
+                publish(state: .error("💀 Unable to handle url scheme [\(url.scheme ?? "")], please use file:// or https:// scheme"))
                 return
             }
         } catch let error {
-            DispatchQueue.main.async {
-                self.state = .error("💀 \(error)")
-            }
+            publish(state: .error("💀 \(error)"))
         }
     }
 
@@ -139,13 +137,10 @@ public class Vim: NSObject, ObservableObject {
     ///   - url: the local url of the vim file
     private func load(_ url: URL) {
 
-        DispatchQueue.main.async {
-            self.state = .loading
-        }
+        publish(state: .loading)
+
         guard let bfast = BFast(url) else {
-            DispatchQueue.main.async {
-                self.state = .error("💀 Not a bfast file")
-            }
+            publish(state: .error("💀 Not a bfast file"))
             return
         }
         self.bfast = bfast
@@ -158,29 +153,29 @@ public class Vim: NSObject, ObservableObject {
                     let entry = headerEntry.split(separator: "=")
                     header[String(entry[0])] = String(entry[1])
                 }
-                progress.completedUnitCount += 1
+                incrementProgressCount()
             case "assets":
                 guard let container = BFast(buffer: buffer) else {
-                    state = .error("💀 Assets buffer is not a bfast container")
+                    publish(state: .error("💀 Assets buffer is not a bfast container"))
                     return
                 }
                 assets = Assets(container)
-                progress.completedUnitCount += 1
+                incrementProgressCount()
             case "entities":
                 guard let container = BFast(buffer: buffer) else {
-                    state = .error("💀 Entities buffer is not a bfast container")
+                    publish(state: .error("💀 Entities buffer is not a bfast container"))
                     return
                 }
                 db = Database(container, self)
-                progress.completedUnitCount += 1
+                incrementProgressCount()
             case "strings":
                 strings = String(data: buffer.data, encoding: .utf8)?.split(separator: "\0").map { String($0)} ?? []
                 strings.insert("", at: 0) // TODO: Bug? The indexes are off by 1
-                progress.completedUnitCount += 1
+                incrementProgressCount()
             case "geometry":
                 guard let container = BFast(buffer: buffer) else { return }
                 geometry = Geometry(container)
-                progress.completedUnitCount += 1
+                incrementProgressCount()
             default:
                 break
             }
@@ -189,17 +184,13 @@ public class Vim: NSObject, ObservableObject {
         debugPrint("􀇺 [Vim] - validated [\(bfast.header)]")
 
         // Put the file into a ready state
-        DispatchQueue.main.async {
-            self.state = .ready
-        }
+        publish(state: .ready)
     }
 
     /// Removes the contents of the locally cached vim file.
     public func remove() {
         defer {
-            DispatchQueue.main.async {
-                self.state = .unknown
-            }
+            publish(state: .unknown)
         }
 
         var hashes = [String]([sha256Hash])
@@ -220,6 +211,22 @@ public class Vim: NSObject, ObservableObject {
                     try? FileManager.default.removeItem(at: url)
                 }
             }
+        }
+    }
+
+    /// Publishes the vim file state onto the main thread.
+    /// - Parameter state: the new state to publish
+    private func publish(state: State) {
+        DispatchQueue.main.async {
+            self.state = state
+        }
+    }
+
+    /// Increments the progress count by the specfied number of completed units on the main thread.
+    /// - Parameter count: the number of units completed
+    private func incrementProgressCount(_ count: Int64 = 1) {
+        DispatchQueue.main.async {
+            self.progress.completedUnitCount += count
         }
     }
 
@@ -263,8 +270,7 @@ public extension Vim {
 
     /// Returns the byte size of the buffer with the specified name.
     func bufferByteSize(name: String) -> Int {
-        assert(state == .ready, "Misuse - wait until the file is ready before you can read buffer data.")
-        return bfast.bufferByteSize(name: name)
+        bfast.bufferByteSize(name: name)
     }
 }
 
@@ -304,35 +310,41 @@ extension Vim {
     /// - Parameters:
     ///   - id: the id of the instance to select (or deselect if already selected).
     ///   - point: the point in 3D space where the object was selected
+    @MainActor
     public func select(id: Int, point: SIMD3<Float> = .zero) {
         guard let geometry else { return }
         let selected = geometry.select(id: id)
-        DispatchQueue.main.async {
-            // Publish the selection event
-            self.eventPublisher.send(.selected(id, selected, 1, point))
-        }
+        eventPublisher.send(.selected(id, selected, 1, point))
+//        DispatchQueue.main.async {
+//            // Publish the selection event
+//            self.eventPublisher.send(.selected(id, selected, 1, point))
+//        }
     }
 
     /// Toggles an instance hidden state for the instance with the specified id
     /// and publishes an even to any subscribers.
     /// - Parameters:
     ///   - id: the ids of the instances to hide
+    @MainActor
     public func hide(ids: [Int]) async {
         guard let geometry else { return }
         let hiddenCount = geometry.hide(ids: ids)
-        DispatchQueue.main.async {
-            // Publish the hidden event
-            self.eventPublisher.send(.hidden(hiddenCount))
-        }
+        eventPublisher.send(.hidden(hiddenCount))
+//        DispatchQueue.main.async {
+//            // Publish the hidden event
+//            self.eventPublisher.send(.hidden(hiddenCount))
+//        }
     }
 
     /// Unhides all hidden instances.
+    @MainActor
     public func unhide() async {
         guard let geometry else { return }
         geometry.unhide()
-        DispatchQueue.main.async {
-            // Publish the hidden event
-            self.eventPublisher.send(.hidden(0))
-        }
+        eventPublisher.send(.hidden(0))
+//        DispatchQueue.main.async {
+//            // Publish the hidden event
+//            self.eventPublisher.send(.hidden(0))
+//        }
     }
 }
