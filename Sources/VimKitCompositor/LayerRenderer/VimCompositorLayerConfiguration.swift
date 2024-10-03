@@ -9,6 +9,7 @@
 import CompositorServices
 import SwiftUI
 
+@MainActor
 public struct VimCompositorLayerConfiguration: CompositorLayerConfiguration {
 
     public init() { }

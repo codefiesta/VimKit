@@ -83,12 +83,13 @@ public class VimCompositorRenderer: VimRenderer {
             await startTracking()
         }
         // Set up and run the Metal render loop.
-        let renderThread = Thread {
-            // Start the engine rendering loop
-            self.loop()
-        }
-        renderThread.name = renderThreadName
-        renderThread.start()
+        loop()
+//        let renderThread = Thread {
+//            // Start the engine rendering loop
+//            self.loop()
+//        }
+//        renderThread.name = renderThreadName
+//        renderThread.start()
 
     }
 
@@ -139,18 +140,11 @@ public class VimCompositorRenderer: VimRenderer {
         guard let commandBuffer = commandQueue.makeCommandBuffer() else { return }
         guard let drawable = frame.queryDrawable() else { return }
 
-        _ = inFlightSemaphore.wait(timeout: .distantFuture)
-
         // Mark the start of submission phase.
         frame.startSubmission()
 
         let timeInterval = LayerRenderer.Clock.Instant.epoch.duration(to: drawable.frameTiming.presentationTime).timeInterval
         drawable.deviceAnchor = context.queryDeviceAnchor(timeInterval)
-
-        let semaphore = inFlightSemaphore
-        commandBuffer.addCompletedHandler { (_) in
-            semaphore.signal()
-        }
 
         // Build a render pass descriptor for the current drawable
         let renderPassDescriptor = buildRenderPassDescriptor(drawable)

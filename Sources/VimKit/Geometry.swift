@@ -15,8 +15,8 @@ import VimKitShaders
 private let computeVertexNormalsFunctionName = "computeVertexNormals"
 // File extensions for mmap'd metal buffers
 private let normalsBufferExtension = ".normals"
-// The max number of color overrides to apply (2MB worth of colors)
-private let maxColorOverrides = 128
+// The max number of color overrides to apply (4MB worth of colors)
+private let maxColorOverrides = 256
 
 /// See: https://github.com/vimaec/vim#geometry-buffer
 /// This class was largely translated from VIM's CSharp + JS implementtions:
@@ -25,7 +25,7 @@ private let maxColorOverrides = 128
 public class Geometry: ObservableObject, @unchecked Sendable {
 
     /// Represents the state of our geometry buffer
-    public enum State: Equatable {
+    public enum State: Equatable, Sendable {
         case unknown
         case loading
         case indexing
@@ -126,11 +126,8 @@ public class Geometry: ObservableObject, @unchecked Sendable {
         progress.completedUnitCount += 1
 
         // 3) Build the normals buffer
-        let computeTask = Task {
-            await computeVertexNormals(device: device, cacheDirectory: cacheDir)
-            progress.completedUnitCount += 1
-        }
-        tasks.append(computeTask)
+        await computeVertexNormals(device: device, cacheDirectory: cacheDir)
+        progress.completedUnitCount += 1
 
         // 4) Build all the data structures
         _ = materials // Build the materials

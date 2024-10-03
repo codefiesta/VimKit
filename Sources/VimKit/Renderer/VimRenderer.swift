@@ -57,9 +57,6 @@ open class VimRenderer: NSObject {
     open var instancePickingTexture: MTLTexture?
     open var renderPassDescriptor: MTLRenderPassDescriptor?
 
-    // Semaphore
-    public let inFlightSemaphore = DispatchSemaphore(value: maxBuffersInFlight)
-
     // Uniforms Buffer
     public let alignedUniformsSize = ((MemoryLayout<UniformsArray>.size + 255) / 256) * 256
     open var uniformBuffer: MTLBuffer!
@@ -101,6 +98,7 @@ open class VimRenderer: NSObject {
 
         // Load the metal resources
         loadMetal()
+
         // Uniforms
         uniformBuffer = device.makeBuffer(length: alignedUniformsSize * maxBuffersInFlight, options: [.storageModeShared])
     }

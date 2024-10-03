@@ -44,11 +44,6 @@ public extension VimRenderer {
               let drawable = context.destinationProvider.currentDrawable,
               let commandBuffer = commandQueue.makeCommandBuffer() else { return }
 
-        let semaphore = inFlightSemaphore
-        commandBuffer.addCompletedHandler { (_) in
-            semaphore.signal()
-        }
-
         guard let renderEncoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPassDescriptor) else { return }
         renderEncoder.label = renderEncoderLabel
 

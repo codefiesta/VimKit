@@ -12,7 +12,7 @@ import Foundation
 public class Vim: NSObject, ObservableObject, @unchecked Sendable {
 
     /// Represents the state of our file
-    public enum State: Equatable {
+    public enum State: Equatable, Sendable {
         case unknown
         case initializing
         case downloading

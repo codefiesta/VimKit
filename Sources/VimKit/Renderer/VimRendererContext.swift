@@ -37,6 +37,7 @@ public protocol VimRenderDestinationProvider {
     var currentDrawable: CAMetalDrawable? { get }
 }
 
+@MainActor
 public protocol VimRendererContext {
 
     /// The vim file that provides the geometry data.
