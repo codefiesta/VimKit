@@ -16,6 +16,7 @@ private let skycubeFragmentFunctionName = "fragmentSkycube"
 extension VimRenderer {
 
     /// A struct that draws the scene background skycube.
+    @MainActor
     class Skycube {
 
         /// The context that provides all of the data we need

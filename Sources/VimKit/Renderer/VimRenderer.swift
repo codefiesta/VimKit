@@ -13,6 +13,7 @@ import VimKitShaders
 
 private let maxBuffersInFlight = 3
 
+@MainActor
 open class VimRenderer: NSObject {
 
     /// The context that provides all of the data we need

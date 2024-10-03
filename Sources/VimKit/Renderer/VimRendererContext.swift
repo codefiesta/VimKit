@@ -10,6 +10,7 @@ import CompositorServices
 #endif
 import MetalKit
 
+@MainActor
 public protocol VimRenderDestinationProvider {
 
     /// The Metal device used to interface with the GPU.

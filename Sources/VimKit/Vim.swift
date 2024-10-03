@@ -9,7 +9,7 @@ import Foundation
 
 /// The Vim Data format
 /// see: https://github.com/vimaec/vim
-public class Vim: NSObject, ObservableObject {
+public class Vim: NSObject, ObservableObject, @unchecked Sendable {
 
     /// Represents the state of our file
     public enum State: Equatable {

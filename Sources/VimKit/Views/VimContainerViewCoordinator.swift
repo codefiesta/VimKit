@@ -10,6 +10,7 @@ import MetalKit
 
 #if os(iOS)
 /// Provides a coordinator that is responsible for rendering into it's MTKView representable.
+@MainActor
 public class VimContainerViewCoordinator: NSObject, MTKViewDelegate {
 
     let renderer: VimRenderer

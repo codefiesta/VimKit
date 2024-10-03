@@ -15,7 +15,7 @@ extension Vim {
         case error(String)
     }
 
-    class Downloader: NSObject, URLSessionDelegate {
+    class Downloader: NSObject, URLSessionDelegate, @unchecked Sendable {
 
         static let shared: Downloader = Downloader()
 

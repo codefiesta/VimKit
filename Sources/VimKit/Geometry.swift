@@ -22,7 +22,7 @@ private let maxColorOverrides = 128
 /// This class was largely translated from VIM's CSharp + JS implementtions:
 /// https://github.com/vimaec/g3d/blob/master/csharp/Vim.G3d/G3D.cs
 /// https://github.com/vimaec/vim-ts/blob/develop/src/g3d.ts
-public class Geometry: ObservableObject {
+public class Geometry: ObservableObject, @unchecked Sendable {
 
     /// Represents the state of our geometry buffer
     public enum State: Equatable {

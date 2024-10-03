@@ -17,6 +17,7 @@ private let shapeDefaultColor: SIMD4<Float> = [1.0, .zero, 1.0, .half]
 extension VimRenderer {
 
     /// A struct that draws shapes.
+    @MainActor
     struct Shapes {
 
         /// The context that provides all of the data we need
