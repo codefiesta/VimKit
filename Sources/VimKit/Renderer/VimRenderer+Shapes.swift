@@ -90,7 +90,7 @@ extension VimRenderer {
             self.pipelineState = pipelineState
         }
 
-        /// Draws the shape with the specified render encoder, mesh, and draw closure.
+        /// Draws the shape with the specified render encoder, mesh, color and transform.
         /// - Parameters:
         ///   - renderEncoder: the render encoder
         ///   - mesh: the mesh
