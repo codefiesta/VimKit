@@ -90,22 +90,35 @@ extension VimRenderer {
             self.pipelineState = pipelineState
         }
 
-        /// Draws the shapes with the specified render encoder, mesh, and draw closure.
+        /// Draws the shape with the specified render encoder, mesh, and draw closure.
         /// - Parameters:
         ///   - renderEncoder: the render encoder
         ///   - mesh: the mesh
-        ///   - draw: the main draw closure
-        func drawShapes(renderEncoder: MTLRenderCommandEncoder, mesh: MTKMesh, draw: (MTKMesh) -> Void) {
+        ///   - color: the shape color
+        ///   - transform: the shape transform matrix
+        private func drawShape(renderEncoder: MTLRenderCommandEncoder,
+                               mesh: MTKMesh,
+                               color: SIMD4<Float> = shapeDefaultColor,
+                               transform: float4x4 = .identity) {
+
             guard let pipelineState else { return }
             renderEncoder.pushDebugGroup(shapeGroupName)
             renderEncoder.setRenderPipelineState(pipelineState)
             renderEncoder.setDepthStencilState(depthStencilState)
-            renderEncoder.setTriangleFillMode(.lines)
+
+            var color = color
+            var transform = transform
 
             // Set the buffers to pass to the GPU
+            renderEncoder.setVertexBytes(&color, length: MemoryLayout<SIMD4<Float>>.size, index: .colors)
+            renderEncoder.setVertexBytes(&transform, length: MemoryLayout<float4x4>.size, index: .instances)
             renderEncoder.setVertexBuffer(mesh.vertexBuffers.first?.buffer, offset: 0, index: .positions)
-            // Execute the draw closure
-            draw(mesh)
+
+            // Draw the mesh
+            for submesh in mesh.submeshes {
+                renderEncoder.drawIndexedPrimitives(type: submesh.primitiveType, indexCount: submesh.indexCount, indexType: submesh.indexType, indexBuffer: submesh.indexBuffer.buffer, indexBufferOffset: 0)
+            }
+
             // Pop the debug group
             renderEncoder.popDebugGroup()
         }
@@ -114,10 +127,10 @@ extension VimRenderer {
         /// - Parameters:
         ///   - renderEncoder: the render encoder
         ///   - box: the axis aligned bounding box (assumes the box is already in world coordinates)
-        ///   - color: the color of the shape
-        func drawBoundingBox(renderEncoder: MTLRenderCommandEncoder,
-                             box: MDLAxisAlignedBoundingBox?,
-                             _ color: SIMD4<Float> = shapeDefaultColor) {
+        ///   - color: the color of the box
+        func drawBox(renderEncoder: MTLRenderCommandEncoder,
+                     box: MDLAxisAlignedBoundingBox?,
+                     color: SIMD4<Float> = shapeDefaultColor) {
 
             guard let box else { return }
 
@@ -126,20 +139,22 @@ extension VimRenderer {
             transform.position = box.center
             transform.scale(box.extents)
 
-            // Color
-            var color = color
+            drawShape(renderEncoder: renderEncoder, mesh: boxMesh, color: color, transform: transform)
+        }
 
-            drawShapes(renderEncoder: renderEncoder, mesh: boxMesh) { mesh in
+        /// Draws a plane.
+        /// - Parameters:
+        ///   - renderEncoder: the render encoder
+        ///   - plane: the plane to draw
+        ///   - transform: the plane transform matrix
+        ///   - color: the color of the plane
+        func drawPlane(renderEncoder: MTLRenderCommandEncoder,
+                       plane: SIMD4<Float>?,
+                       transform: float4x4 = .identity,
+                       color: SIMD4<Float> = shapeDefaultColor) {
+            guard let plane else { return }
 
-                renderEncoder.setVertexBytes(&color, length: MemoryLayout<SIMD4<Float>>.size, index: .colors)
-                renderEncoder.setVertexBytes(&transform, length: MemoryLayout<float4x4>.size, index: .instances)
-                renderEncoder.setTriangleFillMode(.fill)
-
-                for submesh in mesh.submeshes {
-                    renderEncoder.drawIndexedPrimitives(type: submesh.primitiveType, indexCount: submesh.indexCount, indexType: submesh.indexType, indexBuffer: submesh.indexBuffer.buffer, indexBufferOffset: 0)
-                }
-            }
-
+            drawShape(renderEncoder: renderEncoder, mesh: planeMesh, color: color, transform: transform)
         }
     }
 }

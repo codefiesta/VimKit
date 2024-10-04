@@ -243,6 +243,28 @@ public extension float4x4 {
         )
     }
 
+    /// Rotates the current transform by the specified rotation.
+    /// - Parameter rotation: the rotation (specified in radians)
+    @discardableResult
+    mutating func rotate(by rotation: SIMD3<Float>) -> Self {
+        let x = rotation.x
+        let y = rotation.y
+        let z = rotation.z
+        var matrix: float4x4 = .identity
+        matrix.columns.0.x = cos(y) * cos(z)
+        matrix.columns.0.y = cos(z) * sin(x) * sin(y) - cos(x) * sin(z)
+        matrix.columns.0.z = cos(x) * cos(z) * sin(y) + sin(x) * sin(z)
+        matrix.columns.1.x = cos(y) * sin(z)
+        matrix.columns.1.y = cos(x) * cos(z) + sin(x) * sin(y) * sin(z)
+        matrix.columns.1.z = -cos(z) * sin(x) + cos(x) * sin(y) * sin(z)
+        matrix.columns.2.x = -sin(y)
+        matrix.columns.2.y = cos(y) * sin(x)
+        matrix.columns.2.z = cos(x) * cos(y)
+        matrix.columns.3.w = 1.0
+        self *= matrix
+        return self
+    }
+
     /// Convenience var that returns the upper left portion of this matrix into a float3x3 matrix.
     var float3x3: float3x3 {
         simd_float3x3(columns.0.xyz, columns.1.xyz, columns.2.xyz)

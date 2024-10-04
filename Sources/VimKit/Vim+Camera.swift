@@ -151,17 +151,7 @@ extension Vim {
         ///   - rotation: The x, y, z offsets of the current camera rotation
         public func rotate(rotation: SIMD3<Float>) {
             let radians = rotation.radians
-            let rotations: [(angle: Float, axis: SIMD3<Float>)] = [
-                (radians.x, up),
-                (radians.y, right.negate)
-            ]
-
-            for (angle, axis) in rotations {
-                let quaternion = simd_quaternion(angle, axis)
-                var matrix = float4x4(quaternion) * transform
-                matrix.position = position
-                transform = matrix
-            }
+            transform.rotate(by: radians)
         }
 
         /// Sets the camera forward facing direction.

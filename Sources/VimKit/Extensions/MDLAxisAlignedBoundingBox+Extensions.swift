@@ -27,6 +27,18 @@ extension MDLAxisAlignedBoundingBox {
         maxBounds]
     }
 
+    /// Returns the side planes of this box.
+    var planes: [SIMD4<Float>] {
+        [
+            .init(.xpositive, minBounds.x),
+            .init(.ypositive, minBounds.y),
+            .init(.zpositive, minBounds.z),
+            .init(.xnegative, maxBounds.x),
+            .init(.ynegative, maxBounds.y),
+            .init(.znegative, maxBounds.z),
+        ]
+    }
+
     /// Returns the corner indices that can be used to draw this bounding box.
     var indices: [UInt16] {
         [
