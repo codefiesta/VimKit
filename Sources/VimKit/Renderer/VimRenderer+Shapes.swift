@@ -30,6 +30,7 @@ extension VimRenderer {
 
         let allocator: MTKMeshBufferAllocator
         let boxMesh: MTKMesh
+        let cylinderMesh: MTKMesh
         let planeMesh: MTKMesh
         let sphereMesh: MTKMesh
         let pipelineState: MTLRenderPipelineState?
@@ -46,13 +47,16 @@ extension VimRenderer {
 
             self.allocator = MTKMeshBufferAllocator(device: device)
             let box = MDLMesh(boxWithExtent: extents, segments: [1, 1, 1], inwardNormals: false, geometryType: .triangles, allocator: allocator)
+            let cylinder = MDLMesh(cylinderWithExtent: extents, segments: [50, 50], inwardNormals: false, topCap: false, bottomCap: false, geometryType: .triangles, allocator: allocator)
             let plane = MDLMesh(planeWithExtent: extents, segments: [1, 1], geometryType: .triangles, allocator: allocator)
             let sphere = MDLMesh(sphereWithExtent: extents, segments: [50, 50], inwardNormals: false, geometryType: .triangles, allocator: allocator)
 
             guard let boxMesh = try? MTKMesh(mesh: box, device: device),
+                  let cylinderMesh = try? MTKMesh(mesh: cylinder, device: device),
                   let planeMesh = try? MTKMesh(mesh: plane, device: device),
                   let sphereMesh = try? MTKMesh(mesh: sphere, device: device) else { return nil }
             self.boxMesh = boxMesh
+            self.cylinderMesh = cylinderMesh
             self.planeMesh = planeMesh
             self.sphereMesh = sphereMesh
 
@@ -142,6 +146,17 @@ extension VimRenderer {
             drawShape(renderEncoder: renderEncoder, mesh: boxMesh, color: color, transform: transform)
         }
 
+        /// Draws a cylinder.
+        /// - Parameters:
+        ///   - renderEncoder: the render encoder
+        ///   - transform: the cylinder transform matrix
+        ///   - color: the color of the cylinder
+        func drawCylinder(renderEncoder: MTLRenderCommandEncoder,
+                       transform: float4x4 = .identity,
+                       color: SIMD4<Float> = shapeDefaultColor) {
+            drawShape(renderEncoder: renderEncoder, mesh: cylinderMesh, color: color, transform: transform)
+        }
+
         /// Draws a plane.
         /// - Parameters:
         ///   - renderEncoder: the render encoder
@@ -153,8 +168,18 @@ extension VimRenderer {
                        transform: float4x4 = .identity,
                        color: SIMD4<Float> = shapeDefaultColor) {
             guard let plane else { return }
-
             drawShape(renderEncoder: renderEncoder, mesh: planeMesh, color: color, transform: transform)
+        }
+
+        /// Draws a sphere.
+        /// - Parameters:
+        ///   - renderEncoder: the render encoder
+        ///   - transform: the sphere transform matrix
+        ///   - color: the color of the sphere
+        func drawSphere(renderEncoder: MTLRenderCommandEncoder,
+                       transform: float4x4 = .identity,
+                       color: SIMD4<Float> = shapeDefaultColor) {
+            drawShape(renderEncoder: renderEncoder, mesh: sphereMesh, color: color, transform: transform)
         }
     }
 }
