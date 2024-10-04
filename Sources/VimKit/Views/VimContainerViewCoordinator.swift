@@ -82,16 +82,16 @@ extension VimContainerViewCoordinator {
             translation.z = -1.0
         case .leftArrow:
             // Rotate left
-            rotation.x = 1.0
+            rotation.y = -1.0
         case .rightArrow:
             // Rotate Right
-            rotation.x = -1.0
+            rotation.y = 1.0
         case .upArrow:
             // Rotate up
-            rotation.y = 1.0
+            rotation.x = 1.0
         case .downArrow:
             // Rotate down
-            rotation.y = -1.0
+            rotation.x = -1.0
         default:
             break
         }
