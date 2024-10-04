@@ -27,15 +27,17 @@ extension MDLAxisAlignedBoundingBox {
         maxBounds]
     }
 
-    /// Returns the side planes of this box.
+    /// Returns the side planes of this box in constant-normal form
+    /// which is described as the normal and it's distance from the origin.
+    /// See: https://alexharri.com/blog/planes
     var planes: [SIMD4<Float>] {
         [
-            .init(.xpositive, minBounds.x),
-            .init(.ypositive, minBounds.y),
-            .init(.zpositive, minBounds.z),
-            .init(.xnegative, maxBounds.x),
-            .init(.ynegative, maxBounds.y),
-            .init(.znegative, maxBounds.z),
+            .init(.xpositive, dot(.xpositive, minBounds)),
+            .init(.ypositive, dot(.ypositive, minBounds)),
+            .init(.zpositive, dot(.zpositive, minBounds)),
+            .init(.xnegative, dot(.xnegative, maxBounds)),
+            .init(.ynegative, dot(.ynegative, maxBounds)),
+            .init(.znegative, dot(.znegative, maxBounds)),
         ]
     }
 
