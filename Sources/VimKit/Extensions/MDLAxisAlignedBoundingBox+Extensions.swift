@@ -32,12 +32,12 @@ extension MDLAxisAlignedBoundingBox {
     /// See: https://alexharri.com/blog/planes
     var planes: [SIMD4<Float>] {
         [
-            .init(.xpositive, dot(.xpositive, minBounds)),
-            .init(.ypositive, dot(.ypositive, minBounds)),
-            .init(.zpositive, dot(.zpositive, minBounds)),
-            .init(.xnegative, dot(.xnegative, maxBounds)),
-            .init(.ynegative, dot(.ynegative, maxBounds)),
-            .init(.znegative, dot(.znegative, maxBounds)),
+            .init(.xpositive, dot(.xpositive, maxBounds)),
+            .init(.ypositive, dot(.ypositive, maxBounds)),
+            .init(.zpositive, dot(.zpositive, maxBounds)),
+            .init(.xnegative, dot(.xnegative, minBounds)),
+            .init(.ynegative, dot(.ynegative, minBounds)),
+            .init(.znegative, dot(.znegative, minBounds)),
         ]
     }
 

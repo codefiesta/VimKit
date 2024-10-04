@@ -48,7 +48,7 @@ extension VimRenderer {
             self.allocator = MTKMeshBufferAllocator(device: device)
             let box = MDLMesh(boxWithExtent: extents, segments: [1, 1, 1], inwardNormals: false, geometryType: .triangles, allocator: allocator)
             let cylinder = MDLMesh(cylinderWithExtent: extents, segments: [50, 50], inwardNormals: false, topCap: false, bottomCap: false, geometryType: .triangles, allocator: allocator)
-            let plane = MDLMesh(planeWithExtent: extents, segments: [1, 1], geometryType: .triangles, allocator: allocator)
+            let plane = MDLMesh(planeWithExtent: [100, 100, 100], segments: [1, 1], geometryType: .triangles, allocator: allocator)
             let sphere = MDLMesh(sphereWithExtent: extents, segments: [50, 50], inwardNormals: false, geometryType: .triangles, allocator: allocator)
 
             guard let boxMesh = try? MTKMesh(mesh: box, device: device),
@@ -168,6 +168,13 @@ extension VimRenderer {
                        transform: float4x4 = .identity,
                        color: SIMD4<Float> = shapeDefaultColor) {
             guard let plane else { return }
+
+            var transform = transform
+            // Set the plane position
+            transform.position = plane.xyz * plane.w
+            // Rotate the plane around it's normal axis by 180° (expressed in radians)
+            transform.rotate(around: plane.xyz, by: Float.pi / 2)
+
             drawShape(renderEncoder: renderEncoder, mesh: planeMesh, color: color, transform: transform)
         }
 
