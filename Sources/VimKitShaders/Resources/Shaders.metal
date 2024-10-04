@@ -74,7 +74,6 @@ vertex VertexOut vertexMain(VertexIn in [[stage_in]],
             }
             break;
         case InstanceStateHidden:
-            out.position = float4(0, 0, 0, 0);
             out.color = float4(0, 0, 0, 0);
             break;
         case InstanceStateSelected:
@@ -101,6 +100,11 @@ vertex VertexOut vertexMain(VertexIn in [[stage_in]],
 fragment FragmentOut fragmentMain(VertexOut in [[stage_in]],
                                   texture2d<float, access::sample> texture [[texture(0)]],
                                   sampler colorSampler [[sampler(0)]]) {
+
+    // If the color alpha is zero, discard the fragment
+    if (in.color.w == 0) {
+        discard_fragment();
+    }
 
     FragmentOut out;
     float4 materialPureColor = in.color * 0.66;
