@@ -142,7 +142,7 @@ extension VimRenderer {
             var transform: float4x4 = .identity
             transform.position = box.center
             transform.scale(box.extents)
-
+            // Draw the box using the box mesh
             drawShape(renderEncoder: renderEncoder, mesh: boxMesh, color: color, transform: transform)
         }
 
@@ -154,6 +154,7 @@ extension VimRenderer {
         func drawCylinder(renderEncoder: MTLRenderCommandEncoder,
                        transform: float4x4 = .identity,
                        color: SIMD4<Float> = shapeDefaultColor) {
+            // Draw the cylinder using the cylinder mesh
             drawShape(renderEncoder: renderEncoder, mesh: cylinderMesh, color: color, transform: transform)
         }
 
@@ -163,18 +164,28 @@ extension VimRenderer {
         ///   - plane: the plane to draw
         ///   - transform: the plane transform matrix
         ///   - color: the color of the plane
+        ///   - scaleToBounds: if true, will scale the plane to the extent of the model bounds
         func drawPlane(renderEncoder: MTLRenderCommandEncoder,
                        plane: SIMD4<Float>?,
                        transform: float4x4 = .identity,
-                       color: SIMD4<Float> = shapeDefaultColor) {
+                       color: SIMD4<Float> = shapeDefaultColor,
+                       scaleToBounds: Bool = true) {
             guard let plane else { return }
 
             var transform = transform
+
+            // Scale the bounds of the plane to the model bounds
+            if scaleToBounds, let bounds = context.vim.geometry?.bounds {
+                transform.scale(bounds.extents)
+            }
+
             // Set the plane position
             transform.position = plane.xyz * plane.w
+            // Multiply the transform by the scene transform (most likely z-up)
+            transform *= camera.sceneTransform
             // Rotate the plane around it's normal axis by 180° (expressed in radians)
             transform.rotate(around: plane.xyz, by: Float.pi / 2)
-
+            // Draw the plane using the plane mesh
             drawShape(renderEncoder: renderEncoder, mesh: planeMesh, color: color, transform: transform)
         }
 
@@ -186,6 +197,7 @@ extension VimRenderer {
         func drawSphere(renderEncoder: MTLRenderCommandEncoder,
                        transform: float4x4 = .identity,
                        color: SIMD4<Float> = shapeDefaultColor) {
+            // Draw the sphere using the sphere mesh
             drawShape(renderEncoder: renderEncoder, mesh: sphereMesh, color: color, transform: transform)
         }
     }

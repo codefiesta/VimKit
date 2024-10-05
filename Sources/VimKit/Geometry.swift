@@ -54,6 +54,11 @@ public class Geometry: ObservableObject, @unchecked Sendable {
     /// The Geometry Bounding Volume Hierarchy
     var bvh: BVH?
 
+    /// Convenience method to return the model bounds.
+    var bounds: MDLAxisAlignedBoundingBox? {
+        bvh?.bounds
+    }
+
     /// The data container
     private let bfast: BFast
     private var attributes = [Attribute]()
