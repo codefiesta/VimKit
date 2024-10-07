@@ -51,34 +51,14 @@ kernel void computeVertexNormals(device const float *positions,
     }
 }
 
-//let matrix = instance.matrix
-//let point: SIMD4<Float> = .init(vertices[0], 1.0)
-//let worldPoint = matrix * point
-//var minBounds = worldPoint.xyz
-//var maxBounds = worldPoint.xyz
-//for vertex in vertices {
-//    let point: SIMD4<Float> = .init(vertex, 1.0)
-//    let worldPoint = matrix * point
-//    minBounds = min(minBounds, worldPoint.xyz)
-//    maxBounds = max(maxBounds, worldPoint.xyz)
-//}
-//return MDLAxisAlignedBoundingBox(maxBounds: maxBounds, minBounds: minBounds)
-
-//func vertices(for instance: Instance) -> [SIMD3<Float>]? {
-////        guard instance.mesh != .empty, let range = instance.mesh?.submeshes else { return nil }
-//    guard instance.mesh != .empty else { return nil }
-//    let mesh = meshes[instance.mesh]
-//    let range = mesh.submeshes.range
-//    var results = [SIMD3<Float>]()
-//    let indexes = submeshes[range].map { indices[$0.indices].map { Int($0) * 3} }.reduce( [], + )
-//    for i in indexes {
-//        let vertex: SIMD3<Float> = .init(positions[i..<(i+3)])
-//        results.append(vertex)
-//    }
-//    return results
-//}
-
-
+// Computes the bounding boxes for all of the instances.
+// - Parameters:
+//   - positions: The pointer to the positions data.
+//   - indices: The pointer to the indices data.
+//   - instances: The pointer to the instances data.
+//   - meshes: The pointer to the mesh data.
+//   - submeshes: The pointer to the submesh data.
+//   - count: The total number of instances.
 kernel void computeBoundingBoxes(device const float *positions,
                                  device const uint32_t *indices,
                                  device const Instance *instances,
@@ -87,27 +67,48 @@ kernel void computeBoundingBoxes(device const float *positions,
                                  constant int &count) {
     
     for (int i = 0; i < count; i++) {
+
+        bool first = true;
+
         Instance instance = instances[i];
         float4x4 transform = instance.matrix;
+        float3 minBounds = instance.minBounds;
+        float3 maxBounds = instance.maxBounds;
         
         if (instance.mesh == -1) { continue; }
         
         Mesh mesh = meshes[instance.mesh];
         BoundedRange submeshRange = mesh.submeshes;
         
+        // Loop through the submesh vertices to find the min + max bounds
         for (uint j = submeshRange.lowerBound; j < submeshRange.upperBound; j++) {
+
             Submesh submesh = submeshes[j];
             BoundedRange indicesRange = submesh.indices;
-            int count = indicesRange.upperBound - indicesRange.lowerBound;
             
             for (uint k = indicesRange.lowerBound; k < indicesRange.upperBound; k++) {
                 uint index = indices[k] * 3;
+
                 float x = positions[index];
                 float y = positions[index+1];
                 float z = positions[index+2];
-                float3 position = float3(x, y, z);
+
+                float4 position = float4(x, y, z, 1.0);
+                float4 worldPostion = transform * position;
+
+                if (first) {
+                    minBounds = worldPostion.xyz;
+                    maxBounds = worldPostion.xyz;
+                }
+
+                minBounds = min(minBounds, worldPostion.xyz);
+                maxBounds = max(maxBounds, worldPostion.xyz);
+                
+                first = false;
             }
         }
+        
+        instance.minBounds = minBounds;
+        instance.maxBounds = maxBounds;
     }
-    
 }
