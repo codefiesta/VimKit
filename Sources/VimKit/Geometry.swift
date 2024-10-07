@@ -567,41 +567,6 @@ public class Geometry: ObservableObject, @unchecked Sendable {
         return instancesBuffer!.toUnsafeMutableBufferPointer()
     }()
 
-    /// Builds an array of instanced mesh structures (used for instancing).
-//    lazy var instancedMeshes: [InstancedMesh] = {
-//        var results = [InstancedMesh]()
-//
-//        // Build a map of instances that share the same mesh
-//        var meshInstances = [Int32: [UInt32]]()
-//        for instance in instances {
-//            guard instance.mesh != .empty else { continue }
-//            let mesh = instance.mesh
-//            if meshInstances[mesh] != nil {
-//                meshInstances[mesh]?.append(UInt32(instance.index))
-//             } else {
-//                 meshInstances[mesh] = [UInt32(instance.index)]
-//             }
-//        }
-//
-//        for (i, instances) in meshInstances {
-//            let mesh = meshes[i]
-//            let transparent = isTransparent(i)
-//            let meshInstances = InstancedMesh(mesh: mesh, transparent: transparent, instances: instances)
-//            results.append(meshInstances)
-//        }
-//
-//        // Sort the meshes by opaques and transparents
-//        results.sort{ !$0.transparent && $1.transparent }
-//
-//        // Set the base instance offsets
-//        var baseInstance: Int = 0
-//        for result in results {
-//            result.baseInstance = baseInstance
-//            baseInstance += result.instances.count
-//        }
-//        return results
-//    }()
-
     /// Determines mesh transparency. This allows us to sort or
     /// split instances into opaque or transparent continuous ranges.
     /// - Parameters:
@@ -618,14 +583,6 @@ public class Geometry: ObservableObject, @unchecked Sendable {
         guard alphas.isNotEmpty else { return true }
         return alphas[0] < 1.0
 
-//        guard let mesh, let range = mesh.submeshes else { return true }
-
-        // Find the lowest alpha value to determine transparency
-//        let alpha = range
-//            .map { submeshes[$0] }
-//            .sorted { $0.material?.rgba.w ?? .zero < $1.material?.rgba.w ?? .zero }
-//            .first?.material?.rgba.w ?? .zero
-//        return alpha < 1.0
     }
 
     func calculateBoundingBoxes() async {
