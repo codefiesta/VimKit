@@ -4,8 +4,8 @@
 //
 //  Created by Kevin McKee
 //
-
 #include <metal_stdlib>
+#include "../include/ShaderTypes.h"
 using namespace metal;
 
 // Computes the vertex normals.
@@ -49,4 +49,18 @@ kernel void computeVertexNormals(device const float *positions,
         normals[j+1] = n.y;
         normals[j+2] = n.z;
     }
+}
+
+kernel void computeBoundingBoxes(device const float *positions,
+                                 device const uint32_t *indices,
+                                 device const Instance *instances,
+                                 device float3 *minBounds,
+                                 device float3 *maxBounds,
+                                 device float4x4 *transforms,
+                                 constant int &count) {
+    
+    for (int i = 0; i < count; i++) {
+        float4x4 transform = transforms[i];
+    }
+    
 }

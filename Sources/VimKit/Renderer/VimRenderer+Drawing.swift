@@ -129,17 +129,21 @@ public extension VimRenderer {
     /// - Parameters:
     ///   - instanced: the instanced mesh to draw
     ///   - renderEncoder: the render encoder
-    private func drawInstanced(_ instanced: Geometry.InstancedMesh, renderEncoder: MTLRenderCommandEncoder) {
-        guard let geometry, let range = instanced.mesh.submeshes else { return }
+    private func drawInstanced(_ instanced: InstancedMesh, renderEncoder: MTLRenderCommandEncoder) {
+        //guard let geometry, let range = instanced.mesh.submeshes else { return }
 
-        let submeshes = geometry.submeshes[range]
+        guard let geometry else { return }
+        let submeshes = geometry.submeshes[instanced.mesh.submeshes]
         for (i, submesh) in submeshes.enumerated() {
-            guard let material = submesh.material, material.rgba.w > .zero else { continue }
+            guard submesh.material != .empty else { continue }
+            var material = geometry.materials[submesh.material]
+//            guard let material = submesh.material, material.rgba.w > .zero else { continue }
             renderEncoder.pushDebugGroup("SubMesh[\(i)]")
+            renderEncoder.setVertexBytes(&material, length: MemoryLayout<Material>.size, index: .materials)
 
             // Set the mesh uniforms
-            var uniforms = meshUniforms(submesh: submesh)
-            renderEncoder.setVertexBytes(&uniforms, length: MemoryLayout<MeshUniforms>.size, index: .meshUniforms)
+//            var uniforms = meshUniforms(submesh: submesh)
+//            renderEncoder.setVertexBytes(&uniforms, length: MemoryLayout<MeshUniforms>.size, index: .meshUniforms)
 
             // Draw the submesh
             drawSubmesh(geometry, submesh, renderEncoder, instanced.instances.count, instanced.baseInstance)
@@ -155,7 +159,7 @@ public extension VimRenderer {
     ///   - instanceCount: the number of instances to draw.
     ///   - baseInstance: the offset for instance_id
     private func drawSubmesh(_ geometry: Geometry,
-                             _ submesh: Geometry.Submesh,
+                             _ submesh: Submesh,
                              _ renderEncoder: MTLRenderCommandEncoder,
                              _ instanceCount: Int = 1,
                              _ baseInstance: Int = 0) {
@@ -181,13 +185,13 @@ extension VimRenderer {
     /// - Parameters:
     ///   - submesh: the submesh
     /// - Returns: the mesh unifroms
-    func meshUniforms(submesh: Geometry.Submesh) -> MeshUniforms {
-        MeshUniforms(
-            color: submesh.material?.rgba ?? .zero,
-            glossiness: submesh.material?.glossiness ?? .half,
-            smoothness: submesh.material?.smoothness ?? .half
-        )
-    }
+//    func meshUniforms(submesh: Geometry.Submesh) -> MeshUniforms {
+//        MeshUniforms(
+//            color: submesh.material?.rgba ?? .zero,
+//            glossiness: submesh.material?.glossiness ?? .half,
+//            smoothness: submesh.material?.smoothness ?? .half
+//        )
+//    }
 }
 
 // MARK: Culling
@@ -198,9 +202,10 @@ extension VimRenderer {
     /// - Parameter geometry: the geometry data
     /// - Returns: indices into the geometry.instancedMeshes that should be drawn
     private func cullInstancedMeshes(_ geometry: Geometry) -> [Int] {
-        guard let bvh = geometry.bvh, minFrustumCullingThreshold <= geometry.instancedMeshes.endIndex else {
-            return Array(geometry.instancedMeshes.indices)
-        }
-        return bvh.intersectionResults(camera: camera)
+        Array(geometry.instancedMeshes.indices)
+//        guard let bvh = geometry.bvh, minFrustumCullingThreshold <= geometry.instancedMeshes.endIndex else {
+//            return Array(geometry.instancedMeshes.indices)
+//        }
+//        return bvh.intersectionResults(camera: camera)
     }
 }

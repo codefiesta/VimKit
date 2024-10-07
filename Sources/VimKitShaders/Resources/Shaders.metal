@@ -32,13 +32,13 @@ vertex VertexOut vertexMain(VertexIn in [[stage_in]],
                             uint vertex_id [[vertex_id]],
                             uint instance_id [[instance_id]],
                             constant UniformsArray &uniformsArray [[buffer(VertexBufferIndexUniforms)]],
-                            constant MeshUniforms &meshUniforms [[buffer(VertexBufferIndexMeshUniforms)]],
-                            constant Instances *instances [[buffer(VertexBufferIndexInstances)]],
+                            constant Material &material [[buffer(VertexBufferIndexMaterials)]],
+                            constant Instance *instances [[buffer(VertexBufferIndexInstances)]],
                             constant float4 *colors [[buffer(VertexBufferIndexColors)]],
                             constant bool &xRay [[buffer(VertexBufferIndexXRay)]]) {
 
     VertexOut out;
-    Instances instance = instances[instance_id];
+    Instance instance = instances[instance_id];
     uint instanceIndex = instance.index;
     int colorIndex = instance.colorIndex;
     
@@ -55,14 +55,14 @@ vertex VertexOut vertexMain(VertexIn in [[stage_in]],
     
     // Pass color information to the fragment shader
     float3 normal = in.normal.xyz;
-    out.glossiness = meshUniforms.glossiness;
-    out.smoothness = meshUniforms.smoothness;
-    out.color = meshUniforms.color;
+    out.glossiness = material.glossiness;
+    out.smoothness = material.smoothness;
+    out.color = material.rgba;
     
     // XRay the object
     if (xRay) {
-        float grayscale = 0.299 * meshUniforms.color.x + 0.587 * meshUniforms.color.y + 0.114 * meshUniforms.color.z;
-        float alpha = meshUniforms.color.w * 0.1;
+        float grayscale = 0.299 * material.rgba.x + 0.587 * material.rgba.y + 0.114 * material.rgba.z;
+        float alpha = material.rgba.w * 0.1;
         out.color = float4(grayscale, grayscale, grayscale, alpha);
     }
         
