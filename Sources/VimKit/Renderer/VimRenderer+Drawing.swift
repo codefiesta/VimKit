@@ -77,6 +77,9 @@ public extension VimRenderer {
               let positionsBuffer = geometry.positionsBuffer,
               let normalsBuffer = geometry.normalsBuffer,
               let instancesBuffer = geometry.instancesBuffer,
+              let meshesBuffer = geometry.meshesBuffer,
+              let submeshesBuffer = geometry.submeshesBuffer,
+              let materialsBuffer = geometry.materialsBuffer,
               let colorsBuffer = geometry.colorsBuffer else { return }
 
         renderEncoder.setRenderPipelineState(pipelineState)
@@ -90,13 +93,16 @@ public extension VimRenderer {
         renderEncoder.setVertexBuffer(positionsBuffer, offset: 0, index: .positions)
         renderEncoder.setVertexBuffer(normalsBuffer, offset: 0, index: .normals)
         renderEncoder.setVertexBuffer(instancesBuffer, offset: 0, index: .instances)
+        renderEncoder.setVertexBuffer(meshesBuffer, offset: 0, index: .meshes)
+        renderEncoder.setVertexBuffer(submeshesBuffer, offset: 0, index: .submeshes)
+        renderEncoder.setVertexBuffer(materialsBuffer, offset: 0, index: .materials)
         renderEncoder.setVertexBuffer(colorsBuffer, offset: 0, index: .colors)
         renderEncoder.setFragmentTexture(baseColorTexture, index: 0)
         renderEncoder.setFragmentSamplerState(samplerState, index: 0)
 
-        // Set xRay mode
-        var xRay = xRayMode
-        renderEncoder.setVertexBytes(&xRay, length: MemoryLayout<Bool>.size, index: .xRay)
+        // Set the per frame render options
+        var options = RenderOptions(xRay: xRayMode)
+        renderEncoder.setVertexBytes(&options, length: MemoryLayout<RenderOptions>.size, index: .renderOptions)
     }
 
     /// Draws the entire scene.
@@ -130,16 +136,16 @@ public extension VimRenderer {
     ///   - instanced: the instanced mesh to draw
     ///   - renderEncoder: the render encoder
     private func drawInstanced(_ instanced: InstancedMesh, renderEncoder: MTLRenderCommandEncoder) {
-        //guard let geometry, let range = instanced.mesh.submeshes else { return }
-
         guard let geometry else { return }
-        let submeshes = geometry.submeshes[instanced.mesh.submeshes]
+        let mesh = geometry.meshes[instanced.mesh]
+        let submeshes = geometry.submeshes[mesh.submeshes]
         for (i, submesh) in submeshes.enumerated() {
-            guard submesh.material != .empty else { continue }
-            renderEncoder.pushDebugGroup("SubMesh[\(i)]")
+            let s = Int32(mesh.submeshes.range.lowerBound + i)
+            renderEncoder.pushDebugGroup("SubMesh[\(s)]")
 
-            var material = geometry.materials[submesh.material]
-            renderEncoder.setVertexBytes(&material, length: MemoryLayout<Material>.size, index: .materials)
+            // Set the identifiers of the mesh + submesh
+            var ids = Identifiers(mesh: instanced.mesh, submesh: s)
+            renderEncoder.setVertexBytes(&ids, length: MemoryLayout<Identifiers>.size, index: .identifiers)
 
             // Draw the submesh
             drawSubmesh(geometry, submesh, renderEncoder, instanced.instances.count, instanced.baseInstance)

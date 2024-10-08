@@ -23,22 +23,30 @@ constant float4 materialSpecularColor = float4(1.0, 1.0, 1.0, 1.0);
 //   - amp_id: The index into the uniforms array used for stereoscopic views in visionOS.
 //   - instance_id: The baseInstance parameter passed to the draw call used to map this instance to it's transform data.
 //   - uniformsArray: The per frame uniforms.
-//   - meshUniforms: The per mesh uniforms.
 //   - instances: The instances pointer.
+//   - meshes: The meshes pointer.
+//   - submeshes: The submeshes pointer.
+//   - materials: The materials pointer.
 //   - colors: The colors pointer used to apply custom color profiles to instances.
-//   - xRay: Flag indicating if this frame is being rendered in xray mode.
+//   - options: The frame rendering options.
 vertex VertexOut vertexMain(VertexIn in [[stage_in]],
                             ushort amp_id [[amplification_id]],
                             uint vertex_id [[vertex_id]],
                             uint instance_id [[instance_id]],
                             constant UniformsArray &uniformsArray [[buffer(VertexBufferIndexUniforms)]],
-                            constant Material &material [[buffer(VertexBufferIndexMaterials)]],
                             constant Instance *instances [[buffer(VertexBufferIndexInstances)]],
+                            constant Mesh *meshes [[buffer(VertexBufferIndexMeshes)]],
+                            constant Submesh *submeshes [[buffer(VertexBufferIndexSubmeshes)]],
+                            constant Material *materials [[buffer(VertexBufferIndexMaterials)]],
                             constant float4 *colors [[buffer(VertexBufferIndexColors)]],
-                            constant bool &xRay [[buffer(VertexBufferIndexXRay)]]) {
+                            constant Identifiers &identifiers [[buffer(VertexBufferIndexIdentifiers)]],
+                            constant RenderOptions &options [[buffer(VertexBufferIndexRenderOptions)]]) {
 
     VertexOut out;
     Instance instance = instances[instance_id];
+    Submesh submesh = submeshes[identifiers.submesh];
+    Material material = materials[submesh.material];
+    
     uint instanceIndex = instance.index;
     int colorIndex = instance.colorIndex;
     
@@ -60,7 +68,7 @@ vertex VertexOut vertexMain(VertexIn in [[stage_in]],
     out.color = material.rgba;
     
     // XRay the object
-    if (xRay) {
+    if (options.xRay) {
         float grayscale = 0.299 * material.rgba.x + 0.587 * material.rgba.y + 0.114 * material.rgba.z;
         float alpha = material.rgba.w * 0.1;
         out.color = float4(grayscale, grayscale, grayscale, alpha);

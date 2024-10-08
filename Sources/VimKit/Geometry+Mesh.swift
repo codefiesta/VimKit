@@ -10,8 +10,8 @@ import VimKitShaders
 /// Inverts the relationship between an Instance and a Mesh that allows us to draw using instancing.
 class InstancedMesh {
 
-    /// The mesh that is shared across the instances.
-    let mesh: Mesh
+    /// The mesh index that is shared across the instances.
+    let mesh: Int32
     /// Flag indicating if the mesh is transparent or not
     let transparent: Bool
     /// The instance indexes.
@@ -21,11 +21,11 @@ class InstancedMesh {
 
     /// Initalizes the instanced mesh.
     /// - Parameters:
-    ///   - mesh: the mesh that should be instanced
+    ///   - mesh: the index of the mesh that should be instanced
     ///   - transparent: a flag indicating if the instance is transparent or not (used primarily for sorting).
     ///   - instances: the instance indexes
     ///   - baseInstance: the offset used by the GPU used to lookup the starting index into the instances buffer.
-    init(mesh: Mesh, transparent: Bool, instances: [UInt32], _ baseInstance: Int = 0) {
+    init(mesh: Int32, transparent: Bool, instances: [UInt32], _ baseInstance: Int = 0) {
         self.mesh = mesh
         self.transparent = transparent
         self.instances = instances

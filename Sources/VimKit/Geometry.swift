@@ -452,9 +452,8 @@ public class Geometry: ObservableObject, @unchecked Sendable {
 
         // 2) Build the array of instanced meshes
         for (i, instances) in meshInstances {
-            let mesh = meshes[i]
             let transparent = isTransparent(i)
-            let meshInstances = InstancedMesh(mesh: mesh, transparent: transparent, instances: instances)
+            let meshInstances = InstancedMesh(mesh: i, transparent: transparent, instances: instances)
             instancedMeshes.append(meshInstances)
         }
 

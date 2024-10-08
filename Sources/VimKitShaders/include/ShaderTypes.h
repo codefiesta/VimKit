@@ -29,23 +29,23 @@ typedef struct {
 } BoundedRange;
 
 typedef struct {
-    /// The material glossiness in the domain of [0.0...0.1]
+    // The material glossiness in the domain of [0.0...0.1]
     float glossiness;
-    /// The material smoothness in the domain of [0.0...0.1]
+    // The material smoothness in the domain of [0.0...0.1]
     float smoothness;
-    /// The material RGBA diffuse color with components in the domain of [0.0...0.1]
+    // The material RGBA diffuse color with components in the domain of [0.0...0.1]
     simd_float4 rgba;
 } Material;
 
 typedef struct {
-    /// The material index (-1 indicates no material)
+    // The material index (-1 indicates no material)
     int32_t material;
-    /// The range of values in the index buffer to define the geometry of its triangular faces in local space.
+    // The range of values in the index buffer to define the geometry of its triangular faces in local space.
     BoundedRange indices;
 } Submesh;
 
 typedef struct {
-    /// The range of submeshes contained inside this mesh.
+    // The range of submeshes contained inside this mesh.
     BoundedRange submeshes;
 } Mesh;
 
@@ -92,15 +92,31 @@ typedef struct {
     bool transparent;
 } Instance;
 
+typedef struct {
+    // Flag indicating if this frame is being rendered in xray mode.
+    bool xRay;
+} RenderOptions;
+
+// A type that holds identifier information about what is currently being rendered.
+typedef struct {
+    // The index of the mesh being drawn
+    int mesh;
+    // The index of the submesh being drawn
+    int submesh;
+} Identifiers;
+
 // Enum constants for the association of a specific buffer index argument passed into the shader vertex function
 typedef NS_ENUM(EnumBackingType, VertexBufferIndex) {
     VertexBufferIndexPositions = 0,
     VertexBufferIndexNormals = 1,
     VertexBufferIndexUniforms = 2,
-    VertexBufferIndexMaterials = 3,
-    VertexBufferIndexInstances = 4,
-    VertexBufferIndexColors = 5,
-    VertexBufferIndexXRay = 6
+    VertexBufferIndexInstances = 3,
+    VertexBufferIndexMeshes = 4,
+    VertexBufferIndexSubmeshes = 5,
+    VertexBufferIndexMaterials = 6,
+    VertexBufferIndexColors = 7,
+    VertexBufferIndexIdentifiers = 8,
+    VertexBufferIndexRenderOptions = 9
 };
 
 // Enum constances for the attribute index of an incoming vertex
