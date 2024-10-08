@@ -23,9 +23,9 @@ typedef NSInteger EnumBackingType;
 
 typedef struct {
     // The lower bounds of the range
-    uint32_t lowerBound;
+    size_t lowerBound;
     // The upper bounds of the range
-    uint32_t upperBound;
+    size_t upperBound;
 } BoundedRange;
 
 typedef struct {
