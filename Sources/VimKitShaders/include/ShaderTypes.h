@@ -21,6 +21,34 @@ typedef NSInteger EnumBackingType;
 // SWIFT/METAL STRUCTURES THAT ARE SHARED BETWEEN METAL SHADERS AND SWIFT
 //***********************************************************************
 
+typedef struct {
+    // The lower bounds of the range
+    uint32_t lowerBound;
+    // The upper bounds of the range
+    uint32_t upperBound;
+} BoundedRange;
+
+typedef struct {
+    // The material glossiness in the domain of [0.0...0.1]
+    float glossiness;
+    // The material smoothness in the domain of [0.0...0.1]
+    float smoothness;
+    // The material RGBA diffuse color with components in the domain of [0.0...0.1]
+    simd_float4 rgba;
+} Material;
+
+typedef struct {
+    // The material index (-1 indicates no material)
+    int32_t material;
+    // The range of values in the index buffer to define the geometry of its triangular faces in local space.
+    BoundedRange indices;
+} Submesh;
+
+typedef struct {
+    // The range of submeshes contained inside this mesh.
+    BoundedRange submeshes;
+} Mesh;
+
 // Per Frame Uniforms
 typedef struct {
     // Camera uniforms
@@ -34,13 +62,6 @@ typedef struct {
 typedef struct {
     Uniforms uniforms[2];
 } UniformsArray;
-
-// Per Mesh Uniforms
-typedef struct {
-    simd_float4 color;
-    float glossiness;
-    float smoothness;
-} MeshUniforms;
 
 // Enum constants for possible instance states
 typedef NS_ENUM(EnumBackingType, InstanceState) {
@@ -59,17 +80,43 @@ typedef struct {
     simd_float4x4 matrix;
     // The state of the instance
     InstanceState state;
-} Instances;
+    // The instance min bounds (in world space)
+    simd_float3 minBounds;
+    // The instance max bounds (in world space)
+    simd_float3 maxBounds;
+    // The parent index of the instance (-1 indicates no parent).
+    int32_t parent;
+    /// The mesh index (-1 indicates no mesh)
+    int32_t mesh;
+    /// Flag indicating if this instance is transparent or not.
+    bool transparent;
+} Instance;
+
+typedef struct {
+    // Flag indicating if this frame is being rendered in xray mode.
+    bool xRay;
+} RenderOptions;
+
+// A type that holds identifier information about what is currently being rendered.
+typedef struct {
+    // The index of the mesh being drawn
+    int mesh;
+    // The index of the submesh being drawn
+    int submesh;
+} Identifiers;
 
 // Enum constants for the association of a specific buffer index argument passed into the shader vertex function
 typedef NS_ENUM(EnumBackingType, VertexBufferIndex) {
     VertexBufferIndexPositions = 0,
     VertexBufferIndexNormals = 1,
     VertexBufferIndexUniforms = 2,
-    VertexBufferIndexMeshUniforms = 3,
-    VertexBufferIndexInstances = 4,
-    VertexBufferIndexColors = 5,
-    VertexBufferIndexXRay = 6
+    VertexBufferIndexInstances = 3,
+    VertexBufferIndexMeshes = 4,
+    VertexBufferIndexSubmeshes = 5,
+    VertexBufferIndexMaterials = 6,
+    VertexBufferIndexColors = 7,
+    VertexBufferIndexIdentifiers = 8,
+    VertexBufferIndexRenderOptions = 9
 };
 
 // Enum constances for the attribute index of an incoming vertex

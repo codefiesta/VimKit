@@ -10,6 +10,9 @@ import Spatial
 
 extension MDLAxisAlignedBoundingBox {
 
+    /// A constant for a zero size bounding boz
+    static let zero: MDLAxisAlignedBoundingBox = .init(maxBounds: .zero, minBounds: .zero)
+
     /// Returns the center point of the box.
     var center: SIMD3<Float> {
         (maxBounds + minBounds) * .half
@@ -177,5 +180,26 @@ extension MDLAxisAlignedBoundingBox {
             if distance > .zero { return true }
         }
         return false
+    }
+}
+
+extension MDLAxisAlignedBoundingBox {
+
+    /// Convenience operator that performs equality checks.
+    /// - Parameters:
+    ///   - lhs: the left box to check
+    ///   - rhs: the right box to check
+    /// - Returns: true if the boxes are equal
+    public static func == (lhs: MDLAxisAlignedBoundingBox, rhs: MDLAxisAlignedBoundingBox) -> Bool {
+        lhs.minBounds == rhs.minBounds && lhs.maxBounds == rhs.maxBounds
+    }
+
+    /// Convenience operator that performs non-equality checks.
+    /// - Parameters:
+    ///   - lhs: the left box to check
+    ///   - rhs: the right box to check
+    /// - Returns: true if the boxes are not equal
+    public static func != (lhs: MDLAxisAlignedBoundingBox, rhs: MDLAxisAlignedBoundingBox) -> Bool {
+        lhs.minBounds != rhs.minBounds || lhs.maxBounds != rhs.maxBounds
     }
 }

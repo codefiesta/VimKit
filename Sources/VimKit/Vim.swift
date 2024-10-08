@@ -229,41 +229,6 @@ public class Vim: NSObject, ObservableObject, @unchecked Sendable {
             self.progress.completedUnitCount += count
         }
     }
-
-    /// Validates the VIM file.
-    private func validate() {
-
-        guard let nodeTable = db?.Node else {
-            assert(false, "The node table doesn't exist in the database")
-            return
-        }
-
-        var count = nodeTable.count
-        guard let geometry = geometry else {
-            assert(false, "The geometry block is absent")
-            return
-        }
-
-        guard let materialsTable = db?.Material else {
-            assert(false, "The materials table doesn't exist in the database")
-            return
-        }
-
-        count = materialsTable.count
-        assert(geometry.materialColors.count == count, "The number of material colors doesn't match the materials count.")
-        assert(geometry.materialGlossiness.count == count, "The number of material glossiness doesn't match the materials count.")
-        assert(geometry.materialSmoothness.count == count, "The number of material smoothness doesn't match the materials count.")
-
-        guard let shapesTable = db?.Shape else {
-            assert(false, "The shapes table doesn't exist in the database")
-            return
-        }
-
-        count = shapesTable.count
-        assert(geometry.shapeVertexOffsets.count == count, "The number of shape vertex offsets doesn't match the shapes count.")
-        assert(geometry.shapeColors.count == count, "The number of shape colors doesn't match the shapes count.")
-        assert(geometry.shapeWidths.count == count, "The number of shape widths doesn't match the shapes count.")
-    }
 }
 
 public extension Vim {
@@ -315,10 +280,6 @@ extension Vim {
         guard let geometry else { return }
         let selected = geometry.select(id: id)
         eventPublisher.send(.selected(id, selected, 1, point))
-//        DispatchQueue.main.async {
-//            // Publish the selection event
-//            self.eventPublisher.send(.selected(id, selected, 1, point))
-//        }
     }
 
     /// Toggles an instance hidden state for the instance with the specified id
@@ -330,10 +291,6 @@ extension Vim {
         guard let geometry else { return }
         let hiddenCount = geometry.hide(ids: ids)
         eventPublisher.send(.hidden(hiddenCount))
-//        DispatchQueue.main.async {
-//            // Publish the hidden event
-//            self.eventPublisher.send(.hidden(hiddenCount))
-//        }
     }
 
     /// Unhides all hidden instances.
@@ -342,9 +299,5 @@ extension Vim {
         guard let geometry else { return }
         geometry.unhide()
         eventPublisher.send(.hidden(0))
-//        DispatchQueue.main.async {
-//            // Publish the hidden event
-//            self.eventPublisher.send(.hidden(0))
-//        }
     }
 }

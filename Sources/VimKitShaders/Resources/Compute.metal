@@ -4,8 +4,8 @@
 //
 //  Created by Kevin McKee
 //
-
 #include <metal_stdlib>
+#include "../include/ShaderTypes.h"
 using namespace metal;
 
 // Computes the vertex normals.
@@ -48,5 +48,68 @@ kernel void computeVertexNormals(device const float *positions,
         normals[j] = n.x;
         normals[j+1] = n.y;
         normals[j+2] = n.z;
+    }
+}
+
+// Computes the bounding boxes for all of the instances.
+// - Parameters:
+//   - positions: The pointer to the positions data.
+//   - indices: The pointer to the indices data.
+//   - instances: The pointer to the instances data.
+//   - meshes: The pointer to the mesh data.
+//   - submeshes: The pointer to the submesh data.
+//   - count: The total number of instances.
+kernel void computeBoundingBoxes(device const float *positions,
+                                 device const uint32_t *indices,
+                                 device Instance *instances,
+                                 device const Mesh *meshes,
+                                 device const Submesh *submeshes,
+                                 constant int &count) {
+    
+    // Loop through all of the instances
+    for (int i = 0; i < count; i++) {
+
+        bool firstPass = true;
+
+        const Instance instance = instances[i];
+        const float4x4 transform = instance.matrix;
+        
+        thread float3 minBounds = float3(0, 0, 0);
+        thread float3 maxBounds = float3(0, 0, 0);
+        
+        const Mesh mesh = meshes[instance.mesh];
+        const BoundedRange submeshRange = mesh.submeshes;
+        
+        // Loop through the submesh vertices to find the min + max bounds
+        for (int j = (int)submeshRange.lowerBound; j < (int)submeshRange.upperBound; j++) {
+
+            const Submesh submesh = submeshes[j];
+            const BoundedRange range = submesh.indices;
+            
+            for (int k = (int)range.lowerBound; k < (int)range.upperBound; k++) {
+                
+                const int index = indices[k] * 3;
+
+                const float x = positions[index];
+                const float y = positions[index+1];
+                const float z = positions[index+2];
+
+                const float4 position = float4(x, y, z, 1.0);
+                const float4 worldPostion = transform * position;
+
+                if (firstPass) {
+                    minBounds = worldPostion.xyz;
+                    maxBounds = worldPostion.xyz;
+                    firstPass = false;
+                }
+                
+                minBounds = min(minBounds, worldPostion.xyz);
+                maxBounds = max(maxBounds, worldPostion.xyz);
+            }
+            
+            instances[i].minBounds = minBounds;
+            instances[i].maxBounds = maxBounds;
+
+        }
     }
 }

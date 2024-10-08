@@ -17,8 +17,6 @@ using namespace metal;
 //   - uniformsArray: The per frame uniforms.
 //   - modelMatrix: The shape transform data
 //   - color: The shape color.
-//   - colorOverrides: The color overrides pointer used to apply custom color profiles to instances.
-//   - xRay: Flag indicating if this frame is being rendered in xray mode.
 vertex VertexOut vertexShape(VertexIn in [[stage_in]],
                              ushort amp_id [[amplification_id]],
                              uint vertex_id [[vertex_id]],

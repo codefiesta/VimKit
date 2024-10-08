@@ -23,22 +23,30 @@ constant float4 materialSpecularColor = float4(1.0, 1.0, 1.0, 1.0);
 //   - amp_id: The index into the uniforms array used for stereoscopic views in visionOS.
 //   - instance_id: The baseInstance parameter passed to the draw call used to map this instance to it's transform data.
 //   - uniformsArray: The per frame uniforms.
-//   - meshUniforms: The per mesh uniforms.
 //   - instances: The instances pointer.
+//   - meshes: The meshes pointer.
+//   - submeshes: The submeshes pointer.
+//   - materials: The materials pointer.
 //   - colors: The colors pointer used to apply custom color profiles to instances.
-//   - xRay: Flag indicating if this frame is being rendered in xray mode.
+//   - options: The frame rendering options.
 vertex VertexOut vertexMain(VertexIn in [[stage_in]],
                             ushort amp_id [[amplification_id]],
                             uint vertex_id [[vertex_id]],
                             uint instance_id [[instance_id]],
                             constant UniformsArray &uniformsArray [[buffer(VertexBufferIndexUniforms)]],
-                            constant MeshUniforms &meshUniforms [[buffer(VertexBufferIndexMeshUniforms)]],
-                            constant Instances *instances [[buffer(VertexBufferIndexInstances)]],
+                            constant Instance *instances [[buffer(VertexBufferIndexInstances)]],
+                            constant Mesh *meshes [[buffer(VertexBufferIndexMeshes)]],
+                            constant Submesh *submeshes [[buffer(VertexBufferIndexSubmeshes)]],
+                            constant Material *materials [[buffer(VertexBufferIndexMaterials)]],
                             constant float4 *colors [[buffer(VertexBufferIndexColors)]],
-                            constant bool &xRay [[buffer(VertexBufferIndexXRay)]]) {
+                            constant Identifiers &identifiers [[buffer(VertexBufferIndexIdentifiers)]],
+                            constant RenderOptions &options [[buffer(VertexBufferIndexRenderOptions)]]) {
 
     VertexOut out;
-    Instances instance = instances[instance_id];
+    Instance instance = instances[instance_id];
+    Submesh submesh = submeshes[identifiers.submesh];
+    Material material = materials[submesh.material];
+    
     uint instanceIndex = instance.index;
     int colorIndex = instance.colorIndex;
     
@@ -55,14 +63,14 @@ vertex VertexOut vertexMain(VertexIn in [[stage_in]],
     
     // Pass color information to the fragment shader
     float3 normal = in.normal.xyz;
-    out.glossiness = meshUniforms.glossiness;
-    out.smoothness = meshUniforms.smoothness;
-    out.color = meshUniforms.color;
+    out.glossiness = material.glossiness;
+    out.smoothness = material.smoothness;
+    out.color = material.rgba;
     
     // XRay the object
-    if (xRay) {
-        float grayscale = 0.299 * meshUniforms.color.x + 0.587 * meshUniforms.color.y + 0.114 * meshUniforms.color.z;
-        float alpha = meshUniforms.color.w * 0.1;
+    if (options.xRay) {
+        float grayscale = 0.299 * material.rgba.x + 0.587 * material.rgba.y + 0.114 * material.rgba.z;
+        float alpha = material.rgba.w * 0.1;
         out.color = float4(grayscale, grayscale, grayscale, alpha);
     }
         
@@ -142,5 +150,20 @@ fragment FragmentOut fragmentMain(VertexOut in [[stage_in]],
     return out;
 }
 
+// Extracts the six frustum planes determined by the provided matrix.
+// - Parameters:
+//   - matrix: the camera projectionMatrix * viewMatrix
+//   - planes: the planes pointer to write to
+static void extract_frustum_planes(constant float4x4 &matrix, thread float4 *planes) {
 
-
+    float4x4 mt = transpose(matrix);
+    planes[0] = mt[3] + mt[0]; // left
+    planes[1] = mt[3] - mt[0]; // right
+    planes[2] = mt[3] - mt[1]; // top
+    planes[3] = mt[3] + mt[1]; // bottom
+    planes[4] = mt[2];         // near
+    planes[5] = mt[3] - mt[2]; // far
+    for (int i = 0; i < 6; ++i) {
+        planes[i] /= length(planes[i].xyz);
+    }
+}

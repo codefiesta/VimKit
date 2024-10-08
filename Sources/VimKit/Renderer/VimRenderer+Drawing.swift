@@ -77,6 +77,9 @@ public extension VimRenderer {
               let positionsBuffer = geometry.positionsBuffer,
               let normalsBuffer = geometry.normalsBuffer,
               let instancesBuffer = geometry.instancesBuffer,
+              let meshesBuffer = geometry.meshesBuffer,
+              let submeshesBuffer = geometry.submeshesBuffer,
+              let materialsBuffer = geometry.materialsBuffer,
               let colorsBuffer = geometry.colorsBuffer else { return }
 
         renderEncoder.setRenderPipelineState(pipelineState)
@@ -90,13 +93,16 @@ public extension VimRenderer {
         renderEncoder.setVertexBuffer(positionsBuffer, offset: 0, index: .positions)
         renderEncoder.setVertexBuffer(normalsBuffer, offset: 0, index: .normals)
         renderEncoder.setVertexBuffer(instancesBuffer, offset: 0, index: .instances)
+        renderEncoder.setVertexBuffer(meshesBuffer, offset: 0, index: .meshes)
+        renderEncoder.setVertexBuffer(submeshesBuffer, offset: 0, index: .submeshes)
+        renderEncoder.setVertexBuffer(materialsBuffer, offset: 0, index: .materials)
         renderEncoder.setVertexBuffer(colorsBuffer, offset: 0, index: .colors)
         renderEncoder.setFragmentTexture(baseColorTexture, index: 0)
         renderEncoder.setFragmentSamplerState(samplerState, index: 0)
 
-        // Set xRay mode
-        var xRay = xRayMode
-        renderEncoder.setVertexBytes(&xRay, length: MemoryLayout<Bool>.size, index: .xRay)
+        // Set the per frame render options
+        var options = RenderOptions(xRay: xRayMode)
+        renderEncoder.setVertexBytes(&options, length: MemoryLayout<RenderOptions>.size, index: .renderOptions)
     }
 
     /// Draws the entire scene.
@@ -129,17 +135,17 @@ public extension VimRenderer {
     /// - Parameters:
     ///   - instanced: the instanced mesh to draw
     ///   - renderEncoder: the render encoder
-    private func drawInstanced(_ instanced: Geometry.InstancedMesh, renderEncoder: MTLRenderCommandEncoder) {
-        guard let geometry, let range = instanced.mesh.submeshes else { return }
-
-        let submeshes = geometry.submeshes[range]
+    private func drawInstanced(_ instanced: InstancedMesh, renderEncoder: MTLRenderCommandEncoder) {
+        guard let geometry else { return }
+        let mesh = geometry.meshes[instanced.mesh]
+        let submeshes = geometry.submeshes[mesh.submeshes]
         for (i, submesh) in submeshes.enumerated() {
-            guard let material = submesh.material, material.rgba.w > .zero else { continue }
-            renderEncoder.pushDebugGroup("SubMesh[\(i)]")
+            let s = Int32(mesh.submeshes.range.lowerBound + i)
+            renderEncoder.pushDebugGroup("SubMesh[\(s)]")
 
-            // Set the mesh uniforms
-            var uniforms = meshUniforms(submesh: submesh)
-            renderEncoder.setVertexBytes(&uniforms, length: MemoryLayout<MeshUniforms>.size, index: .meshUniforms)
+            // Set the identifiers of the mesh + submesh
+            var ids = Identifiers(mesh: instanced.mesh, submesh: s)
+            renderEncoder.setVertexBytes(&ids, length: MemoryLayout<Identifiers>.size, index: .identifiers)
 
             // Draw the submesh
             drawSubmesh(geometry, submesh, renderEncoder, instanced.instances.count, instanced.baseInstance)
@@ -155,7 +161,7 @@ public extension VimRenderer {
     ///   - instanceCount: the number of instances to draw.
     ///   - baseInstance: the offset for instance_id
     private func drawSubmesh(_ geometry: Geometry,
-                             _ submesh: Geometry.Submesh,
+                             _ submesh: Submesh,
                              _ renderEncoder: MTLRenderCommandEncoder,
                              _ instanceCount: Int = 1,
                              _ baseInstance: Int = 0) {
@@ -169,23 +175,6 @@ public extension VimRenderer {
                                             instanceCount: instanceCount,
                                             baseVertex: 0,
                                             baseInstance: baseInstance
-        )
-    }
-}
-
-// MARK: Per Mesh Uniforms
-
-extension VimRenderer {
-
-    /// Returns the per mesh uniforms for the specifed submesh.
-    /// - Parameters:
-    ///   - submesh: the submesh
-    /// - Returns: the mesh unifroms
-    func meshUniforms(submesh: Geometry.Submesh) -> MeshUniforms {
-        MeshUniforms(
-            color: submesh.material?.rgba ?? .zero,
-            glossiness: submesh.material?.glossiness ?? .half,
-            smoothness: submesh.material?.smoothness ?? .half
         )
     }
 }

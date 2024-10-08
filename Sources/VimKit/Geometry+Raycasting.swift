@@ -6,7 +6,7 @@
 //
 
 import MetalKit
-import simd
+import VimKitShaders
 
 extension Geometry {
 
@@ -148,7 +148,7 @@ extension Geometry {
 
 // MARK: Instance Querying
 
-extension Geometry.Instance {
+extension Instance {
 
     /// Performs an intersection test of the instance against the query.
     /// See: https://metalbyexample.com/picking-hit-testing/
