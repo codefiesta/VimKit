@@ -229,41 +229,6 @@ public class Vim: NSObject, ObservableObject, @unchecked Sendable {
             self.progress.completedUnitCount += count
         }
     }
-
-    /// Validates the VIM file.
-    private func validate() {
-//
-//        guard let nodeTable = db?.Node else {
-//            assert(false, "The node table doesn't exist in the database")
-//            return
-//        }
-//
-//        var count = nodeTable.count
-//        guard let geometry = geometry else {
-//            assert(false, "The geometry block is absent")
-//            return
-//        }
-//
-//        guard let materialsTable = db?.Material else {
-//            assert(false, "The materials table doesn't exist in the database")
-//            return
-//        }
-//
-//        count = materialsTable.count
-//        assert(geometry.materialColors.count == count, "The number of material colors doesn't match the materials count.")
-//        assert(geometry.materialGlossiness.count == count, "The number of material glossiness doesn't match the materials count.")
-//        assert(geometry.materialSmoothness.count == count, "The number of material smoothness doesn't match the materials count.")
-//
-//        guard let shapesTable = db?.Shape else {
-//            assert(false, "The shapes table doesn't exist in the database")
-//            return
-//        }
-//
-//        count = shapesTable.count
-//        assert(geometry.shapeVertexOffsets.count == count, "The number of shape vertex offsets doesn't match the shapes count.")
-//        assert(geometry.shapeColors.count == count, "The number of shape colors doesn't match the shapes count.")
-//        assert(geometry.shapeWidths.count == count, "The number of shape widths doesn't match the shapes count.")
-    }
 }
 
 public extension Vim {
