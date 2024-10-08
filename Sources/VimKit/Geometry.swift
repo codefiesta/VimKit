@@ -8,6 +8,7 @@ import Combine
 import Foundation
 import MetalKit
 import VimKitShaders
+import struct SwiftUICore.Color
 
 // The MPS function name for computing the vertex normals on the GPU
 private let computeVertexNormalsFunctionName = "computeVertexNormals"
@@ -825,7 +826,7 @@ extension Geometry {
         var colors = [SIMD4<Float>](repeating: .zero, count: maxColorOverrides)
 
         // Set the first color override as the selection color
-        colors[0] = .init(.objectSelection)
+        colors[0] = Color.objectSelectionColor.channels
         self.colorsBuffer = device.makeBuffer(
             bytes: &colors,
             length: MemoryLayout<SIMD4<Float>>.stride * colors.count, options: [.storageModeShared])

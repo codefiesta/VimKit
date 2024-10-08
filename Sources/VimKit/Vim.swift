@@ -280,10 +280,6 @@ extension Vim {
         guard let geometry else { return }
         let selected = geometry.select(id: id)
         eventPublisher.send(.selected(id, selected, 1, point))
-//        DispatchQueue.main.async {
-//            // Publish the selection event
-//            self.eventPublisher.send(.selected(id, selected, 1, point))
-//        }
     }
 
     /// Toggles an instance hidden state for the instance with the specified id
@@ -295,10 +291,6 @@ extension Vim {
         guard let geometry else { return }
         let hiddenCount = geometry.hide(ids: ids)
         eventPublisher.send(.hidden(hiddenCount))
-//        DispatchQueue.main.async {
-//            // Publish the hidden event
-//            self.eventPublisher.send(.hidden(hiddenCount))
-//        }
     }
 
     /// Unhides all hidden instances.
@@ -307,9 +299,5 @@ extension Vim {
         guard let geometry else { return }
         geometry.unhide()
         eventPublisher.send(.hidden(0))
-//        DispatchQueue.main.async {
-//            // Publish the hidden event
-//            self.eventPublisher.send(.hidden(0))
-//        }
     }
 }

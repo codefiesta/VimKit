@@ -275,7 +275,7 @@ extension Vim {
                 planes[.right] = matrix.columns.3 - matrix.columns.0
                 planes[.bottom] = matrix.columns.3 + matrix.columns.1
                 planes[.top] = matrix.columns.3 - matrix.columns.1
-                planes[.near] = matrix.columns.3 + matrix.columns.2
+                planes[.near] = matrix.columns.2
                 planes[.far] = matrix.columns.3 - matrix.columns.2
 
                 for (i, _) in planes.enumerated() {

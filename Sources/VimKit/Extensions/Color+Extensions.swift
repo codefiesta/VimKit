@@ -10,6 +10,12 @@ import SwiftUI
 
 extension Color {
 
+    /// Represents the default object selection color.
+    /// Note: This should go away in the future and should be able to initialized via a
+    /// `ColorResource` with `.init(.objectSection)`.
+    /// See: https://forums.swift.org/t/generate-images-and-colors-inside-a-swift-package/65674/9
+    public static let objectSelectionColor = Color("objectSelectionColor", bundle: .module)
+
     /// Provides a convenience var for accessing the color channels
     var channels: SIMD4<Float> {
         let resolved = resolve(in: .init())
@@ -26,6 +32,7 @@ extension Color {
 extension SIMD4 where Scalar == Float {
 
     /// Initialize rgba values from a color resource.
+    /// - Parameter resource: the color resource
     init(_ resource: ColorResource) {
         let color = Color(resource)
         let channels = color.channels
