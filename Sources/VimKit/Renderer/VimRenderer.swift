@@ -148,7 +148,7 @@ extension VimRenderer {
         }
 
         let id = Int(pixel)
-        guard let index = geometry.instanceOffsets.firstIndex(of: UInt32(pixel)) else { return }
+        guard let index = geometry.instanceOffsets.firstIndex(of: id) else { return }
 
         let query = camera.unprojectPoint(point)
         var point3D: SIMD3<Float> = .zero

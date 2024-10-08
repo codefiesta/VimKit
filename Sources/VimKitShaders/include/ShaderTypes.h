@@ -39,7 +39,7 @@ typedef struct {
 
 typedef struct {
     // The material index (-1 indicates no material)
-    int32_t material;
+    size_t material;
     // The range of values in the index buffer to define the geometry of its triangular faces in local space.
     BoundedRange indices;
 } Submesh;
@@ -73,9 +73,9 @@ typedef NS_ENUM(EnumBackingType, InstanceState) {
 // Instancing Data
 typedef struct {
     // The index of the instance.
-    uint32_t index;
+    size_t index;
     // The index of the color override to use from the colors buffer (-1 indicates no override)
-    int32_t colorIndex;
+    size_t colorIndex;
     // The 4x4 row-major matrix representing the node's world-space transform.
     simd_float4x4 matrix;
     // The state of the instance
@@ -85,9 +85,9 @@ typedef struct {
     // The instance max bounds (in world space)
     simd_float3 maxBounds;
     // The parent index of the instance (-1 indicates no parent).
-    int32_t parent;
+    size_t parent;
     /// The mesh index (-1 indicates no mesh)
-    int32_t mesh;
+    size_t mesh;
     /// Flag indicating if this instance is transparent or not.
     bool transparent;
 } Instance;
@@ -100,9 +100,9 @@ typedef struct {
 // A type that holds identifier information about what is currently being rendered.
 typedef struct {
     // The index of the mesh being drawn
-    int mesh;
+    size_t mesh;
     // The index of the submesh being drawn
-    int submesh;
+    size_t submesh;
 } Identifiers;
 
 // Enum constants for the association of a specific buffer index argument passed into the shader vertex function
