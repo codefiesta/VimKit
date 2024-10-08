@@ -2,7 +2,7 @@
 //  BoundedRange+Extensions.swift
 //  VimKit
 //
-//  Created by Kevin McKee on 10/7/24.
+//  Created by Kevin McKee
 //
 
 import Foundation
