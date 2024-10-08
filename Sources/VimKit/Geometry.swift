@@ -11,6 +11,8 @@ import VimKitShaders
 
 // The MPS function name for computing the vertex normals on the GPU
 private let computeVertexNormalsFunctionName = "computeVertexNormals"
+// The MPS function name for computing the bounding boxes on the GPU
+private let computeBoundingBoxesFunctionName = "computeBoundingBoxes"
 // File extensions for mmap'd metal buffers
 private let normalsBufferExtension = ".normals"
 // The max number of color overrides to apply (4MB worth of colors)
@@ -146,7 +148,7 @@ public class Geometry: ObservableObject, @unchecked Sendable {
         _ = instancedMeshesMap
         incrementProgressCount()
 
-        await calculateBoundingBoxes()
+        await computeBoundingBoxes(device: device)
 
         assert(instancedMeshes.count == meshes.count, "💩 The instanced meshes [\(instancedMeshes.count)] and meshes [\(meshes.count)] count should be the same.")
 
@@ -213,106 +215,18 @@ public class Geometry: ObservableObject, @unchecked Sendable {
         return indexBuffer!.toUnsafeMutableBufferPointer()
     }()
 
-    // MARK: Vertices
-
-    /// Computes the vertiex normals on the GPU using Metal Performance Shaders.
-    /// - Parameters:
-    ///   - device: the metal device to use
-    ///   - cacheDirectory: the cache directory
-    private func computeVertexNormals(device: MTLDevice, cacheDirectory: URL) async {
-
-        let start = Date.now
-        defer {
-            let timeInterval = abs(start.timeIntervalSinceNow)
-            debugPrint("􀬨 Normals computed in [\(timeInterval.stringFromTimeInterval())]")
-        }
-
-        // If the normals file has already been generated, just make the MTLBuffer from it
-        let normalsBufferFile = cacheDirectory.appending(path: "\(sha256Hash)\(normalsBufferExtension)")
-        if FileManager.default.fileExists(atPath: normalsBufferFile.path) {
-            guard let normalsBuffer = device.makeBufferNoCopy(normalsBufferFile, type: Float.self) else {
-                fatalError("💀 Unable to make MTLBuffer from normals file.")
-            }
-            self.normalsBuffer = normalsBuffer
-            return
-        }
-
-        let commandQueue = device.makeCommandQueue()
-        var positionsCount = positions.count
-        var indicesCount = indices.count
-
-        guard !Task.isCancelled,
-              let library = MTLContext.makeLibrary(),
-              let function = library.makeFunction(name: computeVertexNormalsFunctionName),
-              let pipelineState = try? await device.makeComputePipelineState(function: function),
-              let positionsBuffer,
-              let indexBuffer,
-              let faceNormalsBuffer = device.makeBuffer(
-                length: MemoryLayout<SIMD3<Float>>.stride * (positionsCount/3),
-                options: [.storageModeShared]),
-              let resultsBuffer = device.makeBuffer(
-                length: MemoryLayout<Float>.stride * positionsCount,
-                options: [.storageModeShared]),
-              let commandBuffer = commandQueue?.makeCommandBuffer(),
-              let computeEncoder = commandBuffer.makeComputeCommandEncoder() else {
-            debugPrint("💩 Unable to compute normals.")
-            return
-        }
-
-        computeEncoder.setComputePipelineState(pipelineState)
-
-        // Encode the buffers to pass to the GPU
-        computeEncoder.setBuffer(positionsBuffer, offset: 0, index: 0)
-        computeEncoder.setBuffer(indexBuffer, offset: 0, index: 1)
-        computeEncoder.setBuffer(faceNormalsBuffer, offset: 0, index: 2)
-        computeEncoder.setBuffer(resultsBuffer, offset: 0, index: 3)
-        computeEncoder.setBytes(&positionsCount, length: MemoryLayout<Int>.size, index: 4)
-        computeEncoder.setBytes(&indicesCount, length: MemoryLayout<Int>.size, index: 5)
-
-        // Set the thread group size and dispatch
-        let gridSize = MTLSizeMake(1, 1, 1);
-        let maxThreadsPerGroup = pipelineState.maxTotalThreadsPerThreadgroup
-        let threadgroupSize = MTLSizeMake(maxThreadsPerGroup, 1, 1);
-        computeEncoder.dispatchThreadgroups(gridSize, threadsPerThreadgroup: threadgroupSize)
-
-        computeEncoder.endEncoding()
-        commandBuffer.commit()
-        commandBuffer.waitUntilCompleted()
-
-        // Finally, write the results to a cache file and create the MTLBuffer from it
-        let data = Data(bytes: resultsBuffer.contents(), count: resultsBuffer.length)
-        try? data.write(to: normalsBufferFile)
-        guard let normalsBuffer = device.makeBufferNoCopy(normalsBufferFile, type: Float.self) else {
-            fatalError("💀 Unable to make MTLBuffer from normals file.")
-        }
-        self.normalsBuffer = normalsBuffer
-    }
-
-    /// Makes the color overrides buffer
-    /// - Parameter device: the metal device to use
-    private func makeColorsBuffer(device: MTLDevice) async {
-        guard !Task.isCancelled else { return }
-        var colors = [SIMD4<Float>](repeating: .zero, count: maxColorOverrides)
-
-        //colors[0] = SwiftUI.Color.objectSelectionColor.channels // Set the first color override as the selection color
-        self.colorsBuffer = device.makeBuffer(
-            bytes: &colors,
-            length: MemoryLayout<SIMD4<Float>>.stride * colors.count, options: [.storageModeShared])
-    }
-
     /// Returns the color overrides.
     public lazy var colors: UnsafeMutableBufferPointer<SIMD4<Float>> = {
         assert(colorsBuffer != nil, "💩 Misuse [colors]")
         return colorsBuffer!.toUnsafeMutableBufferPointer()
     }()
 
-
     /// Calculates the vertex normals.
     /// TODO: Port this over to Metal Performance Shaders to perform this work on the GPU.
     /// - https://computergraphics.stackexchange.com/questions/4031/programmatically-generating-vertex-normals
     /// -  https://iquilezles.org/articles/normals/
     /// - Returns: an array of vertex normals
-    @available(*, deprecated, message: "Use computeVertexNormals(device:cacheDirectory) to build vertex normals.")
+    @available(*, deprecated, message: "Use computeVertexNormals(device:cacheDirectory).")
     var vertexNormals: [Float] {
         var results = [Float]()
         for normal in faceNormals {
@@ -554,150 +468,18 @@ public class Geometry: ObservableObject, @unchecked Sendable {
             baseInstance += result.instances.count
         }
 
-        // 5) Use the instance offsets as our sorting mechanism
-        var instanced = instanceOffsets.map { instances[$0] }
+        // 5) Sort the instances by their order in the instanced meshes
+        var sorted = instanceOffsets.map{ instances[Int($0)]}
+        assert(sorted.count == baseInstance, "💩 [\(sorted.count)] != [\(baseInstance)]")
 
         // 6) Make the metal buffer
-        self.instancesBuffer = device.makeBuffer(bytes: &instanced, length: MemoryLayout<Instance>.stride * instanced.count)
+        self.instancesBuffer = device.makeBuffer(bytes: &sorted, length: MemoryLayout<Instance>.stride * sorted.count, options: [.storageModeShared])
     }
 
     /// Builds the array of instances.
     public lazy var instances: UnsafeMutableBufferPointer<Instance> = {
         assert(instancesBuffer != nil, "💩 Misuse [instances]")
         return instancesBuffer!.toUnsafeMutableBufferPointer()
-    }()
-
-    /// Determines mesh transparency. This allows us to sort or
-    /// split instances into opaque or transparent continuous ranges.
-    /// - Parameters:
-    ///   - mesh: the mesh to determine transparency value for
-    /// - Returns: true if the mesh is transparent, otherwise false
-    private func isTransparent(_ index: Int32) -> Bool {
-
-        guard index != .empty else { return true }
-        let mesh = meshes[index]
-
-        let range = mesh.submeshes.range
-        let submeshe = submeshes[range].filter{ $0.material != .empty }
-        let alphas = submeshe.map { materials[$0.material].rgba.w }.sorted { $0 < $1 }
-        guard alphas.isNotEmpty else { return true }
-        return alphas[0] < 1.0
-
-    }
-
-    func calculateBoundingBoxes() async {
-        for (i, instance) in instances.enumerated() {
-            Task {
-                guard let box = await calculateBoundingBox(instance) else { return }
-                instances[i].boundingBox = box
-            }
-        }
-    }
-
-    /// Calculates the bounding box for the specified instance.
-    /// - Parameters:
-    ///   - instance: the instance to calculate the bounding box for
-    /// - Returns: the axis aligned bounding box for the specified instance or nil if the instance has no mesh information.
-    func calculateBoundingBox(_ instance: Instance) async -> MDLAxisAlignedBoundingBox? {
-        guard !Task.isCancelled, let vertices = vertices(for: instance), vertices.isNotEmpty else { return nil }
-        let matrix = instance.matrix
-        let point: SIMD4<Float> = .init(vertices[0], 1.0)
-        let worldPoint = matrix * point
-        var minBounds = worldPoint.xyz
-        var maxBounds = worldPoint.xyz
-        for vertex in vertices {
-            let point: SIMD4<Float> = .init(vertex, 1.0)
-            let worldPoint = matrix * point
-            minBounds = min(minBounds, worldPoint.xyz)
-            maxBounds = max(maxBounds, worldPoint.xyz)
-        }
-        return MDLAxisAlignedBoundingBox(maxBounds: maxBounds, minBounds: minBounds)
-    }
-
-    /// Helper method to retrieve the vertex at the specified index.
-    /// - Parameter index: the indices index
-    /// - Returns: the vertex at the specified index
-    func vertex(at index: Int) -> SIMD3<Float> {
-        let i = Int(indices[index] * 3)
-        return .init(positions[i..<(i+3)])
-    }
-
-    /// Helper method that returns a face for the specifed indices.
-    /// - Parameter indices: the face indices
-    /// - Returns: a face for the specified indices
-    func face(for indices: SIMD3<Int>) -> Face {
-        let a = vertex(at: indices.x)
-        let b = vertex(at: indices.y)
-        let c = vertex(at: indices.z)
-        return Face(a: a, b: b, c: c)
-    }
-
-    /// Helper method that returns all of the vertices that are contained in the specified instance.
-    /// - Parameter instance: the instance to return all of the vertices for
-    /// - Returns: all vertices contained in the specified instance
-    func vertices(for instance: Instance) -> [SIMD3<Float>]? {
-//        guard instance.mesh != .empty, let range = instance.mesh?.submeshes else { return nil }
-        guard instance.mesh != .empty else { return nil }
-        let mesh = meshes[instance.mesh]
-        let range = mesh.submeshes.range
-        var results = [SIMD3<Float>]()
-        let indexes = submeshes[range].map { indices[$0.indices].map { Int($0) * 3} }.reduce( [], + )
-        for i in indexes {
-            let vertex: SIMD3<Float> = .init(positions[i..<(i+3)])
-            results.append(vertex)
-        }
-        return results
-    }
-
-    /// Helper method that returns all of the faces that are contained in the specified instance.
-    /// - Parameter instance: the instance to return all of the faces for
-    /// - Returns: all faces contained in the specified instance
-    func faces(for instance: Instance) -> [Face]? {
-        guard let vertices = vertices(for: instance)?.chunked(into: 3), vertices.isNotEmpty else { return nil }
-        var results = [Face]()
-        for vertex in vertices {
-            results.append(Face(a: vertex[0], b: vertex[1], c: vertex[2]))
-        }
-        return results
-    }
-
-    // MARK: Shapes
-
-    lazy var shapeVertices: [SIMD3<Float>] = {
-        var results = [SIMD3<Float>]()
-        let attributes = attributes(association: .shape, semantic: .position)
-        for attribute in attributes {
-            let array: [Float] = attribute.buffer.data.unsafeTypeArray()
-            let values = array.chunked(into: 3).map { SIMD3<Float>($0) }
-            results.append(contentsOf: values)
-        }
-        return results
-    }()
-
-    lazy var shapeVertexOffsets: [Int32] = {
-        let attributes = attributes(association: .shape, semantic: .vertexoffset)
-        return attributes.data.unsafeTypeArray()
-    }()
-
-    lazy var shapeIndexOffsets: [Int32] = {
-        let attributes = attributes(association: .shape, semantic: .indexoffset)
-        return attributes.data.unsafeTypeArray()
-    }()
-
-    lazy var shapeColors: [SIMD4<Float>] = {
-        var results = [SIMD4<Float>]()
-        let attributes = attributes(association: .shape, semantic: .color)
-        for attribute in attributes {
-            let array: [Float] = attribute.buffer.data.unsafeTypeArray()
-            let values = array.chunked(into: 4).map { SIMD4<Float>($0) }
-            results.append(contentsOf: values)
-        }
-        return results
-    }()
-
-    lazy var shapeWidths: [Float] = {
-        let attributes = attributes(association: .shape, semantic: .width)
-        return attributes.data.unsafeTypeArray()
     }()
 
     // MARK: Materials
@@ -727,62 +509,226 @@ public class Geometry: ObservableObject, @unchecked Sendable {
         )
     }
 
-    /// Returns the RGBA diffuse color of a given material in a value range of 0.0..1.0
-    /// 
-//    var materialColors: [SIMD4<Float>] = {
-//        var results = [SIMD4<Float>]()
-//        let attributes = attributes(association: .material, semantic: .color)
-//        for attribute in attributes {
-//            let array: [Float] = attribute.buffer.data.unsafeTypeArray()
-//            let values = array.chunked(into: 4).map { SIMD4<Float>($0) }
-//            results.append(contentsOf: values)
-//        }
-//        return results
-//    }()
-
-    /// Returns an array of values from 0.0..1.0 representing the glossiness of a given material.
-//    lazy var materialGlossiness: [Float] = {
-//        var results = [Float]()
-//        let attributes = attributes(association: .material, semantic: .glossiness)
-//        for attribute in attributes {
-//            let array: [Float] = attribute.buffer.data.unsafeTypeArray()
-//            results.append(contentsOf: array)
-//        }
-//        return results
-//    }()
-
-    /// Returns an array of values from 0.0..1.0 representing the smoothness of a given material.
-//    lazy var materialSmoothness: [Float] = {
-//        var results = [Float]()
-//        let attributes = attributes(association: .material, semantic: .smoothness)
-//        for attribute in attributes {
-//            let array: [Float] = attribute.buffer.data.unsafeTypeArray()
-//            results.append(contentsOf: array)
-//        }
-//        return results
-//    }()
-
     ///  Returns the combined materials.
     public lazy var materials: UnsafeMutableBufferPointer<Material> = {
         assert(materialsBuffer != nil, "💩 Misuse [materials]")
         return materialsBuffer!.toUnsafeMutableBufferPointer()
-
-//        var materials = [Material]()
-//        for (i, color) in materialColors.enumerated() {
-//            let glossiness = materialGlossiness[i]
-//            let smoothness = materialSmoothness[i]
-//            let material = Material(glossiness: glossiness, smoothness: smoothness, rgba: color)
-//            materials.append(material)
-//        }
-//        return materials
     }()
+}
+
+// MARK: Helpers + Utilities
+
+extension Geometry {
+
+    /// Determines mesh transparency. This allows us to sort or
+    /// split instances into opaque or transparent continuous ranges.
+    /// - Parameters:
+    ///   - mesh: the mesh to determine transparency value for
+    /// - Returns: true if the mesh is transparent, otherwise false
+    private func isTransparent(_ index: Int32) -> Bool {
+
+        guard index != .empty else { return true }
+        let mesh = meshes[index]
+
+        let range = mesh.submeshes.range
+        let submeshe = submeshes[range].filter{ $0.material != .empty }
+        let alphas = submeshe.map { materials[$0.material].rgba.w }.sorted { $0 < $1 }
+        guard alphas.isNotEmpty else { return true }
+        return alphas[0] < 1.0
+
+    }
+
+    /// Computes the vertiex normals on the GPU using Metal Performance Shaders.
+    /// - Parameters:
+    ///   - device: the metal device to use
+    ///   - cacheDirectory: the cache directory
+    private func computeVertexNormals(device: MTLDevice, cacheDirectory: URL) async {
+
+        let start = Date.now
+        defer {
+            let timeInterval = abs(start.timeIntervalSinceNow)
+            debugPrint("􀬨 Normals computed in [\(timeInterval.stringFromTimeInterval())]")
+        }
+
+        // If the normals file has already been generated, just make the MTLBuffer from it
+        let normalsBufferFile = cacheDirectory.appending(path: "\(sha256Hash)\(normalsBufferExtension)")
+        if FileManager.default.fileExists(atPath: normalsBufferFile.path) {
+            guard let normalsBuffer = device.makeBufferNoCopy(normalsBufferFile, type: Float.self) else {
+                fatalError("💀 Unable to make MTLBuffer from normals file.")
+            }
+            self.normalsBuffer = normalsBuffer
+            return
+        }
+
+        let commandQueue = device.makeCommandQueue()
+        var positionsCount = positions.count
+        var indicesCount = indices.count
+
+        guard !Task.isCancelled,
+              let library = MTLContext.makeLibrary(),
+              let function = library.makeFunction(name: computeVertexNormalsFunctionName),
+              let pipelineState = try? await device.makeComputePipelineState(function: function),
+              let positionsBuffer,
+              let indexBuffer,
+              let faceNormalsBuffer = device.makeBuffer(
+                length: MemoryLayout<SIMD3<Float>>.stride * (positionsCount/3),
+                options: [.storageModeShared]),
+              let resultsBuffer = device.makeBuffer(
+                length: MemoryLayout<Float>.stride * positionsCount,
+                options: [.storageModeShared]),
+              let commandBuffer = commandQueue?.makeCommandBuffer(),
+              let computeEncoder = commandBuffer.makeComputeCommandEncoder() else {
+            debugPrint("💩 Unable to compute normals.")
+            return
+        }
+
+        computeEncoder.setComputePipelineState(pipelineState)
+
+        // Encode the buffers to pass to the GPU
+        computeEncoder.setBuffer(positionsBuffer, offset: 0, index: 0)
+        computeEncoder.setBuffer(indexBuffer, offset: 0, index: 1)
+        computeEncoder.setBuffer(faceNormalsBuffer, offset: 0, index: 2)
+        computeEncoder.setBuffer(resultsBuffer, offset: 0, index: 3)
+        computeEncoder.setBytes(&positionsCount, length: MemoryLayout<Int>.size, index: 4)
+        computeEncoder.setBytes(&indicesCount, length: MemoryLayout<Int>.size, index: 5)
+
+        // Set the thread group size and dispatch
+        let gridSize = MTLSizeMake(1, 1, 1);
+        let maxThreadsPerGroup = pipelineState.maxTotalThreadsPerThreadgroup
+        let threadgroupSize = MTLSizeMake(maxThreadsPerGroup, 1, 1);
+        computeEncoder.dispatchThreadgroups(gridSize, threadsPerThreadgroup: threadgroupSize)
+
+        computeEncoder.endEncoding()
+        commandBuffer.commit()
+        commandBuffer.waitUntilCompleted()
+
+        // Finally, write the results to a cache file and create the MTLBuffer from it
+        let data = Data(bytes: resultsBuffer.contents(), count: resultsBuffer.length)
+        try? data.write(to: normalsBufferFile)
+        guard let normalsBuffer = device.makeBufferNoCopy(normalsBufferFile, type: Float.self) else {
+            fatalError("💀 Unable to make MTLBuffer from normals file.")
+        }
+        self.normalsBuffer = normalsBuffer
+    }
+
+    /// Computes all of the instance bounding boxes on the GPU via Metal Performance Shaders.
+    /// - Parameter device: the device to use
+    private func computeBoundingBoxes(device: MTLDevice) async {
+        let start = Date.now
+        defer {
+            let timeInterval = abs(start.timeIntervalSinceNow)
+            debugPrint("􀬨 Bounding boxes computed in [\(timeInterval.stringFromTimeInterval())]")
+        }
+
+        let commandQueue = device.makeCommandQueue()
+        var instanceCount = instances.count
+
+        guard !Task.isCancelled,
+              let library = MTLContext.makeLibrary(),
+              let function = library.makeFunction(name: computeBoundingBoxesFunctionName),
+              let pipelineState = try? await device.makeComputePipelineState(function: function),
+              let positionsBuffer, let indexBuffer, let instancesBuffer, let meshesBuffer, let submeshesBuffer,
+              let commandBuffer = commandQueue?.makeCommandBuffer(),
+              let computeEncoder = commandBuffer.makeComputeCommandEncoder() else {
+            debugPrint("💩 Unable to compute bounding boxes.")
+            return
+        }
+
+        computeEncoder.setComputePipelineState(pipelineState)
+
+        // Encode the buffers to pass to the GPU
+        computeEncoder.setBuffer(positionsBuffer, offset: 0, index: 0)
+        computeEncoder.setBuffer(indexBuffer, offset: 0, index: 1)
+        computeEncoder.setBuffer(instancesBuffer, offset: 0, index: 2)
+        computeEncoder.setBuffer(meshesBuffer, offset: 0, index: 3)
+        computeEncoder.setBuffer(submeshesBuffer, offset: 0, index: 4)
+        computeEncoder.setBytes(&instanceCount, length: MemoryLayout<Int>.size, index: 5)
+
+        // Set the thread group size and dispatch
+        let gridSize: MTLSize = MTLSizeMake(1, 1, 1);
+        let maxThreadsPerGroup = pipelineState.maxTotalThreadsPerThreadgroup
+        let threadgroupSize = MTLSizeMake(maxThreadsPerGroup, 1, 1);
+        computeEncoder.dispatchThreadgroups(gridSize, threadsPerThreadgroup: threadgroupSize)
+
+        computeEncoder.endEncoding()
+        commandBuffer.commit()
+        commandBuffer.waitUntilCompleted()
+    }
+
+    /// Calculates the bounding box for the specified instance.
+    /// - Parameters:
+    ///   - instance: the instance to calculate the bounding box for
+    /// - Returns: the axis aligned bounding box for the specified instance or nil if the instance has no mesh information.
+    @available(*, deprecated, message: "Use computeBoundingBoxes(device:cacheDirectory).")
+    func calculateBoundingBox(_ instance: Instance) -> MDLAxisAlignedBoundingBox? {
+        guard !Task.isCancelled, let vertices = vertices(for: instance), vertices.isNotEmpty else { return nil }
+        let matrix = instance.matrix
+        let point: SIMD4<Float> = .init(vertices[0], 1.0)
+        let worldPoint = matrix * point
+        var minBounds = worldPoint.xyz
+        var maxBounds = worldPoint.xyz
+        for vertex in vertices {
+            let point: SIMD4<Float> = .init(vertex, 1.0)
+            let worldPoint = matrix * point
+            minBounds = min(minBounds, worldPoint.xyz)
+            maxBounds = max(maxBounds, worldPoint.xyz)
+        }
+        return MDLAxisAlignedBoundingBox(maxBounds: maxBounds, minBounds: minBounds)
+    }
+
+
+    /// Helper method to retrieve the vertex at the specified index.
+    /// - Parameter index: the indices index
+    /// - Returns: the vertex at the specified index
+    func vertex(at index: Int) -> SIMD3<Float> {
+        let i = Int(indices[index] * 3)
+        return .init(positions[i..<(i+3)])
+    }
+
+    /// Helper method that returns a face for the specifed indices.
+    /// - Parameter indices: the face indices
+    /// - Returns: a face for the specified indices
+    func face(for indices: SIMD3<Int>) -> Face {
+        let a = vertex(at: indices.x)
+        let b = vertex(at: indices.y)
+        let c = vertex(at: indices.z)
+        return Face(a: a, b: b, c: c)
+    }
+
+    /// Helper method that returns all of the vertices that are contained in the specified instance.
+    /// - Parameter instance: the instance to return all of the vertices for
+    /// - Returns: all vertices contained in the specified instance
+    func vertices(for instance: Instance) -> [SIMD3<Float>]? {
+        guard instance.mesh != .empty else { return nil }
+        let mesh = meshes[instance.mesh]
+        let range = mesh.submeshes.range
+        var results = [SIMD3<Float>]()
+        let indexes = submeshes[range].map { indices[$0.indices].map { Int($0) * 3} }.reduce( [], + )
+        for i in indexes {
+            let vertex: SIMD3<Float> = .init(positions[i..<(i+3)])
+            results.append(vertex)
+        }
+        return results
+    }
+
+    /// Helper method that returns all of the faces that are contained in the specified instance.
+    /// - Parameter instance: the instance to return all of the faces for
+    /// - Returns: all faces contained in the specified instance
+    func faces(for instance: Instance) -> [Face]? {
+        guard let vertices = vertices(for: instance)?.chunked(into: 3), vertices.isNotEmpty else { return nil }
+        var results = [Face]()
+        for vertex in vertices {
+            results.append(Face(a: vertex[0], b: vertex[1], c: vertex[2]))
+        }
+        return results
+    }
 
     /// Finds the attributes that have the specified association and semantic.
     /// - Parameters:
     ///   - association: the aatribute descriptotor association to match against
     ///   - semantic: the aatribute descriptotor semantic to match against
     /// - Returns: all attributes that match the soecified association and semantic
-    fileprivate func attributes(association: AttributeDescriptor.Association, semantic: AttributeDescriptor.Semantic) -> [Attribute] {
+    private func attributes(association: AttributeDescriptor.Association, semantic: AttributeDescriptor.Semantic) -> [Attribute] {
         attributes.filter { $0.descriptor.association == association && $0.descriptor.semantic == semantic }
     }
 
@@ -791,7 +737,7 @@ public class Geometry: ObservableObject, @unchecked Sendable {
     ///   - association: the aatribute descriptotor association to match against
     ///   - semantic: the aatribute descriptotor semantic to match against
     /// - Returns: the attribute data as an array of the specified type.
-    fileprivate func unsafeTypeArray<T>(association: AttributeDescriptor.Association, semantic: AttributeDescriptor.Semantic) -> [T] {
+    private func unsafeTypeArray<T>(association: AttributeDescriptor.Association, semantic: AttributeDescriptor.Semantic) -> [T] {
         let attributes = attributes(association: association, semantic: semantic)
         return attributes.data.unsafeTypeArray()
     }
@@ -806,13 +752,12 @@ extension Geometry {
     ///   - ids: the ids of the instances to hide
     /// - Returns: the total count of hidden instances.
     public func hide(ids: [Int]) -> Int {
-        guard let pointer: UnsafeMutableBufferPointer<Instance> = instancesBuffer?.toUnsafeMutableBufferPointer() else { return 0 }
         for id in ids {
             guard let index = instanceOffsets.firstIndex(of: UInt32(id)) else { continue }
-            pointer[index].state = .hidden
+            instances[index].state = .hidden
         }
 
-        let hidden = pointer[0..<pointer.count].filter{ $0.state == .hidden }.map { Int($0.index) }
+        let hidden = instances.filter{ $0.state == .hidden }.map { Int($0.index) }
         let hiddenSet = Set<Int>(hidden)
 
         // Hide all of the instanced meshes where all shared instances are hidden
@@ -827,10 +772,9 @@ extension Geometry {
 
     /// Unhides all hidden instances.
     public func unhide() {
-        guard let pointer: UnsafeMutableBufferPointer<Instance> = instancesBuffer?.toUnsafeMutableBufferPointer() else { return }
-        for (i, value) in pointer.enumerated() {
+        for (i, value) in instances.enumerated() {
             if value.state == .hidden {
-                pointer[i].state = .default
+                instances[i].state = .default
             }
         }
         hiddeninstancedMeshes.removeAll()
@@ -838,8 +782,7 @@ extension Geometry {
 
     /// Convenience var that returns a count of the hidden instances.
     public var hiddenCount: Int {
-        guard let pointer: UnsafeMutableBufferPointer<Instance> = instancesBuffer?.toUnsafeMutableBufferPointer() else { return 0 }
-        return pointer[0..<pointer.count].filter{ $0.state == .hidden }.count
+        instances.filter{ $0.state == .hidden }.count
     }
 }
 
@@ -868,13 +811,26 @@ extension Geometry {
 
     /// Convenience var that returns a count of the selected instances.
     public var selectedCount: Int {
-        instances[0..<instances.count].filter{ $0.state == .selected }.count
+        instances.filter{ $0.state == .selected }.count
     }
 }
 
 // MARK: Instance Color Overrides
 
 extension Geometry {
+
+    /// Makes the color overrides buffer
+    /// - Parameter device: the metal device to use
+    private func makeColorsBuffer(device: MTLDevice) async {
+        guard !Task.isCancelled else { return }
+        var colors = [SIMD4<Float>](repeating: .zero, count: maxColorOverrides)
+
+        // Set the first color override as the selection color
+        colors[0] = .init(.objectSelection)
+        self.colorsBuffer = device.makeBuffer(
+            bytes: &colors,
+            length: MemoryLayout<SIMD4<Float>>.stride * colors.count, options: [.storageModeShared])
+    }
 
     /// Applies the color override to all instances in the specified ids.
     ///

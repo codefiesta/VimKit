@@ -142,5 +142,20 @@ fragment FragmentOut fragmentMain(VertexOut in [[stage_in]],
     return out;
 }
 
+// Extracts the six frustum planes determined by the provided matrix.
+// - Parameters:
+//   - matrix: the camera projectionMatrix * viewMatrix
+//   - planes: the planes pointer to write to
+static void extract_frustum_planes(constant float4x4 &matrix, thread float4 *planes) {
 
-
+    float4x4 mt = transpose(matrix);
+    planes[0] = mt[3] + mt[0]; // left
+    planes[1] = mt[3] - mt[0]; // right
+    planes[2] = mt[3] - mt[1]; // top
+    planes[3] = mt[3] + mt[1]; // bottom
+    planes[4] = mt[2];         // near
+    planes[5] = mt[3] - mt[2]; // far
+    for (int i = 0; i < 6; ++i) {
+        planes[i] /= length(planes[i].xyz);
+    }
+}

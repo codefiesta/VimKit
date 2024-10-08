@@ -61,54 +61,55 @@ kernel void computeVertexNormals(device const float *positions,
 //   - count: The total number of instances.
 kernel void computeBoundingBoxes(device const float *positions,
                                  device const uint32_t *indices,
-                                 device const Instance *instances,
+                                 device Instance *instances,
                                  device const Mesh *meshes,
                                  device const Submesh *submeshes,
                                  constant int &count) {
     
+    // Loop through all of the instances
     for (int i = 0; i < count; i++) {
 
-        bool first = true;
+        bool firstPass = true;
 
-        Instance instance = instances[i];
-        float4x4 transform = instance.matrix;
-        float3 minBounds = instance.minBounds;
-        float3 maxBounds = instance.maxBounds;
+        const Instance instance = instances[i];
+        const float4x4 transform = instance.matrix;
         
-        if (instance.mesh == -1) { continue; }
+        thread float3 minBounds = float3(0, 0, 0);
+        thread float3 maxBounds = float3(0, 0, 0);
         
-        Mesh mesh = meshes[instance.mesh];
-        BoundedRange submeshRange = mesh.submeshes;
+        const Mesh mesh = meshes[instance.mesh];
+        const BoundedRange submeshRange = mesh.submeshes;
         
         // Loop through the submesh vertices to find the min + max bounds
-        for (uint j = submeshRange.lowerBound; j < submeshRange.upperBound; j++) {
+        for (int j = (int)submeshRange.lowerBound; j < (int)submeshRange.upperBound; j++) {
 
-            Submesh submesh = submeshes[j];
-            BoundedRange indicesRange = submesh.indices;
+            const Submesh submesh = submeshes[j];
+            const BoundedRange range = submesh.indices;
             
-            for (uint k = indicesRange.lowerBound; k < indicesRange.upperBound; k++) {
-                uint index = indices[k] * 3;
+            for (int k = (int)range.lowerBound; k < (int)range.upperBound; k++) {
+                
+                const int index = indices[k] * 3;
 
-                float x = positions[index];
-                float y = positions[index+1];
-                float z = positions[index+2];
+                const float x = positions[index];
+                const float y = positions[index+1];
+                const float z = positions[index+2];
 
-                float4 position = float4(x, y, z, 1.0);
-                float4 worldPostion = transform * position;
+                const float4 position = float4(x, y, z, 1.0);
+                const float4 worldPostion = transform * position;
 
-                if (first) {
+                if (firstPass) {
                     minBounds = worldPostion.xyz;
                     maxBounds = worldPostion.xyz;
+                    firstPass = false;
                 }
-
+                
                 minBounds = min(minBounds, worldPostion.xyz);
                 maxBounds = max(maxBounds, worldPostion.xyz);
-                
-                first = false;
             }
+            
+            instances[i].minBounds = minBounds;
+            instances[i].maxBounds = maxBounds;
+
         }
-        
-        instance.minBounds = minBounds;
-        instance.maxBounds = maxBounds;
     }
 }

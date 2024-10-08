@@ -10,12 +10,6 @@ import SwiftUI
 
 extension Color {
 
-    /// Represents the default object selection color
-    public static let objectSelectionColor = Color("objectSelectionColor", bundle: .module)
-
-    /// Represents the sky blue color
-    public static let skyBlue = Color("skyBlueColor", bundle: .module)
-
     /// Provides a convenience var for accessing the color channels
     var channels: SIMD4<Float> {
         let resolved = resolve(in: .init())
@@ -27,5 +21,14 @@ extension Color {
         let c = channels
         return MTLClearColor(red: Double(c.x), green: Double(c.y), blue: Double(c.z), alpha: Double(c.w))
     }
+}
 
+extension SIMD4 where Scalar == Float {
+
+    /// Initialize rgba values from a color resource.
+    init(_ resource: ColorResource) {
+        let color = Color(resource)
+        let channels = color.channels
+        self.init(channels.x, channels.y, channels.z, channels.w)
+    }
 }

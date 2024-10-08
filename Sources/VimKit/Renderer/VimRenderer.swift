@@ -146,16 +146,18 @@ extension VimRenderer {
             context.vim.erase()
             return
         }
+
         let id = Int(pixel)
+        guard let index = geometry.instanceOffsets.firstIndex(of: UInt32(pixel)) else { return }
 
         let query = camera.unprojectPoint(point)
         var point3D: SIMD3<Float> = .zero
 
-//        // Raycast into the instance
-//        if let result = geometry.instances[id].raycast(geometry, query: query) {
-//            point3D = result.position
-//            debugPrint("✅", point3D)
-//        }
+        // Raycast into the instance
+        if let result = geometry.instances[index].raycast(geometry, query: query) {
+            point3D = result.position
+            debugPrint("✅", point3D)
+        }
 
         // Select the instance so the event gets published.
         context.vim.select(id: id, point: point3D)

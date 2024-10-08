@@ -136,14 +136,10 @@ public extension VimRenderer {
         let submeshes = geometry.submeshes[instanced.mesh.submeshes]
         for (i, submesh) in submeshes.enumerated() {
             guard submesh.material != .empty else { continue }
-            var material = geometry.materials[submesh.material]
-//            guard let material = submesh.material, material.rgba.w > .zero else { continue }
             renderEncoder.pushDebugGroup("SubMesh[\(i)]")
-            renderEncoder.setVertexBytes(&material, length: MemoryLayout<Material>.size, index: .materials)
 
-            // Set the mesh uniforms
-//            var uniforms = meshUniforms(submesh: submesh)
-//            renderEncoder.setVertexBytes(&uniforms, length: MemoryLayout<MeshUniforms>.size, index: .meshUniforms)
+            var material = geometry.materials[submesh.material]
+            renderEncoder.setVertexBytes(&material, length: MemoryLayout<Material>.size, index: .materials)
 
             // Draw the submesh
             drawSubmesh(geometry, submesh, renderEncoder, instanced.instances.count, instanced.baseInstance)
@@ -177,23 +173,6 @@ public extension VimRenderer {
     }
 }
 
-// MARK: Per Mesh Uniforms
-
-extension VimRenderer {
-
-    /// Returns the per mesh uniforms for the specifed submesh.
-    /// - Parameters:
-    ///   - submesh: the submesh
-    /// - Returns: the mesh unifroms
-//    func meshUniforms(submesh: Geometry.Submesh) -> MeshUniforms {
-//        MeshUniforms(
-//            color: submesh.material?.rgba ?? .zero,
-//            glossiness: submesh.material?.glossiness ?? .half,
-//            smoothness: submesh.material?.smoothness ?? .half
-//        )
-//    }
-}
-
 // MARK: Culling
 
 extension VimRenderer {
@@ -202,10 +181,9 @@ extension VimRenderer {
     /// - Parameter geometry: the geometry data
     /// - Returns: indices into the geometry.instancedMeshes that should be drawn
     private func cullInstancedMeshes(_ geometry: Geometry) -> [Int] {
-        Array(geometry.instancedMeshes.indices)
-//        guard let bvh = geometry.bvh, minFrustumCullingThreshold <= geometry.instancedMeshes.endIndex else {
-//            return Array(geometry.instancedMeshes.indices)
-//        }
-//        return bvh.intersectionResults(camera: camera)
+        guard let bvh = geometry.bvh, minFrustumCullingThreshold <= geometry.instancedMeshes.endIndex else {
+            return Array(geometry.instancedMeshes.indices)
+        }
+        return bvh.intersectionResults(camera: camera)
     }
 }

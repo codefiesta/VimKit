@@ -35,21 +35,24 @@ class InstancedMesh {
 
 extension Instance {
 
-    var boundingBox: MDLAxisAlignedBoundingBox? {
-        set {
-            maxBounds = newValue != nil ? newValue!.maxBounds : .zero
-            minBounds = newValue != nil ? newValue!.minBounds : .zero
-        }
-        get {
-            guard maxBounds != .zero, minBounds != .zero else { return nil }
-            return .init(maxBounds: maxBounds, minBounds: minBounds)
-        }
+    /// Convenience var that returns the bounding box.
+    var boundingBox: MDLAxisAlignedBoundingBox {
+        .init(maxBounds: maxBounds, minBounds: minBounds)
     }
 
+    /// Convenience var that returns the longest edge
     var longestEdge: Float {
-        boundingBox?.longestEdge ?? .zero
+        boundingBox.longestEdge
     }
 
+    /// Initializer.
+    /// - Parameters:
+    ///   - index: the instance index
+    ///   - matrix: the 4x4 row-major matrix representing the node's world-space transform
+    ///   - flags: The first bit of each flag designates whether the instance should be initially hidden (1) or not (0) when rendered.
+    ///   - parent: the parent index (-1 indicates no parent)
+    ///   - mesh: the mesh index (-1 indicates this instance has no mesh)
+    ///   - transparent: Flag indicating if the instance is transparent or not.
     init(index: Int, matrix: float4x4, flags: Int16, parent: Int32, mesh: Int32, transparent: Bool) {
         self.init(index: UInt32(index),
                   colorIndex: .empty,
@@ -64,20 +67,17 @@ extension Instance {
     }
 }
 
-extension Mesh: @retroactive Equatable, @retroactive Hashable {
+extension Mesh {
 
+    /// Initializes the mesh with a Swift range.
+    /// A mesh is composed of 0 or more submeshes.
+    ///
+    /// Can be used to find it's containing submeshes.
+    /// For example: `let submeshes = geometry.submeshes[mesh.submeshes]`
+    /// - Parameter range: the range of submeshes contained in this mesh.
     init(_ range: Range<Int>) {
         self.init(submeshes: .init(range))
     }
-
-    public func hash(into hasher: inout Hasher) {
-        hasher.combine(submeshes)
-    }
-
-    public static func == (lhs: Mesh, rhs: Mesh) -> Bool {
-        lhs.submeshes.lowerBound == rhs.submeshes.lowerBound && lhs.submeshes.upperBound == rhs.submeshes.upperBound
-    }
-
 }
 
 extension Submesh {
@@ -87,148 +87,14 @@ extension Submesh {
         Int(indices.lowerBound) * MemoryLayout<UInt32>.size
     }
 
+    /// Initializes the submesh.
+    ///
+    /// The indices can be used to lookup the values inside the index buffer.
+    /// For example: `let indices = geometry.indices[submesh.indices]`
+    /// - Parameters:
+    ///   - material: The submesh's material index (-1 denotes no material).
+    ///   - indices: The range of values in the index buffer.
     init(_ material: Int32, _ indices: Range<Int>) {
         self.init(material: material, indices: .init(indices))
     }
-
 }
-
-//
-//extension Geometry {
-//
-//    public class Instance: @unchecked Sendable {
-//
-//        /// The index of the instance
-//        public let index: Int
-//        /// 4x4 row-major matrix representing the node's world-space transform
-//        public let matrix: float4x4
-//        /// The first bit of each flag designates whether the instance should be initially hidden (1) or not (0) when rendered.
-//        public let flags: Int16
-//        /// Flag indicating if the instance is transparent or not.
-//        public var transparent: Bool = false
-//        /// A reference to the parent instance
-//        public weak var parent: Instance?
-//        /// The mesh information
-//        public var mesh: Mesh?
-//
-//        /// A computed axis aligned bounding box from all of the submesh vertices or nil if this instance contains no mesh.
-//        public var boundingBox: MDLAxisAlignedBoundingBox?
-//
-//        /// Returns the longest edge of this instance
-//        public var longestEdge: Float {
-//            boundingBox?.longestEdge ?? .zero
-//        }
-//
-//        /// Initializes the instance.
-//        /// 
-//        /// - Parameters:
-//        ///   - index: The instance index. Use this to find instances
-//        ///     within the geometry rather than the subscript as
-//        ///     the array of instances will most likely be sorted differently.
-//        ///   - matrix: The 4x4 row-major matrix representing the node's world-space transform
-//        ///   - flags: Holds the flags for the given instance.
-//        init(index: Int, matrix: float4x4, flags: Int16) {
-//            self.index = index
-//            self.matrix = matrix
-//            self.flags = flags
-//        }
-//    }
-//
-//    /// A mesh is composed of 0 or more submeshes.
-//    public struct Mesh: Equatable, Hashable {
-//
-//        /// The range of submeshes contained inside this mesh.
-//        ///
-//        /// Can be used to find it's containing submeshes.
-//        /// For example: `let submeshes = geometry.submeshes[mesh.submeshes]`
-//        public let submeshes: Range<Int>?
-//
-//        /// Initializes the mesh.
-//        ///
-//        /// - Parameters:
-//        ///   - submeshes: The range of submeshes contained inside this mesh
-//        init(submeshes: Range<Int>? = nil) {
-//            self.submeshes = submeshes
-//        }
-//    }
-//
-//    /// Inverts the relationship between an Instance and a Mesh that allows us to draw using instancing.
-//    class InstancedMesh {
-//
-//        /// The mesh that is shared across the instances.
-//        let mesh: Mesh
-//        /// Flag indicating if the mesh is transparent or not
-//        let transparent: Bool
-//        /// The instance indexes.
-//        let instances: [UInt32]
-//        /// Provides an offset into the instances buffer.
-//        var baseInstance: Int
-//
-//        /// Initalizes the instanced mesh.
-//        /// - Parameters:
-//        ///   - mesh: the mesh that should be instanced
-//        ///   - transparent: a flag indicating if the instance is transparent or not (used primarily for sorting).
-//        ///   - instances: the instance indexes
-//        ///   - baseInstance: the offset used by the GPU used to lookup the starting index into the instances buffer.
-//        init(mesh: Mesh, transparent: Bool, instances: [UInt32], _ baseInstance: Int = 0) {
-//            self.mesh = mesh
-//            self.transparent = transparent
-//            self.instances = instances
-//            self.baseInstance = baseInstance
-//        }
-//    }
-//
-//    public struct Submesh {
-//
-//        /// The range of values in the index buffer to define the geometry of its triangular faces in local space.
-//        ///
-//        /// For example: `let indices = geometry.indices[submesh.indices]`
-//        public var indices: Range<Int>
-//
-//        /// The submesh's byte offset into the index buffer.
-//        public var indexBufferOffset: Int {
-//            indices.lowerBound * MemoryLayout<UInt32>.size
-//        }
-//
-//        /// The mesh material.
-//        public var material: Material?
-//
-//        /// Initializes the submesh.
-//        ///
-//        /// - Parameters:
-//        ///   - indices: The range of values in the index buffer.
-//        ///   - material: The submesh's material.
-//        init(indices: Range<Int>, material: Material? = nil) {
-//            self.indices = indices
-//            self.material = material
-//        }
-//    }
-//
-//    /// A type that holds material information.
-//    public struct Material {
-//
-//        /// The material glossiness in the domain of [0.0...0.1]
-//        public var glossiness: Float = .zero
-//
-//        /// The material smoothness in the domain of [0.0...0.1]
-//        public var smoothness: Float = .zero
-//
-//        /// The material RGBA diffuse color with components in the domain of [0.0...0.1]
-//        public var rgba: SIMD4<Float> = .zero
-//    }
-//
-//    /// A type that holds geometric shape information.
-//    public struct Shape {
-//
-//        /// The shape RGBA color with components in the domain of [0.0...0.1]
-//        public var rgba: SIMD4<Float> = .zero
-//
-//        /// The width of the shape
-//        public var width: Float
-//
-//        /// References a slice of vertices in the shape vertex buffer.
-//        ///
-//        /// For example: `let vertices = geometry.shapeVertexBuffer[shape.indices]`
-//        public var indices: Range<Int>
-//    }
-//}
