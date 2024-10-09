@@ -20,7 +20,7 @@ extension BoundedRange: @retroactive Equatable, @retroactive Hashable {
     }
 
     init(_ range: Range<Int>) {
-        self.init(lowerBound: UInt32(range.lowerBound), upperBound: UInt32(range.upperBound))
+        self.init(lowerBound: range.lowerBound, upperBound: range.upperBound)
     }
 
     public static func == (lhs: BoundedRange, rhs: BoundedRange) -> Bool {

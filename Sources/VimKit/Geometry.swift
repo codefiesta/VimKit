@@ -395,7 +395,7 @@ public class Geometry: ObservableObject, @unchecked Sendable {
     private(set) var hiddeninstancedMeshes = Set<Int>()
 
     /// Returns the instance offsets (used for instancing).
-    lazy var instanceOffsets: [UInt32] = {
+    lazy var instanceOffsets: [Int] = {
         instancedMeshes.map { $0.instances }.reduce( [], + )
     }()
 
@@ -420,7 +420,7 @@ public class Geometry: ObservableObject, @unchecked Sendable {
         guard !Task.isCancelled else { return }
 
         var instances = [Instance]()
-        var meshInstances = [Int32: [UInt32]]()
+        var meshInstances = [Int32: [Int]]()
 
         let instanceFlags: [Int16] = unsafeTypeArray(association: .instance, semantic: .flags)
         let instanceParents: [Int32] = unsafeTypeArray(association: .instance, semantic: .parent)
@@ -753,7 +753,7 @@ extension Geometry {
     /// - Returns: the total count of hidden instances.
     public func hide(ids: [Int]) -> Int {
         for id in ids {
-            guard let index = instanceOffsets.firstIndex(of: UInt32(id)) else { continue }
+            guard let index = instanceOffsets.firstIndex(of: id) else { continue }
             instances[index].state = .hidden
         }
 
@@ -795,7 +795,7 @@ extension Geometry {
     ///   - id: the index of the instances to select or deselect
     /// - Returns: true if the instance was selected, otherwise false
     public func select(id: Int) -> Bool {
-        guard let index = instanceOffsets.firstIndex(of: UInt32(id)) else { return false }
+        guard let index = instanceOffsets.firstIndex(of: id) else { return false }
         let instance = instances[index]
         switch instance.state {
         case .default, .hidden:
@@ -846,14 +846,14 @@ extension Geometry {
     public func apply(color: SIMD4<Float>, to ids: [Int]) {
 
         // Find the index of the color if it's already in the colors buffer
-        var colorIndex: Int32 = 0
+        var colorIndex: Int = 0
         if let index = colors.firstIndex(of: color) {
             // Use the index of the found color
-            colorIndex = Int32(index)
+            colorIndex = index
         } else if let index = colors.firstIndex(of: .zero) {
             // Push the color into the first empty slot
             colors[index] = color
-            colorIndex = Int32(index)
+            colorIndex = index
         } else {
             // No empty color slots
             return
@@ -861,7 +861,7 @@ extension Geometry {
 
         // Update the instances buffer with the color override index
         for id in ids {
-            guard let index = instanceOffsets.firstIndex(of: UInt32(id)) else { continue }
+            guard let index = instanceOffsets.firstIndex(of: id) else { continue }
             instances[index].colorIndex = colorIndex
         }
     }
@@ -871,17 +871,17 @@ extension Geometry {
     public func unapply(ids: [Int]) {
         var erasables = Set<Int>() // Collect the erasable color indices
         for id in ids {
-            guard let index = instanceOffsets.firstIndex(of: UInt32(id)) else { continue }
+            guard let index = instanceOffsets.firstIndex(of: id) else { continue }
             let instance = instances[index]
             if instance.colorIndex != .empty {
-                erasables.insert(Int(instance.colorIndex))
+                erasables.insert(instance.colorIndex)
             }
             instances[index].colorIndex = .empty
         }
 
         // Check no other instances have a reference to the same color override
         for (_, value) in instances.enumerated() {
-            let index = Int(value.colorIndex)
+            let index = value.colorIndex
             if erasables.contains(index) {
                 erasables.remove(index)
             }
