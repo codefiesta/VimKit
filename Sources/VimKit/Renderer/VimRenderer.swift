@@ -111,7 +111,7 @@ open class VimRenderer: NSObject {
 extension VimRenderer {
 
     /// Update the per-frame rendering state
-    func updatFrameState() {
+    public func updatFrameState() {
         updateDynamicBufferState()
         updateUniforms()
         visibility?.updateFrameState()

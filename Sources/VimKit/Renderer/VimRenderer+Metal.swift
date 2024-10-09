@@ -64,6 +64,7 @@ extension VimRenderer {
         pipelineDescriptor.vertexDescriptor = vertexDescriptor
         pipelineDescriptor.maxVertexAmplificationCount = context.destinationProvider.viewCount
         pipelineDescriptor.vertexBuffers[.positions].mutability = .mutable
+        pipelineDescriptor.supportIndirectCommandBuffers = true
 
         guard let pipeline = try? device.makeRenderPipelineState(descriptor: pipelineDescriptor) else { return nil }
         return pipeline
