@@ -82,6 +82,7 @@ open class VimRenderer: NSObject {
 
     var shapes: Shapes?
     var skycube: Skycube?
+    var visibility: Visibility?
 
     /// The max time to render a frame.
     /// TODO: Calculate from frame rate.
@@ -93,8 +94,9 @@ open class VimRenderer: NSObject {
         self.context = context
         super.init()
 
-        shapes = Shapes(context)
-        skycube = Skycube(context)
+        shapes = .init(context)
+        skycube = .init(context)
+        visibility = .init(context, bufferCount: maxBuffersInFlight + 1)
 
         // Load the metal resources
         loadMetal()
@@ -108,8 +110,22 @@ open class VimRenderer: NSObject {
 
 extension VimRenderer {
 
-    // Updates the per-frame uniforms from the camera
-    func updateUniforms() {
+    /// Update the per-frame rendering state
+    func updatFrameState() {
+        updateDynamicBufferState()
+        updateUniforms()
+        visibility?.updateFrameState()
+    }
+
+    /// Update the state of our revolving uniform buffers before rendering
+    private func updateDynamicBufferState() {
+        uniformBufferIndex = (uniformBufferIndex + 1) % maxBuffersInFlight
+        uniformBufferOffset = alignedUniformsSize * uniformBufferIndex
+        uniformBufferAddress = uniformBuffer.contents().advanced(by: uniformBufferOffset).assumingMemoryBound(to: UniformsArray.self)
+    }
+
+    /// Updates the per-frame uniforms from the camera
+    private func updateUniforms() {
 
         let uniforms = Uniforms(
             cameraPosition: camera.position,
@@ -118,13 +134,6 @@ extension VimRenderer {
             sceneTransform: camera.sceneTransform
         )
         uniformBufferAddress[0].uniforms.0 = uniforms
-    }
-
-    /// Update the state of our revolving uniform buffers before rendering
-    public func updateDynamicBufferState() {
-        uniformBufferIndex = (uniformBufferIndex + 1) % maxBuffersInFlight
-        uniformBufferOffset = alignedUniformsSize * uniformBufferIndex
-        uniformBufferAddress = uniformBuffer.contents().advanced(by: uniformBufferOffset).assumingMemoryBound(to: UniformsArray.self)
     }
 }
 

@@ -11,7 +11,7 @@
 
 using namespace metal;
 
-constant float3 lightDirection = float3(0.22, .33, 1);
+constant float3 lightDirection = float3(0.25, -0.5, 1);
 constant float lightIntensity = 125.0;
 constant float4 lightColor = float4(0.55, 0.55, 0.4, 1.0);
 constant float4 materialAmbientColor = float4(0.04, 0.04, 0.04, 1.0);
@@ -28,6 +28,7 @@ constant float4 materialSpecularColor = float4(1.0, 1.0, 1.0, 1.0);
 //   - submeshes: The submeshes pointer.
 //   - materials: The materials pointer.
 //   - colors: The colors pointer used to apply custom color profiles to instances.
+//   - identifiers: The identifier data the holds the mesh and submesh indices that are currently being rendered.
 //   - options: The frame rendering options.
 vertex VertexOut vertexMain(VertexIn in [[stage_in]],
                             ushort amp_id [[amplification_id]],
@@ -148,22 +149,4 @@ fragment FragmentOut fragmentMain(VertexOut in [[stage_in]],
     out.index = in.index;
     
     return out;
-}
-
-// Extracts the six frustum planes determined by the provided matrix.
-// - Parameters:
-//   - matrix: the camera projectionMatrix * viewMatrix
-//   - planes: the planes pointer to write to
-static void extract_frustum_planes(constant float4x4 &matrix, thread float4 *planes) {
-
-    float4x4 mt = transpose(matrix);
-    planes[0] = mt[3] + mt[0]; // left
-    planes[1] = mt[3] - mt[0]; // right
-    planes[2] = mt[3] - mt[1]; // top
-    planes[3] = mt[3] + mt[1]; // bottom
-    planes[4] = mt[2];         // near
-    planes[5] = mt[3] - mt[2]; // far
-    for (int i = 0; i < 6; ++i) {
-        planes[i] /= length(planes[i].xyz);
-    }
 }

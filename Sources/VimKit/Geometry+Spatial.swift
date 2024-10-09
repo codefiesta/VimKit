@@ -131,6 +131,11 @@ extension Geometry {
         /// Intializes the bounding volume with the specified geometry.
         /// - Parameter geometry: the geomety to use
         init(_ geometry: Geometry) async {
+            let start = Date.now
+            defer {
+                let timeInterval = abs(start.timeIntervalSinceNow)
+                debugPrint("􀬨 BVH made in [\(timeInterval.stringFromTimeInterval())]")
+            }
             self.geometry = geometry
             var data = [(index: Int, box: MDLAxisAlignedBoundingBox)]()
             for instance in geometry.instances {
@@ -145,12 +150,12 @@ extension Geometry {
         /// See: https://www.flipcode.com/archives/Frustum_Culling.shtml
         /// - Parameter camera: the camera data
         /// - Returns: a list of indices into the `geometry.instancedMeshes` array that are inside the frustum
-        func intersectionResults(camera: Vim.Camera) -> [Int] {
+        func intersectionResults(camera: Vim.Camera) -> Set<Int> {
             guard let geometry else { return [] }
             var results = Set<Int>()
             intersections(camera: camera, node: root, results: &results)
             results.subtract(geometry.hiddeninstancedMeshes) // Remove any hidden instanced meshes
-            return results.sorted()
+            return results
         }
 
         /// Recursively iterates through the BVH nodes to collect results that are inside the given frustum.

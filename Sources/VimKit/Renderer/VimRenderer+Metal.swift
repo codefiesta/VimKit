@@ -97,8 +97,10 @@ extension VimRenderer {
         renderPassDescriptor?.colorAttachments[1].texture = instancePickingTexture
         renderPassDescriptor?.colorAttachments[1].loadAction = .clear
         renderPassDescriptor?.colorAttachments[1].storeAction = .store
-
+        // Depth attachment
         renderPassDescriptor?.depthAttachment.clearDepth = 1.0
+        // Visibility Results
+        renderPassDescriptor?.visibilityResultBuffer = visibility?.currentVisibilityResultBuffer
 
         self.renderPassDescriptor = renderPassDescriptor
     }
