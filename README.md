@@ -9,7 +9,7 @@
 # VimKit
 VimKit is an open-source [swift package](https://developer.apple.com/documentation/xcode/swift-packages) for reading and rendering [VIM](https://www.vimaec.com/) files on Apple platforms ([iOS](https://developer.apple.com/ios/), [macOS](https://developer.apple.com/macos/), [visionOS](https://developer.apple.com/visionos/)) with [Metal](https://developer.apple.com/metal/).
 
-![VimKit](https://github.com/user-attachments/assets/a4b4add6-545c-47b8-8962-e24d2f1b666b)
+https://github.com/user-attachments/assets/a4b4add6-545c-47b8-8962-e24d2f1b666b
 
 ## Overview
 The VimKit package is broken down into 3 seperate modules ([VimKit](#vimkit-1), [VimKitCompositor](#vimkitcompositor), [VimKitShaders](#vimkitshaders)). 
