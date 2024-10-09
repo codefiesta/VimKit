@@ -36,7 +36,7 @@ extension Vim {
 
         /// A flag that allows us to cull occluded geometry using the visibility result buffer.
         /// Can be applied at runtime.
-        public var visibilityResults: Bool = true
+        public var visibilityResults: Bool = false
 
         /// A flag that allows us to visualize the visibilty results.
         /// NOTE: This option needs to be set at compile time.

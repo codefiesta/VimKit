@@ -173,7 +173,7 @@ extension VimRenderer {
         /// - Parameters:
         ///   - renderEncoder: the render encoder
         func draw(renderEncoder: MTLRenderCommandEncoder) {
-            guard let pipelineState, let depthStencilState else { return }
+            guard options.visibilityResults, let pipelineState, let depthStencilState else { return }
 
             /// Configure the pipeline state object and depth state to disable writing to the color and depth attachments.
             renderEncoder.setRenderPipelineState(pipelineState)
