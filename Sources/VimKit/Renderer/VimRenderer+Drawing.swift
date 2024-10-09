@@ -140,7 +140,7 @@ public extension VimRenderer {
         let mesh = geometry.meshes[instanced.mesh]
         let submeshes = geometry.submeshes[mesh.submeshes]
         for (i, submesh) in submeshes.enumerated() {
-            let s = Int32(mesh.submeshes.range.lowerBound + i)
+            let s = mesh.submeshes.range.lowerBound + i
             renderEncoder.pushDebugGroup("SubMesh[\(s)]")
 
             // Set the identifiers of the mesh + submesh

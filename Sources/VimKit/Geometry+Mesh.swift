@@ -11,11 +11,11 @@ import VimKitShaders
 class InstancedMesh {
 
     /// The mesh index that is shared across the instances.
-    let mesh: Int32
+    let mesh: Int
     /// Flag indicating if the mesh is transparent or not
     let transparent: Bool
     /// The instance indexes.
-    let instances: [UInt32]
+    let instances: [Int]
     /// Provides an offset into the instances buffer.
     var baseInstance: Int
 
@@ -25,8 +25,8 @@ class InstancedMesh {
     ///   - transparent: a flag indicating if the instance is transparent or not (used primarily for sorting).
     ///   - instances: the instance indexes
     ///   - baseInstance: the offset used by the GPU used to lookup the starting index into the instances buffer.
-    init(mesh: Int32, transparent: Bool, instances: [UInt32], _ baseInstance: Int = 0) {
-        self.mesh = mesh
+    init(mesh: Int32, transparent: Bool, instances: [Int], _ baseInstance: Int = 0) {
+        self.mesh = Int(mesh)
         self.transparent = transparent
         self.instances = instances
         self.baseInstance = baseInstance
@@ -54,14 +54,14 @@ extension Instance {
     ///   - mesh: the mesh index (-1 indicates this instance has no mesh)
     ///   - transparent: Flag indicating if the instance is transparent or not.
     init(index: Int, matrix: float4x4, flags: Int16, parent: Int32, mesh: Int32, transparent: Bool) {
-        self.init(index: UInt32(index),
+        self.init(index: index,
                   colorIndex: .empty,
                   matrix: matrix,
                   state: flags != .zero ? .hidden : .default,
                   minBounds: .zero,
                   maxBounds: .zero,
-                  parent: parent,
-                  mesh: mesh,
+                  parent: Int(parent),
+                  mesh: Int(mesh),
                   transparent: transparent
         )
     }
@@ -95,6 +95,6 @@ extension Submesh {
     ///   - material: The submesh's material index (-1 denotes no material).
     ///   - indices: The range of values in the index buffer.
     init(_ material: Int32, _ indices: Range<Int>) {
-        self.init(material: material, indices: .init(indices))
+        self.init(material: Int(material), indices: .init(indices))
     }
 }
