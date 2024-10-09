@@ -38,23 +38,20 @@ vertex VertexOut vertexVisibilityTest(VertexIn in [[stage_in]],
     const Mesh mesh = meshes[instance.mesh];
     const BoundedRange submeshRange = mesh.submeshes;
     
-    bool firstPass = true;
-    float4 color = float4(0, 0, 0, 1.0);
+    float4 color = float4(0, 0, 0, 0);
     
     // Loop through the submeshes to find the lowest alpha value
     for (int i = (int)submeshRange.lowerBound; i < (int)submeshRange.upperBound; i++) {
         const Submesh submesh = submeshes[i];
-        const Material material = materials[submesh.material];
-        if (firstPass) {
+        if (submesh.material != (size_t)-1) {
+            const Material material = materials[submesh.material];
             color = material.rgba;
-            firstPass = false;
         }
-        color.w = min(color.w, material.rgba.w);
     }
-    color.w *= 0.5;
     
-    Uniforms uniforms = uniformsArray.uniforms[amp_id];
+    const Uniforms uniforms = uniformsArray.uniforms[amp_id];
 
+    // Position and scale the model matrix to the bounding box center + extents
     float4x4 modelMatrix = instance.matrix;
     float3 center = (instance.maxBounds + instance.minBounds) * 0.5;
     float3 extents = instance.maxBounds - instance.minBounds;
@@ -63,25 +60,15 @@ vertex VertexOut vertexVisibilityTest(VertexIn in [[stage_in]],
     modelMatrix.columns[2] = float4(0.0, 0.0, extents.z, 0.0);
     modelMatrix.columns[3] = float4(center, 1.0);
     
-    float4x4 viewMatrix = uniforms.viewMatrix;
-    float4x4 projectionMatrix = uniforms.projectionMatrix;
-    float4x4 modelViewProjectionMatrix = projectionMatrix * viewMatrix * modelMatrix;
+    const float4x4 viewMatrix = uniforms.viewMatrix;
+    const float4x4 projectionMatrix = uniforms.projectionMatrix;
+    const float4x4 modelViewProjectionMatrix = projectionMatrix * viewMatrix * modelMatrix;
 
     // Position
     out.position = modelViewProjectionMatrix * in.position;
     // Color
     out.color = color;
     
-    switch (instance.state) {
-        case InstanceStateDefault:
-            break;
-        case InstanceStateHidden:
-            out.color = float4(0, 0, 0, 0);
-            break;
-        case InstanceStateSelected:
-            break;
-    }
-
     return out;
 }
 
@@ -89,6 +76,7 @@ vertex VertexOut vertexVisibilityTest(VertexIn in [[stage_in]],
 // - Parameters:
 //   - matrix: the camera projectionMatrix * viewMatrix
 //   - planes: the planes pointer to write to
+/**
 static void extractFrustumPlanes(constant float4x4 &matrix, thread float4 *planes) {
 
     float4x4 mt = transpose(matrix);
@@ -102,3 +90,4 @@ static void extractFrustumPlanes(constant float4x4 &matrix, thread float4 *plane
         planes[i] /= length(planes[i].xyz);
     }
 }
+*/

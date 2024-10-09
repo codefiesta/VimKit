@@ -20,7 +20,7 @@ extension VimRenderer {
     /// The render pass descriptor needs to have the visibilityResultBuffer value set in order to perform visibility tests.
     /// `renderPassDescriptor?.visibilityResultBuffer = visibility?.currentVisibilityResultBuffer`.
     ///
-    /// See: https://developer.apple.com/documentation/metal/metal_sample_code_library/culling_occluded_geometry_using_the_visibility_result_buffer
+    /// [Culling occluded geometry using the visibility result buffer](https://developer.apple.com/documentation/metal/metal_sample_code_library/culling_occluded_geometry_using_the_visibility_result_buffer)
     @MainActor
     class Visibility {
 
@@ -92,12 +92,8 @@ extension VimRenderer {
 
             // Create the proxy mesh to render (an icosahedron)
             let allocator = MTKMeshBufferAllocator(device: device)
-            let box = MDLMesh(boxWithExtent: .one, segments: .one, inwardNormals: false, geometryType: .triangles, allocator: allocator)
-            let icosahedron = MDLMesh(icosahedronWithExtent: .one, inwardNormals: false, geometryType: .triangles, allocator: allocator)
-//
-//            let sphere = MDLMesh(sphereWithExtent: .one, segments: [50, 50], inwardNormals: false, geometryType: .triangles, allocator: allocator)
-
-            guard let mesh = try? MTKMesh(mesh: icosahedron, device: device) else { return nil }
+            let proxyMesh = MDLMesh(icosahedronWithExtent: .one, inwardNormals: false, geometryType: .triangles, allocator: allocator)
+            guard let mesh = try? MTKMesh(mesh: proxyMesh, device: device) else { return nil }
             self.mesh = mesh
 
             let vertexFunction = library.makeFunction(name: vertexFunctionName)
@@ -201,14 +197,24 @@ extension VimRenderer {
             let instanceCount = instanced.instances.count
             let baseInstance = instanced.baseInstance
 
-            // Exclude transparent instances from being occluded
-            let mode: MTLVisibilityResultMode = instanced.transparent ? .disabled : .boolean
-            renderEncoder.setVisibilityResultMode(mode, offset: index * MemoryLayout<Int>.size)
+//            if instanced.transparent {
+//                let mesh = geometry.meshes[instanced.mesh]
+//                let submeshes = geometry.submeshes[mesh.submeshes]
+//                for submeshe in submeshes {
+//                    if submeshe.material != .empty {
+//                        let material = geometry.materials[submeshe.material]
+//                        let alpha = material.rgba.w
+//                    } else {
+//                        debugPrint(index)
+//                    }
+//                }
+//            }
+
+            renderEncoder.setVisibilityResultMode(.boolean, offset: index * MemoryLayout<Int>.size)
             renderEncoder.setVertexBuffer(mesh.vertexBuffers.first?.buffer, offset: 0, index: .positions)
 
             // Draw the mesh
             for submesh in mesh.submeshes {
-
                 renderEncoder.drawIndexedPrimitives(
                     type: submesh.primitiveType,
                     indexCount: submesh.indexCount,
@@ -232,6 +238,7 @@ extension VimRenderer {
 
             // Update the entire set of current results
             var allResults = Set<Int>()
+            var visibleResults = Set<Int>()
             guard let geometry, let bvh = geometry.bvh else { return }
             if minFrustumCullingThreshold <= geometry.instancedMeshes.endIndex {
                 allResults = bvh.intersectionResults(camera: camera)
@@ -245,8 +252,9 @@ extension VimRenderer {
             if options.visualizeVisibilityResults { return }
 
             // If visibility results are turned on, filter the results from the read only buffer
-            currentVisibleResults = options.visibilityResults ?
-                currentResults.filter { visibilityResultReadOnlyBuffer?[$0] != .zero } : currentResults
+            visibleResults = options.visibilityResults ?
+                allResults.filter { visibilityResultReadOnlyBuffer?[$0] != .zero } : allResults
+            currentVisibleResults = visibleResults.sorted()
         }
 
         /// Avoid a data race condition by updating the visibility buffer's read index when the command buffer finishes.
