@@ -88,11 +88,12 @@ extension VimRenderer {
             self.context = context
             self.bufferCount = bufferCount
             self.visibilityResultBuffer = [MTLBuffer?](repeating: nil, count: bufferCount)
+
             let options = context.vim.options
 
             // Create the proxy mesh to render (an icosahedron)
             let allocator = MTKMeshBufferAllocator(device: device)
-            let proxyMesh = MDLMesh(icosahedronWithExtent: .one, inwardNormals: false, geometryType: .triangles, allocator: allocator)
+            let proxyMesh = MDLMesh(boxWithExtent: .one, segments: .one, inwardNormals: false, geometryType: .triangles, allocator: allocator)
             guard let mesh = try? MTKMesh(mesh: proxyMesh, device: device) else { return nil }
             self.mesh = mesh
 
@@ -157,10 +158,8 @@ extension VimRenderer {
         ///   - objectCount: the total number of objects that can be checked for visibility.
         private func buildVisibilityResultsBuffers(_ objectCount: Int = 1) {
             for i in 0..<visibilityResultBuffer.count {
-                guard let buffer = device.makeBuffer(length: MemoryLayout<Int>.size * objectCount, options: [.storageModeShared]) else {
-                    fatalError("Unable to make visibility results buffer for \(i).")
-                }
-                buffer.label = "VisibilityResultBuffer\(i)"
+                let buffer = device.makeBuffer(length: MemoryLayout<Int>.size * objectCount, options: [.storageModeShared])
+                buffer?.label = "VisibilityResultBuffer\(i)"
                 visibilityResultBuffer[i] = buffer
             }
         }
@@ -169,6 +168,7 @@ extension VimRenderer {
         /// - Parameters:
         ///   - renderEncoder: the render encoder
         func draw(renderEncoder: MTLRenderCommandEncoder) {
+            // Don't perform the tests if the visibility result is disabled
             guard options.visibilityResults, let pipelineState, let depthStencilState else { return }
 
             /// Configure the pipeline state object and depth state to disable writing to the color and depth attachments.
@@ -228,11 +228,15 @@ extension VimRenderer {
             var allResults = Set<Int>()
             var visibleResults = Set<Int>()
             guard let geometry, let bvh = geometry.bvh else { return }
+            
             if minFrustumCullingThreshold <= geometry.instancedMeshes.endIndex {
                 allResults = bvh.intersectionResults(camera: camera)
             } else {
-                allResults = Set(geometry.instancedMeshes.indices)
+                currentResults = Set(geometry.instancedMeshes.indices).sorted()
+                currentVisibleResults = currentResults
+                return
             }
+
             // Update the set of visible results
             currentResults = allResults.sorted()
 

@@ -11,7 +11,7 @@
 
 using namespace metal;
 
-constant float3 lightDirection = float3(0.22, .33, 1);
+constant float3 lightDirection = float3(0.25, -0.5, 1);
 constant float lightIntensity = 125.0;
 constant float4 lightColor = float4(0.55, 0.55, 0.4, 1.0);
 constant float4 materialAmbientColor = float4(0.04, 0.04, 0.04, 1.0);
