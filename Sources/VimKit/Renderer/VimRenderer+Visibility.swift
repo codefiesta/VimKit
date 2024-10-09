@@ -228,7 +228,7 @@ extension VimRenderer {
             var allResults = Set<Int>()
             var visibleResults = Set<Int>()
             guard let geometry, let bvh = geometry.bvh else { return }
-            
+
             if minFrustumCullingThreshold <= geometry.instancedMeshes.endIndex {
                 allResults = bvh.intersectionResults(camera: camera)
             } else {
