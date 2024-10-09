@@ -291,15 +291,16 @@ extension Vim {
             func contains(_ box: MDLAxisAlignedBoundingBox) -> Bool {
                 let min = box.minBounds
                 let max = box.maxBounds
+                let corners = box.corners
                 for plane in planes {
-                    if dot(plane, SIMD4<Float>(min, 1.0)) < .zero &&
-                        dot(plane, SIMD4<Float>(max.x, min.y, min.z, 1.0)) < .zero &&
-                        dot(plane, SIMD4<Float>(min.x, max.y, min.z, 1.0)) < .zero &&
-                        dot(plane, SIMD4<Float>(max.x, max.y, min.z, 1.0)) < .zero &&
-                        dot(plane, SIMD4<Float>(min.x, min.y, max.z, 1.0)) < .zero &&
-                        dot(plane, SIMD4<Float>(max.x, min.y, max.z, 1.0)) < .zero &&
-                        dot(plane, SIMD4<Float>(min.x, max.y, max.z, 1.0)) < .zero &&
-                        dot(plane, SIMD4<Float>(max, 1.0)) < .zero
+                    if dot(plane, SIMD4<Float>(corners[0], 1.0)) < .zero &&
+                        dot(plane, SIMD4<Float>(corners[1], 1.0)) < .zero &&
+                        dot(plane, SIMD4<Float>(corners[2], 1.0)) < .zero &&
+                        dot(plane, SIMD4<Float>(corners[3], 1.0)) < .zero &&
+                        dot(plane, SIMD4<Float>(corners[4], 1.0)) < .zero &&
+                        dot(plane, SIMD4<Float>(corners[5], 1.0)) < .zero &&
+                        dot(plane, SIMD4<Float>(corners[6], 1.0)) < .zero &&
+                        dot(plane, SIMD4<Float>(corners[7], 1.0)) < .zero
                      {
                         // Not visible - all returned negative
                         return false
