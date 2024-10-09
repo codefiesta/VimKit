@@ -131,6 +131,11 @@ extension Geometry {
         /// Intializes the bounding volume with the specified geometry.
         /// - Parameter geometry: the geomety to use
         init(_ geometry: Geometry) async {
+            let start = Date.now
+            defer {
+                let timeInterval = abs(start.timeIntervalSinceNow)
+                debugPrint("􀬨 BVH made in [\(timeInterval.stringFromTimeInterval())]")
+            }
             self.geometry = geometry
             var data = [(index: Int, box: MDLAxisAlignedBoundingBox)]()
             for instance in geometry.instances {

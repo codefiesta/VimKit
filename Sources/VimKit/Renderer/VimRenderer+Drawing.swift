@@ -47,11 +47,8 @@ public extension VimRenderer {
         guard let renderEncoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPassDescriptor) else { return }
         renderEncoder.label = renderEncoderLabel
 
-        // Rotate the uniform buffer address
-        updateDynamicBufferState()
-
-        // Update the per-frame uniforms
-        updateUniforms()
+        // Update the per-frame state
+        updatFrameState()
 
         // Perform any pre scene draws
         willDrawScene(renderEncoder: renderEncoder)
@@ -113,7 +110,7 @@ public extension VimRenderer {
 
         renderEncoder.pushDebugGroup(renderEncoderDebugGroupName)
 
-        let results = cullInstancedMeshes(geometry)
+        let results = visibility?.currentVisibleResults ?? .init()
         let start = Date.now
 
         // Draw the instanced meshes
@@ -129,6 +126,7 @@ public extension VimRenderer {
     /// - Parameter renderEncoder: the render encoder
     func didDrawScene(renderEncoder: MTLRenderCommandEncoder) {
         skycube?.draw(renderEncoder: renderEncoder)
+        visibility?.draw(renderEncoder: renderEncoder)
     }
 
     /// Draws an instanced mesh.
@@ -181,15 +179,15 @@ public extension VimRenderer {
 
 // MARK: Culling
 
-extension VimRenderer {
-
-    /// Culls the instanced meshes that are outside of the view frustum.
-    /// - Parameter geometry: the geometry data
-    /// - Returns: indices into the geometry.instancedMeshes that should be drawn
-    private func cullInstancedMeshes(_ geometry: Geometry) -> Set<Int> {
-        guard let bvh = geometry.bvh, minFrustumCullingThreshold <= geometry.instancedMeshes.endIndex else {
-            return Set(geometry.instancedMeshes.indices)
-        }
-        return bvh.intersectionResults(camera: camera)
-    }
-}
+//extension VimRenderer {
+//
+//    /// Culls the instanced meshes that are outside of the view frustum.
+//    /// - Parameter geometry: the geometry data
+//    /// - Returns: indices into the geometry.instancedMeshes that should be drawn
+//    private func cullInstancedMeshes(_ geometry: Geometry) -> Set<Int> {
+//        guard let bvh = geometry.bvh, minFrustumCullingThreshold <= geometry.instancedMeshes.endIndex else {
+//            return Set(geometry.instancedMeshes.indices)
+//        }
+//        return bvh.intersectionResults(camera: camera)
+//    }
+//}

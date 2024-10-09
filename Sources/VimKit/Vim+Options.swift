@@ -33,6 +33,14 @@ extension Vim {
 
         /// How clear the sky is. 0 is clear, 10 can produce intense colors. It’s best to keep turbidity and upper atmosphere scattering low if high albedo.
         public var groundAlbedo: Float = 0.1
+
+        /// A flag that allows us to cull occluded geometry using the visibility result buffer.
+        /// Can be applied at runtime.
+        public var visibilityResults: Bool = true
+
+        /// A flag that allows us to visualize the visibilty results.
+        /// NOTE: This option needs to be set at compile time.
+        public var visualizeVisibilityResults: Bool = false
     }
 
 }

@@ -30,17 +30,39 @@ vertex VertexOut vertexVisibilityTest(VertexIn in [[stage_in]],
                             constant Instance *instances [[buffer(VertexBufferIndexInstances)]],
                             constant Mesh *meshes [[buffer(VertexBufferIndexMeshes)]],
                             constant Submesh *submeshes [[buffer(VertexBufferIndexSubmeshes)]],
-                            constant Material *materials [[buffer(VertexBufferIndexMaterials)]],
-                            constant Identifiers &identifiers [[buffer(VertexBufferIndexIdentifiers)]]) {
+                            constant Material *materials [[buffer(VertexBufferIndexMaterials)]]) {
 
     VertexOut out;
-    Instance instance = instances[instance_id];
-    Submesh submesh = submeshes[identifiers.submesh];
-    Material material = materials[submesh.material];
+    const Instance instance = instances[instance_id];
+    
+    const Mesh mesh = meshes[instance.mesh];
+    const BoundedRange submeshRange = mesh.submeshes;
+    
+    bool firstPass = true;
+    float4 color = float4(0, 0, 0, 1.0);
+    
+    // Loop through the submeshes to find the lowest alpha value
+    for (int i = (int)submeshRange.lowerBound; i < (int)submeshRange.upperBound; i++) {
+        const Submesh submesh = submeshes[i];
+        const Material material = materials[submesh.material];
+        if (firstPass) {
+            color = material.rgba;
+            firstPass = false;
+        }
+        color.w = min(color.w, material.rgba.w);
+    }
+    color.w *= 0.5;
     
     Uniforms uniforms = uniformsArray.uniforms[amp_id];
 
     float4x4 modelMatrix = instance.matrix;
+    float3 center = (instance.maxBounds + instance.minBounds) * 0.5;
+    float3 extents = instance.maxBounds - instance.minBounds;
+    modelMatrix.columns[0] = float4(extents.x, 0.0, 0.0, 0.0);
+    modelMatrix.columns[1] = float4(0.0, extents.y, 0.0, 0.0);
+    modelMatrix.columns[2] = float4(0.0, 0.0, extents.z, 0.0);
+    modelMatrix.columns[3] = float4(center, 1.0);
+    
     float4x4 viewMatrix = uniforms.viewMatrix;
     float4x4 projectionMatrix = uniforms.projectionMatrix;
     float4x4 modelViewProjectionMatrix = projectionMatrix * viewMatrix * modelMatrix;
@@ -48,7 +70,7 @@ vertex VertexOut vertexVisibilityTest(VertexIn in [[stage_in]],
     // Position
     out.position = modelViewProjectionMatrix * in.position;
     // Color
-    out.color = material.rgba;
+    out.color = color;
     
     switch (instance.state) {
         case InstanceStateDefault:

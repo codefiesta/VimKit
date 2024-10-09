@@ -16,12 +16,21 @@ private let minFrustumCullingThreshold = 1024
 
 extension VimRenderer {
 
-    /// A struct that performs occlusion culling by performing visibility testing.
+    /// A class that culls occluded geometry by performing visibility testing.
+    /// The render pass descriptor needs to have the visibilityResultBuffer value set in order to perform visibility tests.
+    /// `renderPassDescriptor?.visibilityResultBuffer = visibility?.currentVisibilityResultBuffer`.
+    ///
+    /// See: https://developer.apple.com/documentation/metal/metal_sample_code_library/culling_occluded_geometry_using_the_visibility_result_buffer
     @MainActor
     class Visibility {
 
         /// The context that provides all of the data we need
         let context: VimRendererContext
+
+        /// Returns the rendering options.
+        var options: Vim.Options {
+            context.vim.options
+        }
 
         /// The geometry.
         var geometry: Geometry? {
@@ -79,22 +88,22 @@ extension VimRenderer {
             self.context = context
             self.bufferCount = bufferCount
             self.visibilityResultBuffer = [MTLBuffer?](repeating: nil, count: bufferCount)
+            let options = context.vim.options
 
             // Create the proxy mesh to render (an icosahedron)
             let allocator = MTKMeshBufferAllocator(device: device)
-            let box = MDLMesh(boxWithExtent: .one, segments: [1, 1, 1], inwardNormals: false, geometryType: .triangles, allocator: allocator)
+            let box = MDLMesh(boxWithExtent: .one, segments: .one, inwardNormals: false, geometryType: .triangles, allocator: allocator)
             let icosahedron = MDLMesh(icosahedronWithExtent: .one, inwardNormals: false, geometryType: .triangles, allocator: allocator)
+//
+//            let sphere = MDLMesh(sphereWithExtent: .one, segments: [50, 50], inwardNormals: false, geometryType: .triangles, allocator: allocator)
 
-            let sphere = MDLMesh(sphereWithExtent: .one, segments: [50, 50], inwardNormals: false, geometryType: .triangles, allocator: allocator)
-
-            guard let mesh = try? MTKMesh(mesh: box, device: device) else { return nil }
+            guard let mesh = try? MTKMesh(mesh: icosahedron, device: device) else { return nil }
             self.mesh = mesh
 
             let vertexFunction = library.makeFunction(name: vertexFunctionName)
             let fragmentFunction = library.makeFunction(name: "fragmentMain")
 
             let vertexDescriptor = MTKMetalVertexDescriptorFromModelIO(mesh.vertexDescriptor)
-            //let vertexDescriptor = MTLContext.buildVertexDescriptor()
 
             let pipelineDescriptor = MTLRenderPipelineDescriptor()
             pipelineDescriptor.label = pipelineLabel
@@ -116,7 +125,7 @@ extension VimRenderer {
             pipelineDescriptor.stencilAttachmentPixelFormat = context.destinationProvider.depthFormat
 
             pipelineDescriptor.vertexFunction = vertexFunction
-            pipelineDescriptor.fragmentFunction = nil //fragmentFunction
+            pipelineDescriptor.fragmentFunction = options.visualizeVisibilityResults ? fragmentFunction : nil
             pipelineDescriptor.vertexDescriptor = vertexDescriptor
             pipelineDescriptor.maxVertexAmplificationCount = context.destinationProvider.viewCount
             pipelineDescriptor.vertexBuffers[.positions].mutability = .mutable
@@ -124,10 +133,10 @@ extension VimRenderer {
             // Set the pipeline state with no rendering for the occlusion query
             pipelineState = try? device.makeRenderPipelineState(descriptor: pipelineDescriptor)
 
-            // Set the depth stenci state for the occlusion query with no depth writes
+            // Set the depth stencil state for the occlusion query with no depth writes
             let depthStencilDescriptor = MTLDepthStencilDescriptor()
             depthStencilDescriptor.depthCompareFunction = .lessEqual
-            depthStencilDescriptor.isDepthWriteEnabled = false
+            depthStencilDescriptor.isDepthWriteEnabled = options.visualizeVisibilityResults
             depthStencilState = device.makeDepthStencilState(descriptor: depthStencilDescriptor)
 
             // Visibility Buffers
@@ -137,9 +146,10 @@ extension VimRenderer {
             context.vim.geometry?.$state.sink { [weak self] state in
                 guard let self, let geometry else { return }
                 switch state {
-                case .ready:
+                case .indexing, .ready:
+                    debugPrint("􀬨 Building visibility results buffers [\(geometry.instancedMeshes.count)]")
                     buildVisibilityResultsBuffers(geometry.instancedMeshes.count)
-                case .loading, .unknown, .indexing, .error:
+                case .loading, .unknown, .error:
                     break
                 }
             }.store(in: &subscribers)
@@ -187,22 +197,14 @@ extension VimRenderer {
 
             guard let geometry else { return }
 
-//            guard let pipelineState, let depthStencilState else { return }
-
-            /// Configure the pipeline state object and depth state to disable writing to the color and depth attachments.
-//            renderEncoder.setRenderPipelineState(pipelineState)
-//            renderEncoder.setDepthStencilState(depthStencilState)
-//            renderEncoder.pushDebugGroup(renderEncoderDebugGroupName)
-
-
             let instanced = geometry.instancedMeshes[index]
             let instanceCount = instanced.instances.count
             let baseInstance = instanced.baseInstance
 
-            renderEncoder.setVisibilityResultMode(.boolean, offset: index * MemoryLayout<Int>.size)
-            for (i, vertexBuffer) in mesh.vertexBuffers.enumerated() {
-                renderEncoder.setVertexBuffer(vertexBuffer.buffer, offset: i, index: .positions)
-            }
+            // Exclude transparent instances from being occluded
+            let mode: MTLVisibilityResultMode = instanced.transparent ? .disabled : .boolean
+            renderEncoder.setVisibilityResultMode(mode, offset: index * MemoryLayout<Int>.size)
+            renderEncoder.setVertexBuffer(mesh.vertexBuffers.first?.buffer, offset: 0, index: .positions)
 
             // Draw the mesh
             for submesh in mesh.submeshes {
@@ -218,18 +220,6 @@ extension VimRenderer {
                     baseInstance: baseInstance
                 )
             }
-
-//            guard let indexBuffer = geometry.indexBuffer else { return }
-//            renderEncoder.drawIndexedPrimitives(type: .triangle,
-//                                                indexCount: submesh.indices.count,
-//                                                indexType: .uint32,
-//                                                indexBuffer: indexBuffer,
-//                                                indexBufferOffset: submesh.indexBufferOffset,
-//                                                instanceCount: instanceCount,
-//                                                baseVertex: 0,
-//                                                baseInstance: baseInstance
-//            )
-
         }
 
         /// Updates the visibility buffer read results from the previous frame.
@@ -249,10 +239,14 @@ extension VimRenderer {
                 allResults = Set(geometry.instancedMeshes.indices)
             }
             // Update the set of visible results
-            let visibleResults = allResults.filter{ visibilityResultReadOnlyBuffer?[$0] != .zero }
-            // Subtract the visible results from the entire result set (we'll perform a test on those in the main render pass)
-            currentResults = allResults.subtracting(currentVisibleResults).sorted()
-            currentVisibleResults = visibleResults.sorted()
+            currentResults = allResults.sorted()
+
+            // If we are visualizing the visibility results, don't provide any results to the main render pass
+            if options.visualizeVisibilityResults { return }
+
+            // If visibility results are turned on, filter the results from the read only buffer
+            currentVisibleResults = options.visibilityResults ?
+                currentResults.filter { visibilityResultReadOnlyBuffer?[$0] != .zero } : currentResults
         }
 
         /// Avoid a data race condition by updating the visibility buffer's read index when the command buffer finishes.

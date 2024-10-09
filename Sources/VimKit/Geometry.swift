@@ -36,7 +36,7 @@ public class Geometry: ObservableObject, @unchecked Sendable {
 
     /// Progress Reporting for loading the geometry data.
     @MainActor
-    public dynamic let progress = Progress(totalUnitCount: 9)
+    public dynamic let progress = Progress(totalUnitCount: 10)
 
     @MainActor @Published
     public var state: State = .unknown
@@ -112,6 +112,12 @@ public class Geometry: ObservableObject, @unchecked Sendable {
     /// Asynchronously loads the geometry structures and Metal buffers.
     private func load() async {
 
+        let start = Date.now
+        defer {
+            let timeInterval = abs(start.timeIntervalSinceNow)
+            debugPrint("􀬨 Geometry loaded in [\(timeInterval.stringFromTimeInterval())]")
+        }
+
         publish(state: .loading)
 
         let device = MTLContext.device
@@ -119,50 +125,45 @@ public class Geometry: ObservableObject, @unchecked Sendable {
 
         // 1) Build the positions (vertex) buffer
         makePositionsBuffer(device: device)
-        _ = positions
         incrementProgressCount()
 
         // 2) Build the index buffer
         makeIndexBuffer(device: device)
-        _ = indices
         incrementProgressCount()
 
         // 3) Build the normals buffer
         await computeVertexNormals(device: device, cacheDirectory: cacheDir)
         incrementProgressCount()
 
-        // 4) Build all the data structures
+        // 4) Build the materials buffer
         await makeMaterialsBuffer(device: device)
-        _ = materials // Build the materials
         incrementProgressCount()
 
+        // 5) Build the submeshes buffer
         await makeSubmeshesBuffer(device: device)
-        _ = submeshes // Build the submeshes
         incrementProgressCount()
 
+        // 6) Build the meshes buffer
         await makeMeshesBuffer(device: device)
-        _ = meshes // Build the meshes
         incrementProgressCount()
 
+        // 7) Build the instances buffer
         await makeInstancesBuffer(device: device)
-        _ = instances  // Build the instances
-        _ = instancedMeshesMap
         incrementProgressCount()
 
+        // 8) Compute the bounding boxes
         await computeBoundingBoxes(device: device)
-
-        assert(instancedMeshes.count == meshes.count, "💩 The instanced meshes [\(instancedMeshes.count)] and meshes [\(meshes.count)] count should be the same.")
-
-        // 6) Build the colors buffer
-        await makeColorsBuffer(device: device)
-        _ = colors
         incrementProgressCount()
 
-        // Start indexing the file
-        publish(state: .indexing)
+        // 9) Build the colors buffer
+        await makeColorsBuffer(device: device)
+        incrementProgressCount()
 
+        // 10 Start indexing the file
+        publish(state: .indexing)
         await bvh = BVH(self)
         incrementProgressCount()
+
         publish(state: .ready)
     }
 
@@ -185,6 +186,12 @@ public class Geometry: ObservableObject, @unchecked Sendable {
     // MARK: Postions (Vertex Buffer Raw Data)
 
     private func makePositionsBuffer(device: MTLDevice) {
+        let start = Date.now
+        defer {
+            let timeInterval = abs(start.timeIntervalSinceNow)
+            debugPrint("􀬨 Positions [\(positions.count)] made in [\(timeInterval.stringFromTimeInterval())]")
+        }
+
         let positions = attributes(association: .vertex, semantic: .position)
         guard let positionsBuffer = positions.makeBuffer(device: device, type: Float.self) else {
             fatalError("💀 Unable to create positions buffer")
@@ -201,6 +208,11 @@ public class Geometry: ObservableObject, @unchecked Sendable {
     // MARK: Index Buffer
 
     private func makeIndexBuffer(device: MTLDevice) {
+        let start = Date.now
+        defer {
+            let timeInterval = abs(start.timeIntervalSinceNow)
+            debugPrint("􀬨 Indices [\(indices.count)] made in [\(timeInterval.stringFromTimeInterval())]")
+        }
         let indices = attributes(association: .corner, semantic: .index)
 
         guard let indexBuffer = indices.makeBuffer(device: device, type: UInt32.self) else {
@@ -309,6 +321,11 @@ public class Geometry: ObservableObject, @unchecked Sendable {
     /// - Parameter device: the metal device to use.
     private func makeMeshesBuffer(device: MTLDevice) async {
         guard !Task.isCancelled else { return }
+        let start = Date.now
+        defer {
+            let timeInterval = abs(start.timeIntervalSinceNow)
+            debugPrint("􀬨 Meshes [\(meshes.count)] made in [\(timeInterval.stringFromTimeInterval())]")
+        }
 
         let meshSubmeshOffsets: [Int32] = unsafeTypeArray(association: .mesh, semantic: .submeshoffset)
         var meshes = [Mesh]()
@@ -339,6 +356,12 @@ public class Geometry: ObservableObject, @unchecked Sendable {
 
     private func makeSubmeshesBuffer(device: MTLDevice) async {
         guard !Task.isCancelled else { return }
+
+        let start = Date.now
+        defer {
+            let timeInterval = abs(start.timeIntervalSinceNow)
+            debugPrint("􀬨 Submeshes [\(submeshes.count)] made in [\(timeInterval.stringFromTimeInterval())]")
+        }
 
         let submeshIndexOffsets: [Int32] = unsafeTypeArray(association: .submesh, semantic: .indexoffset)
         let submeshMaterials: [Int32] = unsafeTypeArray(association: .submesh, semantic: .material)
@@ -419,6 +442,12 @@ public class Geometry: ObservableObject, @unchecked Sendable {
 
         guard !Task.isCancelled else { return }
 
+        let start = Date.now
+        defer {
+            let timeInterval = abs(start.timeIntervalSinceNow)
+            debugPrint("􀬨 Instances [\(instances.count)] made in [\(timeInterval.stringFromTimeInterval())]")
+        }
+
         var instances = [Instance]()
         var meshInstances = [Int32: [Int]]()
 
@@ -488,6 +517,12 @@ public class Geometry: ObservableObject, @unchecked Sendable {
     /// - Parameter device: the metal device to use.
     private func makeMaterialsBuffer(device: MTLDevice) async {
         guard !Task.isCancelled else { return }
+
+        let start = Date.now
+        defer {
+            let timeInterval = abs(start.timeIntervalSinceNow)
+            debugPrint("􀬨 Materials [\(materials.count)] made in [\(timeInterval.stringFromTimeInterval())]")
+        }
 
         let colors: [Float] = unsafeTypeArray(association: .material, semantic: .color)
         let materialColors: [SIMD4<Float>] = colors.chunked(into: 4).map { SIMD4<Float>($0) }
@@ -823,6 +858,13 @@ extension Geometry {
     /// - Parameter device: the metal device to use
     private func makeColorsBuffer(device: MTLDevice) async {
         guard !Task.isCancelled else { return }
+
+        let start = Date.now
+        defer {
+            let timeInterval = abs(start.timeIntervalSinceNow)
+            debugPrint("􀬨 Colors [\(colors.count)] made in [\(timeInterval.stringFromTimeInterval())]")
+        }
+
         var colors = [SIMD4<Float>](repeating: .zero, count: maxColorOverrides)
 
         // Set the first color override as the selection color
