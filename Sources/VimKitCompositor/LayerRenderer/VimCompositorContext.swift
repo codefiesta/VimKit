@@ -41,7 +41,7 @@ public struct VimCompositorContext: VimRendererContext, VimRenderDestinationProv
     }
 
     public var clearColor: MTLClearColor {
-        Color.skyBlue.mtlClearColor
+        Color.skyBlueColor.mtlClearColor
     }
 
     public var depthFormat: MTLPixelFormat {

@@ -36,8 +36,8 @@ extension VimCompositorRenderer {
             renderEncoder.setVertexAmplificationCount(viewports.count, viewMappings: &viewMappings)
         }
 
-        // Rotate the uniform buffer address
-        updateDynamicBufferState()
+        // Update the per-frame state
+        updatFrameState()
 
         // Update the per-frame uniforms
         updateUniforms(drawable)

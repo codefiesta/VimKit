@@ -126,6 +126,7 @@ extension VimRenderer {
             pipelineDescriptor.vertexDescriptor = vertexDescriptor
             pipelineDescriptor.maxVertexAmplificationCount = context.destinationProvider.viewCount
             pipelineDescriptor.vertexBuffers[.positions].mutability = .mutable
+            pipelineDescriptor.supportIndirectCommandBuffers = true
 
             // Set the pipeline state with no rendering for the occlusion query
             pipelineState = try? device.makeRenderPipelineState(descriptor: pipelineDescriptor)

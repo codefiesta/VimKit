@@ -16,6 +16,10 @@ extension Color {
     /// See: https://forums.swift.org/t/generate-images-and-colors-inside-a-swift-package/65674/9
     public static let objectSelectionColor = Color("objectSelectionColor", bundle: .module)
 
+
+    /// A constant for the sky bue color.
+    public static let skyBlueColor = Color("skyBlueColor", bundle: .module)
+
     /// Provides a convenience var for accessing the color channels
     var channels: SIMD4<Float> {
         let resolved = resolve(in: .init())
