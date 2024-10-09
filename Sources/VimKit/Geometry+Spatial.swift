@@ -145,12 +145,12 @@ extension Geometry {
         /// See: https://www.flipcode.com/archives/Frustum_Culling.shtml
         /// - Parameter camera: the camera data
         /// - Returns: a list of indices into the `geometry.instancedMeshes` array that are inside the frustum
-        func intersectionResults(camera: Vim.Camera) -> [Int] {
+        func intersectionResults(camera: Vim.Camera) -> Set<Int> {
             guard let geometry else { return [] }
             var results = Set<Int>()
             intersections(camera: camera, node: root, results: &results)
             results.subtract(geometry.hiddeninstancedMeshes) // Remove any hidden instanced meshes
-            return results.sorted()
+            return results
         }
 
         /// Recursively iterates through the BVH nodes to collect results that are inside the given frustum.

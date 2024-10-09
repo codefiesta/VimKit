@@ -1,0 +1,263 @@
+//
+//  VimRenderer+Visibility.swift
+//  VimKit
+//
+//  Created by Kevin McKee
+//
+
+import Combine
+import MetalKit
+import VimKitShaders
+
+private let vertexFunctionName = "vertexVisibilityTest"
+private let renderEncoderDebugGroupName = "VimVisibilityResultsDrawGroup"
+private let pipelineLabel = "VimVisibilityResultsPipeline"
+private let minFrustumCullingThreshold = 1024
+
+extension VimRenderer {
+
+    /// A struct that performs occlusion culling by performing visibility testing.
+    @MainActor
+    class Visibility {
+
+        /// The context that provides all of the data we need
+        let context: VimRendererContext
+
+        /// The geometry.
+        var geometry: Geometry? {
+            context.vim.geometry
+        }
+
+        /// Returns the camera.
+        var camera: Vim.Camera {
+            context.vim.camera
+        }
+
+        /// The metal device.
+        var device: MTLDevice {
+            context.destinationProvider.device!
+        }
+
+        /// The number of rotating buffers.
+        let bufferCount: Int
+        /// A render pipeline that is used for occlusion queries with the depth test.
+        let pipelineState: MTLRenderPipelineState?
+        /// The depth stencil state that performs no writes for the non-rendering pipeline state.
+        let depthStencilState: MTLDepthStencilState?
+
+        /// The rotating visibility results buffers.
+        var visibilityResultBuffer: [MTLBuffer?]
+        var visibilityResultReadOnlyBuffer: UnsafeMutablePointer<Int>?
+        var visibilityBufferReadIndex: Int = 0
+        var visibilityBufferWriteIndex: Int = 0
+
+        /// Combine Subscribers which drive rendering events
+        var subscribers = Set<AnyCancellable>()
+
+        /// Returns the current visibility result buffer write buffer.
+        var currentVisibilityResultBuffer: MTLBuffer? {
+            visibilityResultBuffer[visibilityBufferWriteIndex]
+        }
+
+        /// Returns the entire set of instanced mesh indexes that are inside the view frustum.
+        var currentResults: [Int] = .init()
+
+        /// Returns the subset of instanced mesh indexes that have returned true from the occlusion query.
+        var currentVisibleResults: [Int] = .init()
+
+        let mesh: MTKMesh
+
+        /// Initializer.
+        /// - Parameters:
+        ///   - context: the renderer context
+        ///   - bufferCount: the number of rotating buffers
+        init?(_ context: VimRendererContext, bufferCount: Int) {
+
+            guard let library = MTLContext.makeLibrary(),
+                  let device = context.destinationProvider.device else { return nil }
+
+            self.context = context
+            self.bufferCount = bufferCount
+            self.visibilityResultBuffer = [MTLBuffer?](repeating: nil, count: bufferCount)
+
+            // Create the proxy mesh to render (an icosahedron)
+            let allocator = MTKMeshBufferAllocator(device: device)
+            let box = MDLMesh(boxWithExtent: .one, segments: [1, 1, 1], inwardNormals: false, geometryType: .triangles, allocator: allocator)
+            let icosahedron = MDLMesh(icosahedronWithExtent: .one, inwardNormals: false, geometryType: .triangles, allocator: allocator)
+
+            let sphere = MDLMesh(sphereWithExtent: .one, segments: [50, 50], inwardNormals: false, geometryType: .triangles, allocator: allocator)
+
+            guard let mesh = try? MTKMesh(mesh: box, device: device) else { return nil }
+            self.mesh = mesh
+
+            let vertexFunction = library.makeFunction(name: vertexFunctionName)
+            let fragmentFunction = library.makeFunction(name: "fragmentMain")
+
+            let vertexDescriptor = MTKMetalVertexDescriptorFromModelIO(mesh.vertexDescriptor)
+            //let vertexDescriptor = MTLContext.buildVertexDescriptor()
+
+            let pipelineDescriptor = MTLRenderPipelineDescriptor()
+            pipelineDescriptor.label = pipelineLabel
+
+            // Alpha Blending
+            pipelineDescriptor.colorAttachments[0].pixelFormat = context.destinationProvider.colorFormat
+            pipelineDescriptor.colorAttachments[0].isBlendingEnabled = true
+            pipelineDescriptor.colorAttachments[0].rgbBlendOperation = .add
+            pipelineDescriptor.colorAttachments[0].alphaBlendOperation = .add
+            pipelineDescriptor.colorAttachments[0].sourceRGBBlendFactor = .sourceAlpha
+            pipelineDescriptor.colorAttachments[0].sourceAlphaBlendFactor = .sourceAlpha
+            pipelineDescriptor.colorAttachments[0].destinationRGBBlendFactor = .oneMinusSourceAlpha
+            pipelineDescriptor.colorAttachments[0].destinationAlphaBlendFactor = .oneMinusSourceAlpha
+
+            // Instance Picking
+            pipelineDescriptor.colorAttachments[1].pixelFormat = .r32Sint
+
+            pipelineDescriptor.depthAttachmentPixelFormat = context.destinationProvider.depthFormat
+            pipelineDescriptor.stencilAttachmentPixelFormat = context.destinationProvider.depthFormat
+
+            pipelineDescriptor.vertexFunction = vertexFunction
+            pipelineDescriptor.fragmentFunction = nil //fragmentFunction
+            pipelineDescriptor.vertexDescriptor = vertexDescriptor
+            pipelineDescriptor.maxVertexAmplificationCount = context.destinationProvider.viewCount
+            pipelineDescriptor.vertexBuffers[.positions].mutability = .mutable
+
+            // Set the pipeline state with no rendering for the occlusion query
+            pipelineState = try? device.makeRenderPipelineState(descriptor: pipelineDescriptor)
+
+            // Set the depth stenci state for the occlusion query with no depth writes
+            let depthStencilDescriptor = MTLDepthStencilDescriptor()
+            depthStencilDescriptor.depthCompareFunction = .lessEqual
+            depthStencilDescriptor.isDepthWriteEnabled = false
+            depthStencilState = device.makeDepthStencilState(descriptor: depthStencilDescriptor)
+
+            // Visibility Buffers
+            buildVisibilityResultsBuffers()
+
+            // Observe the geometry state
+            context.vim.geometry?.$state.sink { [weak self] state in
+                guard let self, let geometry else { return }
+                switch state {
+                case .ready:
+                    buildVisibilityResultsBuffers(geometry.instancedMeshes.count)
+                case .loading, .unknown, .indexing, .error:
+                    break
+                }
+            }.store(in: &subscribers)
+
+        }
+
+        /// Builds the visibility results buffers array.
+        /// - Parameters:
+        ///   - objectCount: the total number of objects that can be checked for visibility.
+        private func buildVisibilityResultsBuffers(_ objectCount: Int = 1) {
+            for i in 0..<visibilityResultBuffer.count {
+                guard let buffer = device.makeBuffer(length: MemoryLayout<Int>.size * objectCount, options: [.storageModeShared]) else {
+                    fatalError("Unable to make visibility results buffer for \(i).")
+                }
+                buffer.label = "VisibilityResultBuffer\(i)"
+                visibilityResultBuffer[i] = buffer
+            }
+        }
+
+        /// Performs an occulsion query by drawing (without rendering) proxy geomety to test if the results are visible or not.
+        /// - Parameters:
+        ///   - renderEncoder: the render encoder
+        func draw(renderEncoder: MTLRenderCommandEncoder) {
+            guard let pipelineState, let depthStencilState else { return }
+
+            /// Configure the pipeline state object and depth state to disable writing to the color and depth attachments.
+            renderEncoder.setRenderPipelineState(pipelineState)
+            renderEncoder.setDepthStencilState(depthStencilState)
+            renderEncoder.pushDebugGroup(renderEncoderDebugGroupName)
+
+            for i in currentResults {
+                drawProxyGeometry(renderEncoder: renderEncoder, index: i)
+            }
+            renderEncoder.popDebugGroup()
+
+            // Finsh the frame and update the read index for the next frame
+            finish()
+        }
+
+        /// Draws simplified proxy geometry for each instanced mesh.
+        /// - Parameters:
+        ///   - renderEncoder: the render encoder to use
+        ///   - index: the index of the instanced mesh to test visibility results for
+        func drawProxyGeometry(renderEncoder: MTLRenderCommandEncoder, index: Int) {
+
+            guard let geometry else { return }
+
+//            guard let pipelineState, let depthStencilState else { return }
+
+            /// Configure the pipeline state object and depth state to disable writing to the color and depth attachments.
+//            renderEncoder.setRenderPipelineState(pipelineState)
+//            renderEncoder.setDepthStencilState(depthStencilState)
+//            renderEncoder.pushDebugGroup(renderEncoderDebugGroupName)
+
+
+            let instanced = geometry.instancedMeshes[index]
+            let instanceCount = instanced.instances.count
+            let baseInstance = instanced.baseInstance
+
+            renderEncoder.setVisibilityResultMode(.boolean, offset: index * MemoryLayout<Int>.size)
+            for (i, vertexBuffer) in mesh.vertexBuffers.enumerated() {
+                renderEncoder.setVertexBuffer(vertexBuffer.buffer, offset: i, index: .positions)
+            }
+
+            // Draw the mesh
+            for submesh in mesh.submeshes {
+
+                renderEncoder.drawIndexedPrimitives(
+                    type: submesh.primitiveType,
+                    indexCount: submesh.indexCount,
+                    indexType: submesh.indexType,
+                    indexBuffer: submesh.indexBuffer.buffer,
+                    indexBufferOffset: submesh.indexBuffer.offset,
+                    instanceCount: instanceCount,
+                    baseVertex: 0,
+                    baseInstance: baseInstance
+                )
+            }
+
+//            guard let indexBuffer = geometry.indexBuffer else { return }
+//            renderEncoder.drawIndexedPrimitives(type: .triangle,
+//                                                indexCount: submesh.indices.count,
+//                                                indexType: .uint32,
+//                                                indexBuffer: indexBuffer,
+//                                                indexBufferOffset: submesh.indexBufferOffset,
+//                                                instanceCount: instanceCount,
+//                                                baseVertex: 0,
+//                                                baseInstance: baseInstance
+//            )
+
+        }
+
+        /// Updates the visibility buffer read results from the previous frame.
+        func updateFrameState() {
+
+            // Rotate the write index
+            visibilityBufferWriteIndex = (visibilityBufferWriteIndex + 1) % bufferCount
+            // Update the current read only buffer
+            visibilityResultReadOnlyBuffer = visibilityResultBuffer[visibilityBufferReadIndex]?.contents().assumingMemoryBound(to: Int.self)
+
+            // Update the entire set of current results
+            var allResults = Set<Int>()
+            guard let geometry, let bvh = geometry.bvh else { return }
+            if minFrustumCullingThreshold <= geometry.instancedMeshes.endIndex {
+                allResults = bvh.intersectionResults(camera: camera)
+            } else {
+                allResults = Set(geometry.instancedMeshes.indices)
+            }
+            // Update the set of visible results
+            let visibleResults = allResults.filter{ visibilityResultReadOnlyBuffer?[$0] != .zero }
+            // Subtract the visible results from the entire result set (we'll perform a test on those in the main render pass)
+            currentResults = allResults.subtracting(currentVisibleResults).sorted()
+            currentVisibleResults = visibleResults.sorted()
+        }
+
+        /// Avoid a data race condition by updating the visibility buffer's read index when the command buffer finishes.
+        private func finish() {
+            visibilityBufferReadIndex = (visibilityBufferReadIndex + 1) % bufferCount
+        }
+    }
+}
