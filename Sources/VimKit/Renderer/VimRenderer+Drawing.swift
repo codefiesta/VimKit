@@ -176,18 +176,3 @@ public extension VimRenderer {
         )
     }
 }
-
-// MARK: Culling
-
-//extension VimRenderer {
-//
-//    /// Culls the instanced meshes that are outside of the view frustum.
-//    /// - Parameter geometry: the geometry data
-//    /// - Returns: indices into the geometry.instancedMeshes that should be drawn
-//    private func cullInstancedMeshes(_ geometry: Geometry) -> Set<Int> {
-//        guard let bvh = geometry.bvh, minFrustumCullingThreshold <= geometry.instancedMeshes.endIndex else {
-//            return Set(geometry.instancedMeshes.indices)
-//        }
-//        return bvh.intersectionResults(camera: camera)
-//    }
-//}

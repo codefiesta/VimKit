@@ -197,19 +197,7 @@ extension VimRenderer {
             let instanceCount = instanced.instances.count
             let baseInstance = instanced.baseInstance
 
-//            if instanced.transparent {
-//                let mesh = geometry.meshes[instanced.mesh]
-//                let submeshes = geometry.submeshes[mesh.submeshes]
-//                for submeshe in submeshes {
-//                    if submeshe.material != .empty {
-//                        let material = geometry.materials[submeshe.material]
-//                        let alpha = material.rgba.w
-//                    } else {
-//                        debugPrint(index)
-//                    }
-//                }
-//            }
-
+            // Set the visibility result mode for the instanced mesh
             renderEncoder.setVisibilityResultMode(.boolean, offset: index * MemoryLayout<Int>.size)
             renderEncoder.setVertexBuffer(mesh.vertexBuffers.first?.buffer, offset: 0, index: .positions)
 
