@@ -289,8 +289,6 @@ extension Vim {
             ///   - box: the bounding box to test
             /// - Returns: true if contains, otherwise false
             func contains(_ box: MDLAxisAlignedBoundingBox) -> Bool {
-                let min = box.minBounds
-                let max = box.maxBounds
                 let corners = box.corners
                 for plane in planes {
                     if dot(plane, SIMD4<Float>(corners[0], 1.0)) < .zero &&

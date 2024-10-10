@@ -70,7 +70,7 @@ typedef NS_ENUM(EnumBackingType, InstanceState) {
     InstanceStateSelected = 2,
 };
 
-// Instancing Data
+// Instance
 typedef struct {
     // The index of the instance.
     size_t index;
@@ -91,6 +91,18 @@ typedef struct {
     /// Flag indicating if this instance is transparent or not.
     bool transparent;
 } Instance;
+
+// Inverts the relationship between an Instance and a Mesh that allows us to draw using instancing.
+typedef struct {
+    // The mesh index that is shared across the instances.
+    size_t mesh;
+    // Flag indicating if the mesh is transparent or not (used primarily for sorting).
+    bool transparent;
+    // The number of instances that share this mesh.
+    size_t instanceCount;
+    // The offset used by the GPU used to lookup the starting index into the instances buffer.
+    size_t baseInstance;
+} InstancedMesh;
 
 typedef struct {
     // Flag indicating if this frame is being rendered in xray mode.
