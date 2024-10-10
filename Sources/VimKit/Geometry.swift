@@ -49,6 +49,8 @@ public class Geometry: ObservableObject, @unchecked Sendable {
     public private(set) var normalsBuffer: MTLBuffer?
     /// Returns the combined buffer of all of the instance transforms and their state information.
     public private(set) var instancesBuffer: MTLBuffer?
+    /// Returns the combined buffer of all of the instanced meshes..
+    public private(set) var instancedMeshesBuffer: MTLBuffer?
     /// Returns the combined buffer of all of the materials.
     public private(set) var materialsBuffer: MTLBuffer?
     /// Returns the combined buffer of all of the submeshes.
@@ -228,7 +230,7 @@ public class Geometry: ObservableObject, @unchecked Sendable {
         return indexBuffer!.toUnsafeMutableBufferPointer()
     }()
 
-    /// Returns the color overrides.
+    /// Provides a buffered pointer to the color overrides.
     public lazy var colors: UnsafeMutableBufferPointer<SIMD4<Float>> = {
         assert(colorsBuffer != nil, "💩 Misuse [colors]")
         return colorsBuffer!.toUnsafeMutableBufferPointer()
@@ -346,7 +348,7 @@ public class Geometry: ObservableObject, @unchecked Sendable {
         self.meshesBuffer = device.makeBuffer(bytes: &meshes, length: MemoryLayout<Mesh>.stride * meshes.count, options: [.storageModeShared])
     }
 
-    /// Returns the meshes from it's uderlying metal buffer.
+    /// Provides a buffered pointer to the meshes.
     public lazy var meshes: UnsafeMutableBufferPointer<Mesh> = {
         assert(meshesBuffer != nil, "💩 Misuse [meshes]")
         return meshesBuffer!.toUnsafeMutableBufferPointer()
@@ -384,7 +386,7 @@ public class Geometry: ObservableObject, @unchecked Sendable {
         self.submeshesBuffer = device.makeBuffer(bytes: &submeshes, length: MemoryLayout<Submesh>.stride * submeshes.count, options: [.storageModeShared])
     }
 
-    ///  Constructs all of the Submeshes from their associated data blocks.
+    /// Provides a buffered pointer to the submeshes.
     public lazy var submeshes: UnsafeMutableBufferPointer<Submesh> = {
         assert(submeshesBuffer != nil, "💩 Misuse [submeshes]")
         return submeshesBuffer!.toUnsafeMutableBufferPointer()
@@ -410,9 +412,6 @@ public class Geometry: ObservableObject, @unchecked Sendable {
         }
         return results
     }
-
-    /// Holds an array of instanced mesh structures (used for instancing).
-    private(set) var instancedMeshes = [InstancedMesh]()
 
     /// Holds a hash of mesh indexes and an array of instance indexes that share the mesh.
     private(set) var meshInstances = [Int: [Int]]()
@@ -477,6 +476,7 @@ public class Geometry: ObservableObject, @unchecked Sendable {
         }
 
         // 3) Make the array of instancedMeshes
+        var instancedMeshes = [InstancedMesh]()
         var currentMesh = -1
         for (i, instance) in instances.enumerated() {
 
@@ -500,18 +500,23 @@ public class Geometry: ObservableObject, @unchecked Sendable {
             instancedMeshesMap[i] = instancedMeshes.indices.last
         }
 
-        for (key, value) in instancedMeshesMap {
-            assert(value < instancedMeshes.count, "💩 index out of bounds [\(key): \(value)] > \(instancedMeshes.count)")
-        }
-
-        // 4) Make the metal buffer
+        // 4) Make the instances buffer
         self.instancesBuffer = device.makeBuffer(bytes: &instances, length: MemoryLayout<Instance>.stride * instances.count, options: [.storageModeShared])
+
+        // 5) Make the instanced meshes buffer
+        self.instancedMeshesBuffer = device.makeBuffer(bytes: &instancedMeshes, length: MemoryLayout<InstancedMesh>.stride * instancedMeshes.count, options: [.storageModeShared])
     }
 
-    /// Builds the array of instances.
+    /// Provides a buffered pointer to the instances.
     public lazy var instances: UnsafeMutableBufferPointer<Instance> = {
         assert(instancesBuffer != nil, "💩 Misuse [instances]")
         return instancesBuffer!.toUnsafeMutableBufferPointer()
+    }()
+
+    /// Provides a buffered pointer to the instanced meshes.
+    public lazy var instancedMeshes: UnsafeMutableBufferPointer<InstancedMesh> = {
+        assert(instancedMeshesBuffer != nil, "💩 Misuse [instancedMeshes]")
+        return instancedMeshesBuffer!.toUnsafeMutableBufferPointer()
     }()
 
     // MARK: Materials
@@ -547,7 +552,7 @@ public class Geometry: ObservableObject, @unchecked Sendable {
         )
     }
 
-    ///  Returns the combined materials.
+    /// Provides a buffered pointer to the materials.
     public lazy var materials: UnsafeMutableBufferPointer<Material> = {
         assert(materialsBuffer != nil, "💩 Misuse [materials]")
         return materialsBuffer!.toUnsafeMutableBufferPointer()
