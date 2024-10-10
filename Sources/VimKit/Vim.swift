@@ -258,7 +258,10 @@ extension Vim: IndexedStringDataProvider {
 extension Vim: URLSessionTaskDelegate {
 
     public func urlSession(_ session: URLSession, didCreateTask task: URLSessionTask) {
-        self.progress.addChild(progress, withPendingUnitCount: 0)
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.progress.addChild(task.progress, withPendingUnitCount: 0)
+        }
     }
 }
 
