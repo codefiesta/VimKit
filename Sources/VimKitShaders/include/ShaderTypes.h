@@ -119,6 +119,10 @@ typedef NS_ENUM(EnumBackingType, VertexBufferIndex) {
     VertexBufferIndexRenderOptions = 9
 };
 
+typedef NS_ENUM(EnumBackingType, KernelBufferIndex) {
+    KernelBufferIndexCommandBufferContainer = 0
+};
+
 // Enum constances for the attribute index of an incoming vertex
 typedef NS_ENUM(EnumBackingType, VertexAttribute) {
     VertexAttributePosition = 0,
@@ -173,6 +177,12 @@ typedef struct {
     // The colorAttachments[1] that holds the instance index (-1 indicates a non-selectable or invalid instance)
     int32_t index [[color(1)]];
 } FragmentOut;
+
+// The argument buffer that contains the indirect command buffer.
+typedef struct {
+    // The icb
+    command_buffer commandBuffer [[id(0)]];
+} IcbContainer;
 
 #endif
 

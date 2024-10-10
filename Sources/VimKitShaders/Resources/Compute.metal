@@ -113,3 +113,7 @@ kernel void computeBoundingBoxes(device const float *positions,
         }
     }
 }
+
+kernel void encodeIndirectCommands(device IcbContainer *icbContainer [[ buffer(KernelBufferIndexCommandBufferContainer) ]]) {
+    
+}
