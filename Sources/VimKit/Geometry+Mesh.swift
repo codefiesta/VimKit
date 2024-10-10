@@ -1,37 +1,11 @@
-////
-////  Geometry+Mesh.swift
-////  VimKit
-////
-////  Created by Kevin McKee
-////
+//
+//  Geometry+Mesh.swift
+//  VimKit
+//
+//  Created by Kevin McKee
+//
 import MetalKit
 import VimKitShaders
-
-/// Inverts the relationship between an Instance and a Mesh that allows us to draw using instancing.
-class InstancedMesh {
-
-    /// The mesh index that is shared across the instances.
-    let mesh: Int
-    /// Flag indicating if the mesh is transparent or not
-    let transparent: Bool
-    /// The instance indexes.
-    let instances: [Int]
-    /// Provides an offset into the instances buffer.
-    var baseInstance: Int
-
-    /// Initalizes the instanced mesh.
-    /// - Parameters:
-    ///   - mesh: the index of the mesh that should be instanced
-    ///   - transparent: a flag indicating if the instance is transparent or not (used primarily for sorting).
-    ///   - instances: the instance indexes
-    ///   - baseInstance: the offset used by the GPU used to lookup the starting index into the instances buffer.
-    init(mesh: Int32, transparent: Bool, instances: [Int], _ baseInstance: Int = 0) {
-        self.mesh = Int(mesh)
-        self.transparent = transparent
-        self.instances = instances
-        self.baseInstance = baseInstance
-    }
-}
 
 extension Instance {
 
@@ -53,15 +27,15 @@ extension Instance {
     ///   - parent: the parent index (-1 indicates no parent)
     ///   - mesh: the mesh index (-1 indicates this instance has no mesh)
     ///   - transparent: Flag indicating if the instance is transparent or not.
-    init(index: Int, matrix: float4x4, flags: Int16, parent: Int32, mesh: Int32, transparent: Bool) {
+    init(index: Int, matrix: float4x4, flags: Int16, parent: Int, mesh: Int, transparent: Bool) {
         self.init(index: index,
                   colorIndex: .empty,
                   matrix: matrix,
                   state: flags != .zero ? .hidden : .default,
                   minBounds: .zero,
                   maxBounds: .zero,
-                  parent: Int(parent),
-                  mesh: Int(mesh),
+                  parent: parent,
+                  mesh: mesh,
                   transparent: transparent
         )
     }
