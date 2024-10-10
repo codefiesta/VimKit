@@ -195,7 +195,7 @@ extension VimRenderer {
             guard let geometry else { return }
 
             let instanced = geometry.instancedMeshes[index]
-            let instanceCount = instanced.instances.count
+            let instanceCount = instanced.instanceCount
             let baseInstance = instanced.baseInstance
 
             // Set the visibility result mode for the instanced mesh

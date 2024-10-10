@@ -138,9 +138,9 @@ extension Geometry {
             }
             self.geometry = geometry
             var data = [(index: Int, box: MDLAxisAlignedBoundingBox)]()
-            for instance in geometry.instances {
+            for (i, instance) in geometry.instances.enumerated() {
                 guard instance.boundingBox != .zero else { continue }
-                data.append((index: Int(instance.index), box: instance.boundingBox))
+                data.append((index: i, box: instance.boundingBox))
             }
             root = Node(&data)
         }

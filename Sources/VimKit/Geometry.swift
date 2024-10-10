@@ -414,26 +414,18 @@ public class Geometry: ObservableObject, @unchecked Sendable {
     /// Holds an array of instanced mesh structures (used for instancing).
     private(set) var instancedMeshes = [InstancedMesh]()
 
-    /// Holds a set of hidden instanced meshes.
-    private(set) var hiddeninstancedMeshes = Set<Int>()
-
-    /// Returns the instance offsets (used for instancing).
-    lazy var instanceOffsets: [Int] = {
-        instancedMeshes.map { $0.instances }.reduce( [], + )
-    }()
+    /// Holds a hash of mesh indexes and an array of instance indexes that share the mesh.
+    private(set) var meshInstances = [Int: [Int]]()
 
     /// Provides a hash lookup of instance indices into their respective instanced meshes index.
-    /// The key is the instance index and the value is the index into it's shared `instancedMeshes`.
-    lazy var instancedMeshesMap: [Int: Int] = {
-        var map = [Int: Int]()
-        for (i, instancedMesh) in instancedMeshes.enumerated() {
-            for j in instancedMesh.instances {
-                guard map[Int(j)] == nil else { continue }
-                map[Int(j)] = i
-            }
-        }
-        return map
-    }()
+    /// The key is the instance index and the value is the index into the `instancedMeshes` array.
+    private(set) var instancedMeshesMap = [Int: Int]()
+
+    /// Returns the instance offsets (used for instancing).
+    private(set) var instanceOffsets = [Int]()
+
+    /// Holds a set of hidden instanced meshes.
+    private(set) var hiddeninstancedMeshes = Set<Int>()
 
     /// Makes the instance buffer.
     /// - Parameters:
@@ -449,8 +441,6 @@ public class Geometry: ObservableObject, @unchecked Sendable {
         }
 
         var instances = [Instance]()
-        var meshInstances = [Int32: [Int]]()
-
         let instanceFlags: [Int16] = unsafeTypeArray(association: .instance, semantic: .flags)
         let instanceParents: [Int32] = unsafeTypeArray(association: .instance, semantic: .parent)
         let instanceMeshes: [Int32] = unsafeTypeArray(association: .instance, semantic: .mesh)
@@ -464,45 +454,58 @@ public class Geometry: ObservableObject, @unchecked Sendable {
                 flags = instanceFlags[i]
             }
 
-            let mesh = instanceMeshes[i]
-            let parent = instanceParents[i]
+            let mesh = Int(instanceMeshes[i])
+            let parent = Int(instanceParents[i])
             let transparent = isTransparent(mesh)
             let instance = Instance(index: i, matrix: transform, flags: flags, parent: parent, mesh: mesh, transparent: transparent)
-            instances.append(instance)
 
+            // Drop any instances that don't have empty mesh data
             guard mesh != .empty else { continue }
 
             // Add this instance to the mesh map
             if meshInstances[mesh] != nil {
-                meshInstances[mesh]?.append(instance.index)
+                meshInstances[mesh]?.append(i)
             } else {
-                meshInstances[mesh] = [instance.index]
+                meshInstances[mesh] = [i]
             }
+            instances.append(instance)
         }
 
-        // 2) Build the array of instanced meshes
-        for (i, instances) in meshInstances {
-            let transparent = isTransparent(i)
-            let meshInstances = InstancedMesh(mesh: i, transparent: transparent, instances: instances)
-            instancedMeshes.append(meshInstances)
+        // 2) Sort the instances by transparency & mesh index
+        instances.sort {
+            ($0.transparent ? 0 : 1, $0.mesh) > ($1.transparent ? 0 : 1, $1.mesh)
         }
 
-        // 3) Sort the instanced meshes by opaques and transparents
-        instancedMeshes.sort{ !$0.transparent && $1.transparent }
+        // 3) Make the array of instancedMeshes
+        var currentMesh = -1
+        for (i, instance) in instances.enumerated() {
 
-        // 4) Set the base instance offsets
-        var baseInstance: Int = 0
-        for result in instancedMeshes {
-            result.baseInstance = baseInstance
-            baseInstance += result.instances.count
+            let mesh = instance.mesh
+
+            // Map the offset
+            instanceOffsets.append(instance.index)
+
+            // If we have a new mesh, insert it into the array
+            if currentMesh != mesh {
+
+                // Build a new instanced mesh
+                let transparent = isTransparent(mesh)
+                let instanceCount = meshInstances[mesh]?.count ?? 0
+                let instanced = InstancedMesh(mesh: mesh, transparent: transparent, instanceCount: instanceCount, baseInstance: i)
+                instancedMeshes.append(instanced)
+                currentMesh = mesh
+            }
+
+            // Map the instance to it's instanced mesh group
+            instancedMeshesMap[i] = instancedMeshes.indices.last
         }
 
-        // 5) Sort the instances by their order in the instanced meshes
-        var sorted = instanceOffsets.map{ instances[Int($0)]}
-        assert(sorted.count == baseInstance, "💩 [\(sorted.count)] != [\(baseInstance)]")
+        for (key, value) in instancedMeshesMap {
+            assert(value < instancedMeshes.count, "💩 index out of bounds [\(key): \(value)] > \(instancedMeshes.count)")
+        }
 
-        // 6) Make the metal buffer
-        self.instancesBuffer = device.makeBuffer(bytes: &sorted, length: MemoryLayout<Instance>.stride * sorted.count, options: [.storageModeShared])
+        // 4) Make the metal buffer
+        self.instancesBuffer = device.makeBuffer(bytes: &instances, length: MemoryLayout<Instance>.stride * instances.count, options: [.storageModeShared])
     }
 
     /// Builds the array of instances.
@@ -560,7 +563,7 @@ extension Geometry {
     /// - Parameters:
     ///   - mesh: the mesh to determine transparency value for
     /// - Returns: true if the mesh is transparent, otherwise false
-    private func isTransparent(_ index: Int32) -> Bool {
+    private func isTransparent(_ index: Int) -> Bool {
 
         guard index != .empty else { return true }
         let mesh = meshes[index]
@@ -796,8 +799,8 @@ extension Geometry {
         let hiddenSet = Set<Int>(hidden)
 
         // Hide all of the instanced meshes where all shared instances are hidden
-        for (i, instancedMesh) in instancedMeshes.enumerated() {
-            let instancesSet = Set<Int>(instancedMesh.instances.map { Int($0) })
+        for (i, instanced) in instancedMeshes.enumerated() {
+            let instancesSet = Set<Int>(meshInstances[instanced.mesh] ?? [])
             if instancesSet.isSubset(of: hiddenSet) {
                 hiddeninstancedMeshes.insert(i)
             }

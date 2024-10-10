@@ -146,7 +146,7 @@ public extension VimRenderer {
             renderEncoder.setVertexBytes(&ids, length: MemoryLayout<Identifiers>.size, index: .identifiers)
 
             // Draw the submesh
-            drawSubmesh(geometry, submesh, renderEncoder, instanced.instances.count, instanced.baseInstance)
+            drawSubmesh(geometry, submesh, renderEncoder, instanced.instanceCount, instanced.baseInstance)
             renderEncoder.popDebugGroup()
         }
     }
