@@ -6,15 +6,14 @@
 //
 
 import MetalKit
-import MetalPerformanceShaders
 import VimKitShaders
 
-private let icbLabel = "VimIndirectCommandBuffer"
-private let instancePickingTextureLabel = "InstancePickingTexture"
-private let fragmentFunctionName = "fragmentMain"
-private let pipelineLabel = "VimRendererPipeline"
-private let vertexFunctionName = "vertexMain"
-private let encodeIndirectCommandsFunctionName = "encodeIndirectCommands"
+private let labelInstancePickingTexture = "InstancePickingTexture"
+private let labelPipeline = "VimRendererPipeline"
+private let labelICB = "VimIndirectCommandBuffer"
+private let functionNameVertexMain = "vertexMain"
+private let functionNameFragmentMain = "fragmentMain"
+private let functionNameEncodeIndirectCommands = "encodeIndirectCommands"
 
 extension VimRenderer {
 
@@ -23,12 +22,12 @@ extension VimRenderer {
 
         // Load all the shader files with a metal file extension in the project
         let library = MTLContext.makeLibrary()!
-        let vertexFunction = library.makeFunction(name: vertexFunctionName)
-        let fragmentFunction = library.makeFunction(name: fragmentFunctionName)
+        let vertexFunction = library.makeFunction(name: functionNameVertexMain)
+        let fragmentFunction = library.makeFunction(name: functionNameFragmentMain)
         let vertexDescriptor = MTLContext.buildVertexDescriptor()
 
         commandQueue = device.makeCommandQueue()
-        pipelineState = buildPipelineState(library, vertexFunction, fragmentFunction, vertexDescriptor, pipelineLabel)
+        pipelineState = buildPipelineState(library, vertexFunction, fragmentFunction, vertexDescriptor, labelPipeline)
         buildComputePipelineState(library)
         depthStencilState = buildDepthStencilState()
         samplerState = buildSamplerState()
@@ -83,7 +82,7 @@ extension VimRenderer {
         descriptor.inheritBuffers = false
         descriptor.inheritPipelineState = false
 
-        guard let function = library.makeFunction(name: encodeIndirectCommandsFunctionName),
+        guard let function = library.makeFunction(name: functionNameEncodeIndirectCommands),
               let cps = try? device.makeComputePipelineState(function: function) else {
             return
         }
@@ -92,7 +91,7 @@ extension VimRenderer {
         let icb = device.makeIndirectCommandBuffer(descriptor: descriptor,
                                                    maxCommandCount: maxCommandCount,
                                                    options: [.storageModePrivate])
-        icb?.label = icbLabel
+        icb?.label = labelICB
         self.indirectCommandBuffer = icb
         self.computePipelineState = cps
     }
@@ -146,6 +145,6 @@ extension VimRenderer {
         instancePickingTextureDescriptor.usage = .renderTarget
 
         instancePickingTexture = device.makeTexture(descriptor: instancePickingTextureDescriptor)
-        instancePickingTexture?.label = instancePickingTextureLabel
+        instancePickingTexture?.label = labelInstancePickingTexture
     }
 }
