@@ -20,7 +20,9 @@ private let countLimit = 100
 extension Assets {
 
     /// Fetches the asset with the give name as an image.
-    func image(_ name: String) -> Image? {
+    /// - Parameter name: the name of the asset
+    /// - Returns: the asset image
+    public func image(from name: String) -> Image? {
 
         // 1) Try to fetch the image straight out of the cache
         if let image = ImageCache.shared.image(for: name) {
