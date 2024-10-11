@@ -22,7 +22,9 @@ extension Assets {
     /// Fetches the asset with the give name as an image.
     /// - Parameter name: the name of the asset
     /// - Returns: the asset image
-    public func image(from name: String) -> Image? {
+    public func image(from name: String?) -> Image? {
+
+        guard let name else { return nil }
 
         // 1) Try to fetch the image straight out of the cache
         if let image = ImageCache.shared.image(for: name) {
