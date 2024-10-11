@@ -6,7 +6,6 @@
 //
 
 import SwiftUI
-import VimKit
 
 #if os(macOS)
 private typealias CacheType = NSImage
