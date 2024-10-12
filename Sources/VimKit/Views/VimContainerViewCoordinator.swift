@@ -8,6 +8,8 @@
 import GameController
 import MetalKit
 
+#if !os(visionOS)
+
 /// Provides a coordinator that is responsible for rendering into it's MTKView representable.
 @MainActor
 public class VimContainerViewCoordinator: NSObject, MTKViewDelegate {
@@ -128,3 +130,5 @@ extension VimContainerViewCoordinator {
         }
     }
 }
+
+#endif

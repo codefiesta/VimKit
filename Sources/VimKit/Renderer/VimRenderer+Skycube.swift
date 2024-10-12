@@ -123,7 +123,17 @@ extension VimRenderer {
 
         /// Draws the skycube.
         /// - Parameter renderEncoder: the render encoder to use.
-        func draw(renderEncoder: MTLRenderCommandEncoder) {
+
+        /// Draws the skycube.
+        /// - Parameters:
+        ///   - renderEncoder: the render encoder to use.
+        ///   - uniformBuffer: the uniform buffer
+        ///   - uniformBufferOffset: the uniform buffer offset
+        ///   - samplerState: the sampler state
+        func draw(renderEncoder: MTLRenderCommandEncoder,
+                  uniformBuffer: MTLBuffer,
+                  uniformBufferOffset: Int,
+                  samplerState: MTLSamplerState?) {
 
             guard let pipelineState else { return }
             renderEncoder.pushDebugGroup(skycubeGroupName)
@@ -131,8 +141,12 @@ extension VimRenderer {
             renderEncoder.setDepthStencilState(depthStencilState)
 
             // Set the buffers to pass to the GPU
-            renderEncoder.setVertexBuffer(mesh.vertexBuffers[0].buffer, offset: 0, index: .positions)
+            renderEncoder.setVertexBuffer(uniformBuffer, offset: uniformBufferOffset, index: .uniforms)
+            for (i, vertexBuffer) in mesh.vertexBuffers.enumerated() {
+                renderEncoder.setVertexBuffer(vertexBuffer.buffer, offset: vertexBuffer.offset, index: .positions)
+            }
             renderEncoder.setFragmentTexture(texture, index: 0)
+            renderEncoder.setFragmentSamplerState(samplerState, index: 0)
 
             let submesh = mesh.submeshes[0]
             renderEncoder.drawIndexedPrimitives(type: .triangle, indexCount: submesh.indexCount, indexType: submesh.indexType, indexBuffer: submesh.indexBuffer.buffer, indexBufferOffset: 0)

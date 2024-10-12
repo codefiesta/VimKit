@@ -9,6 +9,7 @@ import Combine
 import MetalKit
 import SwiftUI
 
+#if !os(visionOS)
 private struct VimContainerViewRendererContext: VimRendererContext {
 
     public var vim: Vim
@@ -83,3 +84,4 @@ public struct VimContainerView: ViewReprentable {
         mtkView.addGestureRecognizer(gesture)
     }
 }
+#endif

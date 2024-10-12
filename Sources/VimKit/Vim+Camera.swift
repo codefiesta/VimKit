@@ -336,12 +336,8 @@ extension Vim.Camera {
         // Get the current device anchor
         guard let deviceAnchor = drawable.deviceAnchor else { return }
 
-        let view = drawable.views[index]
-        let tangents = view.tangents
-        let depthRange = drawable.depthRange
-
-        let projectiveTransform = ProjectiveTransform3D(tangents: tangents, depthRange: depthRange)
-        projectionMatrix = .init(projectiveTransform)
+        let projection = drawable.computeProjection(convention: .rightUpForward, viewIndex: index)
+        projectionMatrix = projection
         transform = sceneTransform * deviceAnchor.originFromAnchorTransform
         position *= velocity
         frustum.update(self)
