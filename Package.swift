@@ -53,8 +53,7 @@ let package = Package(
         ),
         .testTarget(
             name: "VimKitTests",
-            dependencies: ["VimKit"],
-            resources: [.copy("Resources/sample.vim")]
+            dependencies: ["VimKit"]
         )
     ]
 )

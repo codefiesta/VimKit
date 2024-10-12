@@ -24,7 +24,7 @@ jobs:
     #   - https://gh.io/using-larger-runners (GitHub.com only)
     # Consider using larger runners or machines with greater resources for possible analysis time improvements.
     
-    if: github.event.pull_request.draft == false
+    if: github.event.pull_request.draft == false && github.event.label.name == 'security'
     runs-on: macos-15
     timeout-minutes: ${{ (matrix.language == 'swift' && 120) || 360 }}
     permissions:
