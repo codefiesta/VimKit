@@ -16,6 +16,10 @@ let package = Package(
             targets: ["VimKit"]
         ),
         .library(
+            name: "VimKitShaders",
+            targets: ["VimKitShaders"]
+        ),
+        .library(
             name: "VimKitCompositor",
             targets: ["VimKitCompositor"]
         )
