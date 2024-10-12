@@ -8,7 +8,6 @@
 import GameController
 import MetalKit
 
-#if os(iOS)
 /// Provides a coordinator that is responsible for rendering into it's MTKView representable.
 @MainActor
 public class VimContainerViewCoordinator: NSObject, MTKViewDelegate {
@@ -38,8 +37,26 @@ public class VimContainerViewCoordinator: NSObject, MTKViewDelegate {
 
 extension VimContainerViewCoordinator {
 
+#if os(macOS)
+
     @objc
-    func handleTap(_ gesture: UITapGestureRecognizer) {
+    func handleTap(_ gesture: NSGestureRecognizer) {
+        guard let view = gesture.view else { return }
+        switch gesture.state {
+        case .recognized:
+            let location = gesture.location(in: view)
+            let point: SIMD2<Float> = [Float(location.x), Float(location.y)]
+            renderer.didTap(at: point)
+        default:
+            break
+        }
+
+    }
+
+#else
+
+    @objc
+    func handleTap(_ gesture: UIGestureRecognizer) {
 
         guard let view = gesture.view else { return }
         switch gesture.state {
@@ -51,6 +68,7 @@ extension VimContainerViewCoordinator {
             break
         }
     }
+#endif
 }
 
 // MARK: Keyboard Events
@@ -110,5 +128,3 @@ extension VimContainerViewCoordinator {
         }
     }
 }
-
-#endif
