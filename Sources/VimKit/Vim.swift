@@ -269,7 +269,7 @@ extension Vim: URLSessionTaskDelegate {
     public func urlSession(_ session: URLSession, didCreateTask task: URLSessionTask) {
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
-            self.progress.addChild(task.progress, withPendingUnitCount: 0)
+            self.progress.addChild(task.progress, withPendingUnitCount: 1)
         }
     }
 }

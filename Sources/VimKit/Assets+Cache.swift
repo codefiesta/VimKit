@@ -24,9 +24,10 @@ extension Assets {
     public func image(from name: String?) -> Image? {
 
         guard let name else { return nil }
+        let cacheKey = sha256Hash + "." + name
 
         // 1) Try to fetch the image straight out of the cache
-        if let image = ImageCache.shared.image(for: name) {
+        if let image = ImageCache.shared.image(for: cacheKey) {
             return .init(cacheType: image)
         }
 
@@ -36,7 +37,7 @@ extension Assets {
         }
 
         // 3) If we were able to load the image data, stick it in the cache
-        ImageCache.shared.insert(image, for: name)
+        ImageCache.shared.insert(image, for: cacheKey)
         return .init(cacheType: image)
     }
 }
@@ -77,10 +78,49 @@ fileprivate extension Image {
     /// Convenience initializer that takes an argument of the typealias CacheType.
     /// - Parameter cacheType: the cache type (NSImage on macOS and UIImage for other platforms)
     init(cacheType: CacheType) {
-        #if os(macOS)
+#if os(macOS)
         self.init(nsImage: cacheType)
-        #else
+#else
         self.init(uiImage: cacheType)
-        #endif
+#endif
+    }
+
+    init?(cacheType: CacheType, path: String) {
+        guard let image: CacheType = .init(contentsOfFile: path) else { return nil }
+#if os(macOS)
+        self.init(nsImage: image)
+#else
+        self.init(uiImage: image)
+#endif
+    }
+
+}
+
+public extension Image {
+
+    /// Attempt to load an image from a cached file.
+    /// - Parameter file: the name of the cached file
+    init?(file name: String?) {
+        guard let name else { return nil }
+
+        let cacheKey = name
+
+        // 1) Try to fetch the image straight out of the cache
+        if let image = ImageCache.shared.image(for: cacheKey) {
+            self.init(cacheType: image)
+            return
+        }
+
+        // 2) Try and create the image straight from the file contents
+        let fileURL = FileManager.default.cacheDirectory.appending(path: cacheKey)
+        guard FileManager.default.fileExists(atPath: fileURL.path),
+            let image: CacheType = .init(contentsOfFile: fileURL.path) else {
+            return nil
+        }
+
+        // Insert the image into the cache
+        ImageCache.shared.insert(image, for: cacheKey)
+
+        self.init(cacheType: image)
     }
 }

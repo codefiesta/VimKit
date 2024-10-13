@@ -12,15 +12,40 @@ public class Assets {
 
     private let bfast: BFast
 
-    /// Initializer
-    init(_ bfast: BFast) {
-        self.bfast = bfast
-    }
+    /// Convenience var for accessing the SHA 256 hash of this asset buffer.
+    public lazy var sha256Hash: String = {
+        bfast.sha256Hash
+    }()
 
     /// Returns all of the asset names
     public lazy var names: [String] = {
         bfast.buffers.map { $0.name }
     }()
+
+    /// The preview image extension.
+    private let previewImageExtension: String = "png"
+
+    /// The name of the default preview image file name.
+    public lazy var previewImageName: String = {
+        sha256Hash + "." + previewImageExtension
+    }()
+
+    /// Initializer
+    init(_ bfast: BFast) {
+        self.bfast = bfast
+        extractPreviewImage()
+    }
+
+    /// Extracts the preview image from the last buffer as a .png image.
+    private func extractPreviewImage() {
+        guard let bufferName = names.last,
+                let data = data(bufferName) else { return }
+
+        let fileURL = FileManager.default.cacheDirectory.appendingPathComponent(previewImageName)
+        if !FileManager.default.fileExists(atPath: fileURL.path) {
+            try? data.write(to: fileURL)
+        }
+    }
 
     /// Returns the raw data for the asset name
     public func data(_ name: String) -> Data? {
