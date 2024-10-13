@@ -95,11 +95,6 @@ public class Geometry: ObservableObject, @unchecked Sendable {
                 attributes.append(attribute)
             }
         }
-
-        let loadTask = Task {
-            await load()
-        }
-        tasks.append(loadTask)
     }
 
     /// Cancels all running tasks.
@@ -112,7 +107,7 @@ public class Geometry: ObservableObject, @unchecked Sendable {
     }
 
     /// Asynchronously loads the geometry structures and Metal buffers.
-    private func load() async {
+    public func load() async {
 
         let start = Date.now
         defer {

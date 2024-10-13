@@ -14,8 +14,8 @@ public class Vim: NSObject, ObservableObject, @unchecked Sendable {
     /// Represents the state of our file
     public enum State: Equatable, Sendable {
         case unknown
-        case initializing
         case downloading
+        case downloaded
         case loading
         case ready
         case error(String)
@@ -77,6 +77,9 @@ public class Vim: NSObject, ObservableObject, @unchecked Sendable {
     @Published
     public var options: Options
 
+    /// The source url of the file.
+    public var url: URL? = nil
+
     /// BFast Data Container
     private var bfast: BFast!
 
@@ -99,30 +102,36 @@ public class Vim: NSObject, ObservableObject, @unchecked Sendable {
         return bfast.totalByteSize
     }()
 
-    /// Initializes the VIM file from the specified url
+    /// Initializes the VIM file from the specified url.
     /// - Parameters:
-    ///   - url: the url of the vim file
-    public init(_ url: URL) {
+    ///   - url: the source url of the vim file
+    override public init() {
         self.camera = Camera()
         self.options = Options()
-        super.init()
-        Task {
-            await self.initialize(url)
-        }
     }
 
-    /// Initialixes the VIM file from the specified URL.
-    /// - Parameters:
-    ///   - url: the url of the vim file
-    private func initialize(_ url: URL) async {
+    public func load(from url: URL) async {
+        self.url = url
+        await download()
+    }
+
+    /// Downloads the vim file.
+    public func download() async {
+
+        guard let url else {
+            return publish(state: .error("💀 No url provided."))
+        }
+
         do {
             switch url.scheme {
             case "https":
                 publish(state: .downloading)
                 let localURL = try await Vim.Downloader.shared.download(url: url, delegate: self)
-                self.load(localURL)
+                publish(state: .downloaded)
+                await load(localURL)
             case "file":
-                self.load(url)
+                publish(state: .downloaded)
+                await load(url)
             default:
                 publish(state: .error("💀 Unable to handle url scheme [\(url.scheme ?? "")], please use file:// or https:// scheme"))
                 return
@@ -135,7 +144,7 @@ public class Vim: NSObject, ObservableObject, @unchecked Sendable {
     /// Loads the VIM file.
     /// - Parameters:
     ///   - url: the local url of the vim file
-    private func load(_ url: URL) {
+    private func load(_ url: URL) async {
 
         publish(state: .loading)
 

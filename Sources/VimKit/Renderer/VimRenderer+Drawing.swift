@@ -37,8 +37,10 @@ public extension VimRenderer {
 
     /// Renders a new frame.
     private func renderNewFrame() {
-        // Prepare the render descriptor
+
+        // Prepare the render pass descriptor
         buildRenderPassDescriptor()
+
         guard let geometry, geometry.state == .ready else { return }
         guard let renderPassDescriptor,
               let drawable = context.destinationProvider.currentDrawable,

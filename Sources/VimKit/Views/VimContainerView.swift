@@ -11,7 +11,6 @@ import SwiftUI
 
 #if !os(visionOS)
 private struct VimContainerViewRendererContext: VimRendererContext {
-
     public var vim: Vim
     public var destinationProvider: VimRenderDestinationProvider
 }
