@@ -1,5 +1,5 @@
 //
-//  VimContainerView.swift
+//  VimRendererContainerView.swift
 //
 //
 //  Created by Kevin McKee
@@ -23,8 +23,8 @@ private typealias ViewReprentable = UIViewRepresentable
 private typealias GestureRecognizerType = UITapGestureRecognizer
 #endif
 
-/// Provides a UIViewRepresentable wrapper around a MTKView
-public struct VimContainerView: ViewReprentable {
+/// Provides a UIViewRepresentable wrapper around an MTKView that is being driven by the `VimRenderer`.
+public struct VimRendererContainerView: ViewReprentable {
 
 #if os(macOS)
     public typealias NSViewType = MTKView
@@ -68,8 +68,8 @@ public struct VimContainerView: ViewReprentable {
 
 #endif
 
-    public func makeCoordinator() -> VimContainerViewCoordinator {
-        VimContainerViewCoordinator(self)
+    public func makeCoordinator() -> VimRendererContainerViewCoordinator {
+        VimRendererContainerViewCoordinator(self)
      }
 
     /// Adds gesture recognizers to the metal view.
