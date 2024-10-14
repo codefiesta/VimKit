@@ -122,9 +122,6 @@ extension VimRenderer {
         }
 
         /// Draws the skycube.
-        /// - Parameter renderEncoder: the render encoder to use.
-
-        /// Draws the skycube.
         /// - Parameters:
         ///   - renderEncoder: the render encoder to use.
         ///   - uniformBuffer: the uniform buffer
@@ -142,7 +139,7 @@ extension VimRenderer {
 
             // Set the buffers to pass to the GPU
             renderEncoder.setVertexBuffer(uniformBuffer, offset: uniformBufferOffset, index: .uniforms)
-            for (i, vertexBuffer) in mesh.vertexBuffers.enumerated() {
+            for (_, vertexBuffer) in mesh.vertexBuffers.enumerated() {
                 renderEncoder.setVertexBuffer(vertexBuffer.buffer, offset: vertexBuffer.offset, index: .positions)
             }
             renderEncoder.setFragmentTexture(texture, index: 0)

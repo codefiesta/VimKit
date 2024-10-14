@@ -1,5 +1,5 @@
 //
-//  VimContainerViewCoordinator.swift
+//  VimRendererContainerViewCoordinator.swift
 //  
 //
 //  Created by Kevin McKee
@@ -12,14 +12,14 @@ import MetalKit
 
 /// Provides a coordinator that is responsible for rendering into it's MTKView representable.
 @MainActor
-public class VimContainerViewCoordinator: NSObject, MTKViewDelegate {
+public class VimRendererContainerViewCoordinator: NSObject, MTKViewDelegate {
 
     let renderer: VimRenderer
-    let viewRepresentable: VimContainerView
+    let viewRepresentable: VimRendererContainerView
 
     /// Initializes the coordinator with the specified view representable.
     /// - Parameter viewRepresentable: the MTKView representable
-    init(_ viewRepresentable: VimContainerView) {
+    init(_ viewRepresentable: VimRendererContainerView) {
         self.viewRepresentable = viewRepresentable
         self.renderer = VimRenderer(viewRepresentable.renderContext)
         super.init()
@@ -37,7 +37,7 @@ public class VimContainerViewCoordinator: NSObject, MTKViewDelegate {
 
 // MARK: Gesture Recognizers
 
-extension VimContainerViewCoordinator {
+extension VimRendererContainerViewCoordinator {
 
 #if os(macOS)
 
@@ -75,7 +75,7 @@ extension VimContainerViewCoordinator {
 
 // MARK: Keyboard Events
 
-extension VimContainerViewCoordinator {
+extension VimRendererContainerViewCoordinator {
 
     // Navigates the current model with keyboard events
     fileprivate func keyPressed(keyCode: GCKeyCode) {
