@@ -77,6 +77,7 @@ public class VimCompositorRenderer: VimRenderer {
     }
 
     /// Starts the main render loop.
+    @MainActor
     public func start() {
         Task {
             await startTracking()

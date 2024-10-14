@@ -4,12 +4,11 @@
 //
 //  Created by Kevin McKee
 //
-#if canImport(CompositorServices)
-
+#if os(iOS) || os(visionOS)
 import ARKit
 import SwiftUI
 
-/// Provides an observable context that contains up-to-date
+/// Provides an observable context that provides ARKit
 public class DataProviderContext: ObservableObject, @unchecked Sendable {
 
     public struct HandUpdates {
@@ -117,5 +116,4 @@ public class DataProviderContext: ObservableObject, @unchecked Sendable {
         worldTrackingProvider.queryDeviceAnchor(atTimestamp: timestamp)
     }
 }
-
 #endif
