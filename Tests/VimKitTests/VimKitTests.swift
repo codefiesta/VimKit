@@ -20,21 +20,26 @@ final class VimKitTests: XCTestCase {
     func testLoadRemoteFile() async throws {
 
         // Downloads the `residence.vim` from the VIM samples
-        let urlString = "https://vim.azureedge.net/samples/residence.vim"
+        let urlString = "https://vim02.azureedge.net/samples/residence.v1.2.75.vim"
         let url = URL(string: urlString)!
-        let vim = Vim(url)
+        let vim: Vim = .init()
 
         // Subscribe to the file state
-        let readyExpection = self.expectation(description: "Ready")
+        let readyExpection = expectation(description: "Ready")
+
         vim.$state.sink { state in
             switch state {
-            case .unknown, .initializing, .downloading, .loading, .error:
-                break
+            case .unknown, .downloading, .downloaded, .loading, .error:
+                debugPrint(state)
             case .ready:
                 // The file is now ready to be read
                 readyExpection.fulfill()
             }
         }.store(in: &subscribers)
+
+        Task {
+            await vim.load(from: url)
+        }
 
         // Wait for the file to be downloaded and put into a ready state
         await fulfillment(of: [readyExpection], timeout: 30)
