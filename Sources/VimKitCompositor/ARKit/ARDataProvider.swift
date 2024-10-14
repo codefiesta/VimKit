@@ -1,15 +1,15 @@
 //
-//  DataProviderContext.swift
+//  ARDataProvider.swift
 //
 //
 //  Created by Kevin McKee
 //
-#if os(iOS) || os(visionOS)
+#if os(visionOS)
 import ARKit
 import SwiftUI
 
-/// Provides an observable context that provides ARKit
-public class DataProviderContext: ObservableObject, @unchecked Sendable {
+/// Provides an observable ARDataProvider that publishes ARKit DataProvider events.
+public class ARDataProvider: ObservableObject, @unchecked Sendable {
 
     public struct HandUpdates {
         var left: HandAnchor?

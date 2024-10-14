@@ -13,17 +13,17 @@ public struct VimImmersiveSpaceContent: ImmersiveSpaceContent {
 
     public var vim: Vim
     public var configuration: VimCompositorLayerConfiguration
-    public var dataProviderContext: DataProviderContext
+    public var dataProvider: ARDataProvider
 
     /// Initializes the ImmersiveSpaceContent with the specified vim file, configuration, and data provider context.
     /// - Parameters:
     ///   - vim: the vim file to render
     ///   - configuration: the rendering configuration
-    ///   - dataProviderContext: the data provider context that publishes events from ARKit hand + world tracking events.
-    public init(vim: Vim, configuration: VimCompositorLayerConfiguration = .init(), dataProviderContext: DataProviderContext) {
+    ///   - dataProvider: the ARKit data provider
+    public init(vim: Vim, configuration: VimCompositorLayerConfiguration = .init(), dataProvider: ARDataProvider) {
         self.vim = vim
         self.configuration = configuration
-        self.dataProviderContext = dataProviderContext
+        self.dataProvider = dataProvider
     }
 
     // Provides our immersive scene content that uses Metal for drawing.
@@ -35,9 +35,9 @@ public struct VimImmersiveSpaceContent: ImmersiveSpaceContent {
             let compositorContext = VimCompositorContext(
                 vim: vim,
                 layerRenderer: layerRenderer,
-                dataProviderContext: dataProviderContext
+                dataProvider: dataProvider
             )
-            
+
             // Start the engine
             let engine = VimCompositorRenderer(compositorContext)
             engine.start()
