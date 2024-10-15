@@ -46,20 +46,19 @@ extension VimRendererContainerViewCoordinator {
         guard let view = gesture.view else { return }
         switch gesture.state {
         case .recognized:
+            // TODO: Wrong location in NSView (most likely need to apply contentScaleFactor)
             let location = gesture.location(in: view)
             let point: SIMD2<Float> = [Float(location.x), Float(location.y)]
             renderer.didTap(at: point)
         default:
             break
         }
-
     }
 
 #else
 
     @objc
     func handleTap(_ gesture: UIGestureRecognizer) {
-
         guard let view = gesture.view else { return }
         switch gesture.state {
         case .recognized:

@@ -17,19 +17,19 @@ public struct VimCompositorContext: VimRendererContext, VimRenderDestinationProv
         self
     }
 
-    let dataProviderContext: DataProviderContext
+    let dataProvider: ARDataProvider
 
-    public init(vim: Vim, layerRenderer: LayerRenderer, dataProviderContext: DataProviderContext) {
+    public init(vim: Vim, layerRenderer: LayerRenderer, dataProvider: ARDataProvider) {
         self.vim = vim
         self.layerRenderer = layerRenderer
-        self.dataProviderContext = dataProviderContext
+        self.dataProvider = dataProvider
     }
 
     /// Queries the device anchor at the specified timestamp
     /// - Parameter timestamp: the timestamp of the device to query for
     /// - Returns: the anchor at the specified timestamp
     public func queryDeviceAnchor(_ timestamp: TimeInterval = CACurrentMediaTime()) -> DeviceAnchor? {
-        dataProviderContext.queryDeviceAnchor(timestamp)
+        dataProvider.queryDeviceAnchor(timestamp)
     }
 
     public var device: MTLDevice? {
