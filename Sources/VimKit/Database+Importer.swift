@@ -29,17 +29,15 @@ extension Database {
     /// - Parameters:
     ///   - limit: the max limit of models per entity to import
     @MainActor
-    public func `import`(limit: Int = .max) async {
+    public func `import`(limit: Int = .max) {
         switch state {
-        case .importing, .ready:
+        case .importing, .ready, .error(_):
             break
-            case .unknown:
+        case .unknown:
             Task {
                 let importer = Database.ImportActor(self)
                 await importer.import(limit)
             }
-        case .error(_):
-            break
         }
     }
 
