@@ -231,6 +231,17 @@ public class Database: ObservableObject, @unchecked Sendable {
         }
     }
 
+    /// Represents the observable state of our database.
+    public enum State: Equatable, Sendable {
+        case unknown
+        case importing
+        case ready
+        case error(String)
+    }
+
+    @MainActor @Published
+    public var state: State = .unknown
+
     /// The tables contained inside this buffer
     var tables = [String: Table]()
 
@@ -276,6 +287,14 @@ public class Database: ObservableObject, @unchecked Sendable {
         for (_, buffer) in bfast.buffers.enumerated() {
             guard let table = Table(buffer, stringDataProvider) else { continue }
             tables[table.name.replacingOccurrences(of: "Vim.", with: "")] = table
+        }
+    }
+
+    /// Publishes the database state onto the main thread.
+    /// - Parameter state: the new state to publish
+    func publish(state: State) {
+        DispatchQueue.main.async {
+            self.state = state
         }
     }
 

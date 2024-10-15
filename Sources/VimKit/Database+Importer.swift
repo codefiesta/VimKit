@@ -27,11 +27,20 @@ extension Database {
 
     /// Starts the import process.
     /// - Parameters:
-    ///   - isStoredInMemoryOnly: if set to true, the model container is only stored in memory
     ///   - limit: the max limit of models per entity to import
+    @MainActor
     public func `import`(limit: Int = .max) async {
-        let importer = Database.ImportActor(self)
-        await importer.import(limit)
+        switch state {
+        case .importing, .ready:
+            break
+            case .unknown:
+            Task {
+                let importer = Database.ImportActor(self)
+                await importer.import(limit)
+            }
+        case .error(_):
+            break
+        }
     }
 
     /// A thread safe actor type that handles the importing
@@ -61,9 +70,13 @@ extension Database {
         /// Starts the import process.
         /// - Parameter limit: the max limit of models per entity to import
         func `import`(_ limit: Int = .max) {
-
             defer {
-                try? modelExecutor.modelContext.save()
+                do {
+                    try modelExecutor.modelContext.save()
+                    database.publish(state: .ready)
+                } catch (let error) {
+                    database.publish(state: .error(error.localizedDescription))
+                }
             }
 
             let start = Date.now
