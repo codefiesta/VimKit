@@ -113,6 +113,7 @@ public class Vim: NSObject, ObservableObject, @unchecked Sendable {
     ///   - url: the source url of the vim file
     public func load(from url: URL) async {
         self.url = url
+        publish(state: .unknown)
         await download()
     }
 
