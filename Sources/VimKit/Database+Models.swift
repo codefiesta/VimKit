@@ -91,8 +91,8 @@ extension Database {
         Material.self,
         MaterialInElement.self,
         Node.self,
-        Parameter.self,
         ParameterDescriptor.self,
+        Parameter.self,
         Room.self,
         View.self,
         Workset.self,
@@ -752,10 +752,13 @@ extension Database {
         @Attribute(.unique)
         public var index: Int64
         public var value: String
+
         /// Provides a convenience formatted value if the value is pipe delimited.
+        @Transient
         public var formattedValue: String {
             value.contains("|") ? String(value.split(separator: "|").last!) : value
         }
+
         public var descriptor: ParameterDescriptor?
         public var element: Element?
 
