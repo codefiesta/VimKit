@@ -43,12 +43,16 @@ extension VimRendererContainerViewCoordinator {
 
     @objc
     func handleTap(_ gesture: NSGestureRecognizer) {
-        guard let view = gesture.view else { return }
+        guard let view = gesture.view, let screen = NSScreen.main else { return }
         switch gesture.state {
         case .recognized:
-            // TODO: Wrong location in NSView (most likely need to apply contentScaleFactor)
+            let contentScaleFactor = Float(screen.backingScaleFactor)
+            // NSView 0,0 is in the lower left with positive values of Y going up.
+            // where UIView 0,0 is in the top left with positive values of Y going down
+            let frame = view.frame
             let location = gesture.location(in: view)
-            let point: SIMD2<Float> = [Float(location.x), Float(location.y)]
+            let y = frame.height - location.y // Flip the Y coordinate
+            let point: SIMD2<Float> = [Float(location.x), Float(y)] * contentScaleFactor
             renderer.didTap(at: point)
         default:
             break
