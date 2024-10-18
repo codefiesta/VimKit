@@ -11,24 +11,24 @@ import Foundation
 /// Provides a Swift wrapper around NSCache.
 final class Cache<Key: Hashable, Value> {
 
-    private let wrapped = NSCache<WrappedKey, Entry>()
+    private let storage = NSCache<WrappedKey, Entry>()
     private let lock = NSLock()
 
     var countLimit: Int {
         get {
-            wrapped.countLimit
+            storage.countLimit
         }
         set {
-            wrapped.countLimit = newValue
+            storage.countLimit = newValue
         }
     }
 
     var totalCostLimit: Int {
         get {
-            wrapped.totalCostLimit
+            storage.totalCostLimit
         }
         set {
-            wrapped.totalCostLimit = newValue
+            storage.totalCostLimit = newValue
         }
     }
 
@@ -36,19 +36,19 @@ final class Cache<Key: Hashable, Value> {
         lock.lock()
         defer { lock.unlock() }
         let entry = Entry(value: value)
-        wrapped.setObject(entry, forKey: WrappedKey(key))
+        storage.setObject(entry, forKey: WrappedKey(key))
     }
 
     func value(for key: Key) -> Value? {
         lock.lock()
         defer { lock.unlock() }
-        return wrapped.object(forKey: WrappedKey(key))?.value
+        return storage.object(forKey: WrappedKey(key))?.value
     }
 
     func removeValue(for key: Key) {
         lock.lock()
         defer { lock.unlock() }
-        wrapped.removeObject(forKey: WrappedKey(key))
+        storage.removeObject(forKey: WrappedKey(key))
     }
 
     subscript(key: Key) -> Value? {
