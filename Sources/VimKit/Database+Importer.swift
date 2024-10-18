@@ -10,9 +10,9 @@ import Foundation
 import SwiftData
 
 private typealias CacheKey = String
-private let cacheCountLimit = 10000
+private let cacheCountLimit = 10000 * 2
 private let cacheTotalCostLimit = 1024 * 1024 * 8
-private let batchSize = cacheCountLimit
+private let batchSize = 10000
 
 extension Database {
 
@@ -38,12 +38,18 @@ extension Database {
             case .importing, .ready, .error(_):
                 return false
             case .unknown:
+                // Check the tracker
+                if let running = ImportTaskTracker.shared.tasks[sha256Hash] {
+                    debugPrint("💩 Task already running")
+                    publish(state: .importing)
+                    return false
+                }
                 return true
             }
         }
-
         let shouldImport = await checkTask.value
         if shouldImport {
+            ImportTaskTracker.shared.tasks[sha256Hash] = true
             let importer = Database.ImportActor(self)
             await importer.import(limit)
         }
@@ -77,6 +83,8 @@ extension Database {
         /// - Parameter limit: the max limit of models per entity to import
         func `import`(_ limit: Int = .max) {
             defer {
+                // Remove the task from the tracker
+                ImportTaskTracker.shared.tasks.removeValue(forKey: database.sha256Hash)
                 do {
                     try modelExecutor.modelContext.save()
                     database.publish(state: .ready)
@@ -356,4 +364,13 @@ extension Database {
             cache.removeAll()
         }
     }
+}
+
+/// A singleton that keeps track of current import tasks.
+fileprivate class ImportTaskTracker: @unchecked Sendable {
+
+    static let shared = ImportTaskTracker()
+
+    /// Import tasks.
+    var tasks = [String: Bool]()
 }
