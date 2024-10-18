@@ -42,7 +42,8 @@ extension Assets {
     }
 }
 
-/// Provides an image cache that holds the platform specific cache types (NSImage on macOS and UIImage for other platforms).
+/// Provides a singleton asset image cache that holds the platform specific
+/// cache types (NSImage on macOS and UIImage for other platforms).
 final class ImageCache: @unchecked Sendable {
 
     /// The shared image cache.
@@ -79,6 +80,10 @@ fileprivate extension Image {
 #endif
     }
 
+    /// Initialization wrapper.
+    /// - Parameters:
+    ///   - cacheType: the platform specific cache type (NSImage or UIImage)
+    ///   - path: the image content path
     init?(cacheType: CacheType, path: String) {
         guard let image: CacheType = .init(contentsOfFile: path) else { return nil }
 #if os(macOS)

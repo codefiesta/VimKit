@@ -9,7 +9,10 @@ import Combine
 import Foundation
 import SwiftData
 
-fileprivate typealias CacheKey = String
+private typealias CacheKey = String
+private let cacheCountLimit = 10000
+private let cacheTotalCostLimit = 1024 * 1024 * 8
+private let batchSize = cacheCountLimit
 
 extension Database {
 
@@ -28,16 +31,21 @@ extension Database {
     /// Starts the import process.
     /// - Parameters:
     ///   - limit: the max limit of models per entity to import
-    @MainActor
-    public func `import`(limit: Int = .max) {
-        switch state {
-        case .importing, .ready, .error(_):
-            break
-        case .unknown:
-            Task {
-                let importer = Database.ImportActor(self)
-                await importer.import(limit)
+    public func `import`(limit: Int = .max) async {
+        // Check if the import should
+        let checkTask = Task { @MainActor in
+            switch state {
+            case .importing, .ready, .error(_):
+                return false
+            case .unknown:
+                return true
             }
+        }
+
+        let shouldImport = await checkTask.value
+        if shouldImport {
+            let importer = Database.ImportActor(self)
+            await importer.import(limit)
         }
     }
 
@@ -49,7 +57,6 @@ extension Database {
         @MainActor @Published
         var progress = Progress(totalUnitCount: Int64(Database.models.count))
 
-        let batchSize = 1000 * 10
         let database: Database
         let modelContainer: ModelContainer
         let modelExecutor: ModelExecutor
@@ -61,8 +68,9 @@ extension Database {
         init(_ database: Database) {
             self.database = database
             self.modelContainer = database.modelContainer
-            self.modelExecutor = DefaultSerialModelExecutor(modelContext: ModelContext(modelContainer))
-            self.cache = ImportCache(modelExecutor)
+            let modelContext = ModelContext(modelContainer)
+            self.modelExecutor = DefaultSerialModelExecutor(modelContext: modelContext)
+            self.cache = ImportCache(modelContext)
         }
 
         /// Starts the import process.
@@ -86,15 +94,15 @@ extension Database {
                     debugPrint("􁃎 [\(modelName)] - skipping cache warming")
                     continue
                 }
-                warmCache(modelType, limit)
+                warmCache(modelType, cacheCountLimit)
             }
 
             for modelType in Database.models {
 
                 // Update the progress whether we skip import or not
                 defer {
-                    Task {
-                        await progress.completedUnitCount += 1
+                    Task { @MainActor in
+                        progress.completedUnitCount += 1
                     }
                 }
 
@@ -213,13 +221,13 @@ extension Database {
 
     public final class ImportCache {
 
-        let modelExecutor: ModelExecutor
+        let modelContext: ModelContext
         private var caches = [CacheKey: ModelCache]()
 
         /// Initializer.
-        /// - Parameter modelExecutor: the model executor to use for cache lookups.
-        init(_ modelExecutor: ModelExecutor) {
-            self.modelExecutor = modelExecutor
+        /// - Parameter modelContext: the model context to use
+        init(_ modelContext: ModelContext) {
+            self.modelContext = modelContext
         }
 
         /// Warms the cache to a specific size
@@ -246,7 +254,7 @@ extension Database {
         /// - Returns: a model cache with the specified key
         private func findOrCreateCache(_ cacheKey: CacheKey) -> ModelCache {
             guard let cache = caches[cacheKey] else {
-                let cache = ModelCache(modelExecutor)
+                let cache = ModelCache(modelContext)
                 caches[cacheKey] = cache
                 return cache
             }
@@ -263,18 +271,20 @@ extension Database {
 
     fileprivate final class ModelCache {
 
-        private let modelExecutor: ModelExecutor
-        private var models = [Int64: any IndexedPersistentModel]()
+        private let modelContext: ModelContext
+
+        private lazy var cache: Cache<Int64, any IndexedPersistentModel> = {
+            let cache = Cache<Int64, any IndexedPersistentModel>()
+            cache.countLimit = cacheCountLimit
+            cache.totalCostLimit = cacheTotalCostLimit
+            cache.evictsObjectsWithDiscardedContent = true
+            return cache
+        }()
 
         /// Initializer.
-        /// - Parameter modelExecutor: the model executor to use
-        init(_ modelExecutor: ModelExecutor) {
-            self.modelExecutor = modelExecutor
-        }
-
-        /// Returns true if the cache is empty.
-        var isEmpty: Bool {
-            models.count > 0
+        /// - Parameter modelContext: the model context to use
+        init(_ modelContext: ModelContext) {
+            self.modelContext = modelContext
         }
 
         /// Warms the cache up to the specified index size. Any entities that
@@ -284,16 +294,16 @@ extension Database {
         @discardableResult
         func warm<T>(_ size: Int) -> [T] where T: IndexedPersistentModel {
             let cacheKey: CacheKey = T.modelName
-            if models.isNotEmpty || size <= .zero {
+            if size <= .zero {
                 debugPrint("􂂼 [\(cacheKey)] - skipping warm - [\(models.count)] [\(size)]")
                 return []
             }
             debugPrint("􁰹 [\(cacheKey)] - warming cache [\(size)]")
             let start = Date.now
 
-            let results = T.fetch(in: modelExecutor.modelContext)
+            let results = T.fetch(in: modelContext)
             results.forEach { model in
-                models[model.index] = model
+                cache[model.index] = model
             }
 
             if results.count == size {
@@ -304,14 +314,14 @@ extension Database {
 
             let range: Range<Int64> = 0..<Int64(size)
             let indexes = Set(range)
-            let cacheHits = Set(models.keys)
+            let cacheHits = Set(results.map{ $0.index })
             let cacheMisses = indexes.subtracting(cacheHits)
             for index in cacheMisses {
                 let model: T = .init()
                 model.index = index
-                modelExecutor.modelContext.insert(model)
+                modelContext.insert(model)
                 assert(model.index != .empty)
-                models[index] = model
+                cache[index] = model
             }
             let timeInterval = abs(start.timeIntervalSinceNow)
             debugPrint("􂂼 [\(cacheKey)] - cache created [\(size)] with [\(cacheMisses.count)] misses in [\(timeInterval.stringFromTimeInterval())]")
@@ -322,20 +332,20 @@ extension Database {
         /// - Parameter index: the entity index.
         /// - Returns: an entity with the specified index.
         func findOrCreate<T>(_ index: Int64) -> T where T: IndexedPersistentModel {
-            guard let model = models[index] as? T else {
+            guard let model = cache[index] as? T else {
                 let predicate = T.predicate(index)
                 var fetchDescriptor = FetchDescriptor<T>(predicate: predicate)
                 fetchDescriptor.fetchLimit = 1
-                guard let results = try? modelExecutor.modelContext.fetch(fetchDescriptor), results.isNotEmpty else {
+                guard let results = try? modelContext.fetch(fetchDescriptor), results.isNotEmpty else {
                     let model: T = .init()
                     model.index = index
-                    modelExecutor.modelContext.insert(model)
+                    modelContext.insert(model)
                     assert(model.index != .empty)
-                    models[index] = model
+                    cache[index] = model
                     return model
                 }
                 let result = results[0]
-                models[index] = result
+                cache[index] = result
                 return result
             }
             return model
@@ -343,7 +353,7 @@ extension Database {
 
         /// Empties the cache entries.
         func empty() {
-            models.removeAll()
+            cache.removeAll()
         }
     }
 }

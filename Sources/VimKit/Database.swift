@@ -292,7 +292,7 @@ public class Database: ObservableObject, @unchecked Sendable {
     /// Publishes the database state onto the main thread.
     /// - Parameter state: the new state to publish
     func publish(state: State) {
-        DispatchQueue.main.async {
+        Task { @MainActor in
             self.state = state
         }
     }
