@@ -27,7 +27,7 @@ extension Assets {
         let cacheKey = sha256Hash + "." + name
 
         // 1) Try to fetch the image straight out of the cache
-        if let image = ImageCache.shared.image(for: cacheKey) {
+        if let image = ImageCache.shared[cacheKey] {
             return .init(cacheType: image)
         }
 
@@ -48,28 +48,22 @@ final class ImageCache: @unchecked Sendable {
     /// The shared image cache.
     static let shared: ImageCache = ImageCache()
 
-    private lazy var cache: NSCache<AnyObject, CacheType> = {
-        let cache = NSCache<AnyObject, CacheType>()
+    fileprivate lazy var cache: Cache<String, CacheType> = {
+        let cache = Cache<String, CacheType>()
         cache.countLimit = countLimit
         return cache
     }()
 
-    private let lock = NSLock()
-
     fileprivate func insert(_ image: CacheType, for key: String) {
-        lock.lock()
-        defer { lock.unlock() }
-        cache.setObject(image, forKey: key as AnyObject)
+        cache.insert(image, for: key)
     }
 
-    fileprivate func image(for key: String) -> CacheType? {
-        lock.lock()
-        defer { lock.unlock() }
-        return cache.object(forKey: key as AnyObject)
+    fileprivate func value(for key: String) -> CacheType? {
+        cache.value(for: key)
     }
 
     fileprivate subscript(_ key: String) -> CacheType? {
-        image(for: key)
+        cache[key]
     }
 }
 
@@ -106,7 +100,7 @@ public extension Image {
         let cacheKey = name
 
         // 1) Try to fetch the image straight out of the cache
-        if let image = ImageCache.shared.image(for: cacheKey) {
+        if let image = ImageCache.shared[cacheKey] {
             self.init(cacheType: image)
             return
         }
