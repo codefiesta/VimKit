@@ -167,7 +167,7 @@ public class Geometry: ObservableObject, @unchecked Sendable {
     /// Publishes the geometry buffer state onto the main thread.
     /// - Parameter state: the new state to publish
     private func publish(state: State) {
-        DispatchQueue.main.async {
+        Task { @MainActor in
             self.state = state
         }
     }
@@ -175,7 +175,7 @@ public class Geometry: ObservableObject, @unchecked Sendable {
     /// Increments the progress count by the specfied number of completed units on the main thread.
     /// - Parameter count: the number of units completed
     private func incrementProgressCount(_ count: Int64 = 1) {
-        DispatchQueue.main.async {
+        Task { @MainActor in
             self.progress.completedUnitCount += count
         }
     }
