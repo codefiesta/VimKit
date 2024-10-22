@@ -113,7 +113,6 @@ public class Vim: NSObject, ObservableObject, @unchecked Sendable {
     ///   - url: the source url of the vim file
     public func load(from url: URL) async {
         self.url = url
-        publish(state: .unknown)
         await download()
     }
 
@@ -121,6 +120,8 @@ public class Vim: NSObject, ObservableObject, @unchecked Sendable {
     /// The downloader checks the sha256Hash of the source file to see if we have a file with that name in the cache directory.
     /// If no file exist it will be downloaded, otherwise the file will be loaded from it's local cached file url.
     private func download() async {
+        // Reset the file state to unknown as a renderer may be currently running.
+        publish(state: .unknown)
 
         guard let url else {
             return publish(state: .error("💀 No url provided."))
