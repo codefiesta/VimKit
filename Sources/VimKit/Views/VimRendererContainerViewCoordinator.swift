@@ -10,6 +10,20 @@ import MetalKit
 
 #if !os(visionOS)
 
+/// Keyboard navigation keys.
+private let keys: [GCKeyCode] = [
+    .keyW,
+    .keyS,
+    .keyA,
+    .keyD,
+    .keyE,
+    .keyQ,
+    .leftArrow,
+    .upArrow,
+    .rightArrow,
+    .downArrow
+]
+
 /// Provides a coordinator that is responsible for rendering into it's MTKView representable.
 @MainActor
 public class VimRendererContainerViewCoordinator: NSObject, MTKViewDelegate {
@@ -125,7 +139,6 @@ extension VimRendererContainerViewCoordinator {
     // See: https://developer.apple.com/videos/play/wwdc2020/10617
     func pollKeyboardInput() {
         guard let keyboard = GCKeyboard.coalesced?.keyboardInput else { return }
-        let keys: [GCKeyCode] = [.keyW, .keyS, .keyA, .keyD, .keyE, .keyQ, .leftArrow, .upArrow, .rightArrow, .downArrow]
         for key in keys {
             if keyboard.button(forKeyCode: key)?.isPressed ?? false {
                 keyPressed(keyCode: key)
