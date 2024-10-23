@@ -37,6 +37,14 @@ public class VimCompositorRenderer: VimRenderer {
         self.clock = LayerRenderer.Clock()
         super.init(context)
 
+        // Wait for geometry to load into a ready state
+        context.vim.geometry?.$state.sink { state in
+            Task { @MainActor in
+                guard state == .ready else { return }
+                self.start()
+            }
+        }.store(in: &subscribers)
+
         // Subscribe to hand tracking updates
         context.dataProvider.$handUpdates.sink { (_) in
         }.store(in: &subscribers)
@@ -172,7 +180,7 @@ extension VimCompositorRenderer {
                 cameraPosition: camera.position,
                 viewMatrix: camera.viewMatrix,
                 projectionMatrix: camera.projectionMatrix,
-                sceneTransform: camera.transform
+                sceneTransform: camera.sceneTransform
             )
         }
 

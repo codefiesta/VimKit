@@ -38,9 +38,8 @@ public struct VimImmersiveSpaceContent: ImmersiveSpaceContent {
                 dataProvider: dataProvider
             )
 
-            // Start the engine
+            // Initiate the rendering engine
             let engine = VimCompositorRenderer(compositorContext)
-            engine.start()
         }
     }
 }

@@ -28,7 +28,7 @@ extension Vim {
 
         /// Holds our scene rotation transform which is used to
         /// convert from other cameras (such as ARKit or VisionPro).
-        var sceneTransform: float4x4 = .identity
+        public var sceneTransform: float4x4 = .identity
 
         /// The position and orientation of the camera in world coordinate space.
         /// The transform follows left-handed convention where the postive z-axis points up and the
