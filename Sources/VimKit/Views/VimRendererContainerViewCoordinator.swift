@@ -37,6 +37,10 @@ public class VimRendererContainerViewCoordinator: NSObject, MTKViewDelegate {
         self.viewRepresentable = viewRepresentable
         self.renderer = VimRenderer(viewRepresentable.renderContext)
         super.init()
+        #if os(macOS)
+        // Prevent the macOS beeping on keyDown events
+        NSEvent.addLocalMonitorForEvents(matching: .keyDown) { _ in nil }
+        #endif
     }
 
     public func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {
