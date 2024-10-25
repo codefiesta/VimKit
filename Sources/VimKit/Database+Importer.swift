@@ -272,7 +272,6 @@ extension Database {
             defer {
                 let timeInterval = abs(start.timeIntervalSinceNow)
                 debugPrint("􂂼 [Batch] inserted [\(batchCount)] models in [\(timeInterval.stringFromTimeInterval())]")
-
             }
 
             try? modelContext.transaction {
