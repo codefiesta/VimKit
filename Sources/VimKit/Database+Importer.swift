@@ -259,7 +259,9 @@ extension Database {
             return cache.warm(size)
         }
 
-        /// Performs a batch insert of cached models.
+        /// Performs a batch insert of cached models. This is a performance optimization
+        /// that wraps all model context inserts into a single transaction and performs a single save to
+        /// avoid the overhead of writing to disk.
         func batchInsert() {
             debugPrint("􀈄 [Batch] inserting models from cache.")
 
@@ -337,6 +339,8 @@ extension Database {
 
         /// Warms the cache up to the specified index size. Any entities that
         /// have cache index misses are stubbed out skeletons that can later be filled in with `.update(data:cache:)`.
+        /// Please note that he models that are inserted into the cache are not inserted into the model context. As an import optimization,
+        /// all of the models are are inserted via the `.batchInsert()` method.
         /// - Parameter size: the upper bounds of the model index size
         /// - Returns: empty results for now, simply used to infer type from the generic - could be reworked
         @discardableResult
