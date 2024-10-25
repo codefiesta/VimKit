@@ -8,8 +8,10 @@
 import Foundation
 
 /// Provides a Swift wrapper around NSCache.
-final class Cache<Key: Hashable, Value> {
+final class Cache<Key: Hashable, Value>: @unchecked Sendable {
 
+    /// Holds a set of cache keys.
+    var keys: Set<Key> = .init()
     /// The backing storage of this cache.
     private let storage = NSCache<WrappedKey, Entry>()
     /// The lock mechanism.
@@ -54,6 +56,7 @@ final class Cache<Key: Hashable, Value> {
         defer { lock.unlock() }
         let entry = Entry(value: value)
         storage.setObject(entry, forKey: WrappedKey(key))
+        keys.insert(key)
     }
 
     /// Returns the value associated with a given key.
@@ -71,6 +74,7 @@ final class Cache<Key: Hashable, Value> {
         lock.lock()
         defer { lock.unlock() }
         storage.removeObject(forKey: WrappedKey(key))
+        keys.remove(key)
     }
 
     /// Empties the cache.
@@ -78,6 +82,7 @@ final class Cache<Key: Hashable, Value> {
         lock.lock()
         defer { lock.unlock() }
         storage.removeAllObjects()
+        keys.removeAll()
     }
 
     /// Convenience subscript to retrive or set the value for the  given key.

@@ -60,7 +60,7 @@ final class DatabaseTests: XCTestCase {
         XCTAssertNotNil(modelContainer)
 
         let importer = Database.ImportActor(db)
-        await importer.import(100)
+        await importer.import()
 
         // TODO: I kinda hate this while loop, but need to figure out how to observe async published vars
         var isFinished = false
