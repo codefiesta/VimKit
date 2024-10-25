@@ -8,7 +8,7 @@
 import Foundation
 
 /// Provides a Swift wrapper around NSCache.
-final class Cache<Key: Hashable, Value> {
+final class Cache<Key: Hashable, Value>: @unchecked Sendable {
 
     /// The backing storage of this cache.
     private let storage = NSCache<WrappedKey, Entry>()

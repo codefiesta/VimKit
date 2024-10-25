@@ -10,9 +10,8 @@ import Foundation
 import SwiftData
 
 private typealias CacheKey = String
-private let cacheCountLimit = 10000 * 2
 private let cacheTotalCostLimit = 1024 * 1024 * 8
-private let batchSize = 10000
+private let batchSize = 10000 * 5
 
 extension Database {
 
