@@ -31,6 +31,7 @@ extension Database {
     /// - Parameters:
     ///   - limit: the max limit of models per entity to import
     public func `import`(limit: Int = .max) async {
+
         // Check if the import should
         let checkTask = Task { @MainActor in
             switch state {
@@ -38,7 +39,7 @@ extension Database {
                 return false
             case .unknown:
                 // Check the tracker
-                if let running = ImportTaskTracker.shared.tasks[sha256Hash] {
+                if let _ = ImportTaskTracker.shared.tasks[sha256Hash] {
                     debugPrint("💩 Task already running")
                     publish(state: .importing)
                     return false
@@ -46,7 +47,9 @@ extension Database {
                 return true
             }
         }
+
         let shouldImport = await checkTask.value
+
         if shouldImport {
             ImportTaskTracker.shared.tasks[sha256Hash] = true
             let importer = Database.ImportActor(self)
@@ -66,6 +69,12 @@ extension Database {
         let modelContainer: ModelContainer
         let modelExecutor: ModelExecutor
         let cache: ImportCache
+        var count = 0
+
+        /// Determines if the context shouid perform a save operation.
+        var shouldSave: Bool {
+            modelContext.insertedModelsArray.count >= batchSize
+        }
 
         /// Initializer
         /// - Parameters:
@@ -85,7 +94,7 @@ extension Database {
                 // Remove the task from the tracker
                 ImportTaskTracker.shared.tasks.removeValue(forKey: database.sha256Hash)
                 do {
-                    try modelExecutor.modelContext.save()
+                    try modelContext.save()
                     database.publish(state: .ready)
                 } catch (let error) {
                     database.publish(state: .error(error.localizedDescription))
@@ -101,13 +110,16 @@ extension Database {
                     debugPrint("􁃎 [\(modelName)] - skipping cache warming")
                     continue
                 }
-                warmCache(modelType, cacheCountLimit)
+                warmCache(modelType, limit)
             }
 
             for modelType in Database.models {
 
                 // Update the progress whether we skip import or not
                 defer {
+                    if shouldSave {
+                        try? modelContext.save()
+                    }
                     Task { @MainActor in
                         progress.completedUnitCount += 1
                     }
@@ -122,7 +134,7 @@ extension Database {
                 importModel(modelType, limit)
             }
             let timeInterval = abs(start.timeIntervalSinceNow)
-            debugPrint("􁗫 Database imported in [\(timeInterval.stringFromTimeInterval())]")
+            debugPrint("􁗫 Database imported [\(count)] models in [\(timeInterval.stringFromTimeInterval())]")
             cache.empty()
         }
 
@@ -148,22 +160,19 @@ extension Database {
             }
 
             let start = Date.now
-            let count = table.rows.count
-            debugPrint("􀈄 [\(modelType.modelName)] - importing [\(count)] models")
-            for i in 0..<count {
+            let rowCount = table.rows.count
+            debugPrint("􀈄 [\(modelType.modelName)] - importing [\(rowCount)] models")
+            for i in 0..<rowCount {
                 if i >= limit || Task.isCancelled { break }
 
                 let index = Int64(i)
                 let row = table.rows[i]
                 upsert(index: index, modelType, data: row)
-
-                if i % batchSize == .zero {
-                    try? modelContext.save()
-                }
+                count += 1
             }
             let timeInterval = abs(start.timeIntervalSinceNow)
             let state: ModelMetadata.State = Task.isCancelled ? .failed : .imported
-            debugPrint("􂂼 [\(modelName)] - [\(state)] [\(count)] in [\(timeInterval.stringFromTimeInterval())]")
+            debugPrint("􂂼 [\(modelName)] - [\(state)] [\(rowCount)] in [\(timeInterval.stringFromTimeInterval())]")
             updateMeta(modelName, state: state)
         }
 
@@ -282,7 +291,6 @@ extension Database {
 
         private lazy var cache: Cache<Int64, any IndexedPersistentModel> = {
             let cache = Cache<Int64, any IndexedPersistentModel>()
-            cache.countLimit = cacheCountLimit
             cache.totalCostLimit = cacheTotalCostLimit
             cache.evictsObjectsWithDiscardedContent = true
             return cache
