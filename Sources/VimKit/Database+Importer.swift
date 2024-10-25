@@ -10,7 +10,7 @@ import Foundation
 import SwiftData
 
 private typealias CacheKey = String
-private let cacheTotalCostLimit = 1024 * 1024 * 8
+private let cacheTotalCostLimit = 1024 * 1024 * 8 * 8
 private let batchSize = 10000 * 5
 
 extension Database {
@@ -112,6 +112,9 @@ extension Database {
                 }
                 warmCache(modelType, limit)
             }
+
+            // Perform a batch insert of all of the cached models
+            cache.batchInsert()
 
             for modelType in Database.models {
 
@@ -256,6 +259,31 @@ extension Database {
             return cache.warm(size)
         }
 
+        /// Performs a batch insert of cached models.
+        func batchInsert() {
+            debugPrint("􀈄 [Batch] inserting models from cache.")
+
+            let start = Date.now
+            var batchCount = 0
+
+            defer {
+                let timeInterval = abs(start.timeIntervalSinceNow)
+                debugPrint("􂂼 [Batch] inserted [\(batchCount)] models in [\(timeInterval.stringFromTimeInterval())]")
+
+            }
+
+            try? modelContext.transaction {
+                for (_, cache) in caches {
+                    for key in cache.keys {
+                        guard let model = cache[key] else { continue }
+                        modelContext.insert(model)
+                        batchCount += 1
+                    }
+                }
+                try? modelContext.save()
+            }
+        }
+
         /// Finds or creates a model with the specified index and type.
         /// - Parameter index: the model index
         /// - Returns: a found model of the specified type and index or a new instance.
@@ -287,7 +315,7 @@ extension Database {
 
     fileprivate final class ModelCache {
 
-        private let modelContext: ModelContext
+        let modelContext: ModelContext
 
         private lazy var cache: Cache<Int64, any IndexedPersistentModel> = {
             let cache = Cache<Int64, any IndexedPersistentModel>()
@@ -295,6 +323,11 @@ extension Database {
             cache.evictsObjectsWithDiscardedContent = true
             return cache
         }()
+
+        /// Convenience var for accessing the cache keys.
+        var keys: Set<Int64> {
+            cache.keys
+        }
 
         /// Initializer.
         /// - Parameter modelContext: the model context to use
@@ -314,6 +347,7 @@ extension Database {
                 return []
             }
             debugPrint("􁰹 [\(cacheKey)] - warming cache [\(size)]")
+
             let start = Date.now
 
             let results = T.fetch(in: modelContext)
@@ -334,7 +368,6 @@ extension Database {
             for index in cacheMisses {
                 let model: T = .init()
                 model.index = index
-                modelContext.insert(model)
                 assert(model.index != .empty)
                 cache[index] = model
             }
@@ -364,6 +397,12 @@ extension Database {
                 return result
             }
             return model
+        }
+
+        /// Convenience subscript to retrive the cache value for the given key.
+        /// - Parameter key: the value key
+        subscript(key: Int64) -> (any IndexedPersistentModel)? {
+            cache[key]
         }
 
         /// Empties the cache entries.
