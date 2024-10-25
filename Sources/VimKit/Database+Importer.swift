@@ -11,7 +11,7 @@ import SwiftData
 
 private typealias CacheKey = String
 private let cacheTotalCostLimit = 1024 * 1024 * 8 * 8
-private let batchSize = 10000 * 5
+private let batchSize = 100000
 
 extension Database {
 
@@ -73,7 +73,8 @@ extension Database {
 
         /// Determines if the context shouid perform a save operation.
         var shouldSave: Bool {
-            modelContext.insertedModelsArray.count >= batchSize
+            modelContext.insertedModelsArray.count >= batchSize ||
+            modelContext.changedModelsArray.count >= batchSize
         }
 
         /// Initializer
