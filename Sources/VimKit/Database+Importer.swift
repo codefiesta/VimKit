@@ -72,12 +72,6 @@ extension Database {
         let cache: ImportCache
         var count = 0
 
-        /// Determines if the context shouid perform a save operation.
-        var shouldSave: Bool {
-            modelContext.insertedModelsArray.count >= batchSize ||
-            modelContext.changedModelsArray.count >= batchSize
-        }
-
         /// Initializer
         /// - Parameters:
         ///   - database: the vim database
