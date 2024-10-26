@@ -65,9 +65,10 @@ extension Database {
         @MainActor @Published
         var progress = Progress(totalUnitCount: Int64(Database.models.count))
 
+        private var subscribers = Set<AnyCancellable>()
+        nonisolated let modelContainer: ModelContainer
+        nonisolated let modelExecutor: ModelExecutor
         let database: Database
-        let modelContainer: ModelContainer
-        let modelExecutor: ModelExecutor
         let cache: ImportCache
         var count = 0
 
@@ -85,24 +86,25 @@ extension Database {
             self.modelContainer = database.modelContainer
             self.modelExecutor = DefaultSerialModelExecutor(modelContext: ModelContext(modelContainer))
             self.cache = ImportCache()
+            // Register subscribers
+            NotificationCenter.default.publisher(for: ModelContext.willSave).sink{ _ in
+                debugPrint("􁗫 Model context will save...")
+            }.store(in: &subscribers)
+            NotificationCenter.default.publisher(for: ModelContext.didSave).sink{ _ in
+                debugPrint("􁗫 Model context saved.")
+            }.store(in: &subscribers)
         }
 
         /// Starts the import process.
         /// - Parameter limit: the max limit of models per entity to import
         func `import`(_ limit: Int = .max) {
-            defer {
-                // Remove the task from the tracker
-                ImportTaskTracker.shared.tasks.removeValue(forKey: database.sha256Hash)
-                do {
-                    try modelContext.save()
-                    database.publish(state: .ready)
-                } catch (let error) {
-                    database.publish(state: .error(error.localizedDescription))
-                }
-            }
 
             let group = DispatchGroup()
             let start = Date.now
+
+            defer {
+                didImport(start)
+            }
 
             // 1) Warm the model cache by stubbing out model skeletons.
             for modelType in Database.models {
@@ -132,9 +134,6 @@ extension Database {
                     // Update the progress whether we skip import or not
                     defer {
                         group.leave()
-                        if shouldSave {
-                            try? modelContext.save()
-                        }
                         Task { @MainActor in
                             progress.completedUnitCount += 1
                         }
@@ -153,10 +152,22 @@ extension Database {
 
             // 3) Perform a batch insert for all the models
             batchInsert()
+        }
+
+        /// Performs post import tasks.
+        /// - Parameter start: the import start date / time.
+        private func didImport(_ start: Date) {
+            // Remove the task from the tracker
+            ImportTaskTracker.shared.tasks.removeValue(forKey: database.sha256Hash)
+            // Update the database state
+            database.publish(state: .ready)
 
             let timeInterval = abs(start.timeIntervalSinceNow)
             debugPrint("􁗫 Database imported [\(count)] models in [\(timeInterval.stringFromTimeInterval())]")
+
+            // Empty the cache and remove all subscribers
             cache.empty()
+            subscribers.removeAll()
         }
 
         /// Warms the cache for the specified model type.
@@ -209,8 +220,8 @@ extension Database {
                 let timeInterval = abs(start.timeIntervalSinceNow)
                 debugPrint("􂂼 [Batch] - inserted [\(batchCount)] models in [\(timeInterval.stringFromTimeInterval())]")
             }
-
             try? modelContext.transaction {
+                modelContext.autosaveEnabled = true
                 for (cacheKey, cache) in cache.caches {
                     let start = Date.now
                     let keys = cache.keys
@@ -223,8 +234,6 @@ extension Database {
                     debugPrint("􂂼 [Batch] - inserted [\(cacheKey)] [\(keys.count)] in [\(timeInterval.stringFromTimeInterval())]")
                     cache.empty()
                 }
-                debugPrint("􂂼 [Batch] - Finished Inserts. Performing Save.")
-                try? modelContext.save()
             }
         }
 
@@ -392,10 +401,10 @@ extension Database {
         /// - Returns: an entity with the specified index.
         func findOrCreate<T>(_ index: Int64) -> T where T: IndexedPersistentModel {
             guard let model = cache[index] as? T else {
-                    let model: T = .init()
-                    model.index = index
-                    cache[index] = model
-                    return model
+                let model: T = .init()
+                model.index = index
+                cache[index] = model
+                return model
             }
             return model
         }
@@ -404,6 +413,12 @@ extension Database {
         /// - Parameter key: the value key
         subscript(key: Int64) -> (any IndexedPersistentModel)? {
             cache[key]
+        }
+
+        /// Removes the value for the specified key.
+        /// - Parameter key: the cache key
+        func removeValue(for key: Int64) {
+            cache.removeValue(for: key)
         }
 
         /// Empties the cache entries.

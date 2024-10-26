@@ -70,7 +70,6 @@ public class Vim: NSObject, ObservableObject, @unchecked Sendable {
     public var geometry: Geometry?
 
     /// The camera
-    @Published
     public var camera: Camera
 
     /// A set of options to apply.
@@ -104,14 +103,15 @@ public class Vim: NSObject, ObservableObject, @unchecked Sendable {
 
     /// Initializes the vim file.
     override public init() {
-        self.camera = Camera()
-        self.options = Options()
+        self.camera = .init()
+        self.options = .init()
     }
 
     /// Loads the vim file from the remote source file url.
     /// - Parameters:
     ///   - url: the source url of the vim file
     public func load(from url: URL) async {
+        self.camera = .init()
         self.url = url
         await download()
     }
