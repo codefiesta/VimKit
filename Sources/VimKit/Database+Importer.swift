@@ -200,26 +200,30 @@ extension Database {
         /// that wraps all model context inserts into a single transaction and performs a single save to
         /// avoid the overhead of writing to disk.
         private func batchInsert() {
-            debugPrint("􀈄 [Batch] inserting [\(cache.count)] models from cache.")
+            debugPrint("􀈄 [Batch] - inserting [\(cache.count)] models from cache.")
 
             let start = Date.now
             var batchCount = 0
 
             defer {
                 let timeInterval = abs(start.timeIntervalSinceNow)
-                debugPrint("􂂼 [Batch] inserted [\(batchCount)] models in [\(timeInterval.stringFromTimeInterval())]")
+                debugPrint("􂂼 [Batch] - inserted [\(batchCount)] models in [\(timeInterval.stringFromTimeInterval())]")
             }
 
             try? modelContext.transaction {
-                for (_, cache) in cache.caches {
+                for (cacheKey, cache) in cache.caches {
+                    let start = Date.now
                     let keys = cache.keys
                     for key in keys {
                         guard let model = cache[key] else { continue }
                         modelContext.insert(model)
                         batchCount += 1
                     }
+                    let timeInterval = abs(start.timeIntervalSinceNow)
+                    debugPrint("􂂼 [Batch] - inserted [\(cacheKey)] [\(keys.count)] in [\(timeInterval.stringFromTimeInterval())]")
                     cache.empty()
                 }
+                debugPrint("􂂼 [Batch] - Finished Inserts. Performing Save.")
                 try? modelContext.save()
             }
         }
