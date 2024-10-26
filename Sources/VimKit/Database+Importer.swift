@@ -10,8 +10,8 @@ import Foundation
 import SwiftData
 
 private typealias CacheKey = String
-private let cacheTotalCostLimit = 1024 * 1024 * 8 * 8
-private let batchSize = 100000
+private let cacheTotalCostLimit = 1024 * 1024 * 64
+private let batchSize = 1024 * 32
 
 extension Database {
 
@@ -315,7 +315,7 @@ extension Database {
         }
     }
 
-    fileprivate final class ModelCache {
+    fileprivate final class ModelCache: @unchecked Sendable {
 
         let modelContext: ModelContext
 
