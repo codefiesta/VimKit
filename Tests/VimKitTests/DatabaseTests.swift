@@ -54,11 +54,6 @@ final class DatabaseTests: XCTestCase {
         let db = vim.db!
         XCTAssertGreaterThan(db.tableNames.count, 0)
 
-        let schema = Schema(Database.allTypes)
-        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
-        let modelContainer = try! ModelContainer(for: schema, configurations: configuration)
-        XCTAssertNotNil(modelContainer)
-
         let importer = Database.ImportActor(db)
         await importer.import()
 
@@ -69,7 +64,7 @@ final class DatabaseTests: XCTestCase {
         }
 
         // Create a new model context for reading
-        let modelContext = ModelContext(modelContainer)
+        let modelContext = ModelContext(db.modelContainer)
 
         // Make sure the meta data is all in an imported state
         let metaDataDescriptor = FetchDescriptor<Database.ModelMetadata>(sortBy: [SortDescriptor(\.name)])
