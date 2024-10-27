@@ -180,7 +180,7 @@ extension Database {
         private func importModel(_ modelType: any IndexedPersistentModel.Type, _ limit: Int) {
             let modelName = modelType.modelName
             guard let table = database.tables[modelName] else {
-                updateMeta(modelName, state: .failed)
+                updateMeta(modelName, state: .unknown)
                 return
             }
 
@@ -214,7 +214,6 @@ extension Database {
                 debugPrint("􂂼 [Batch] - inserted [\(batchCount)] models in [\(timeInterval.stringFromTimeInterval())]")
             }
             try? modelContext.transaction {
-                modelContext.autosaveEnabled = true
                 for (cacheKey, cache) in cache.caches {
                     let start = Date.now
                     let keys = cache.keys
