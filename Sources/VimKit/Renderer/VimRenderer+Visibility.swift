@@ -9,9 +9,12 @@ import Combine
 import MetalKit
 import VimKitShaders
 
-private let vertexFunctionName = "vertexVisibilityTest"
-private let renderEncoderDebugGroupName = "VimVisibilityResultsDrawGroup"
-private let pipelineLabel = "VimVisibilityResultsPipeline"
+private let functionNameVertexVisibilityTest = "vertexVisibilityTest"
+private let functionNameEncodeIndirectCommands = "encodeIndirectCommands"
+private let labelRenderEncoderDebugGroupName = "VimVisibilityResultsDrawGroup"
+private let labelPipeline = "VimVisibilityResultsPipeline"
+private let labelICB = "VimIndirectCommandBuffer"
+
 private let minFrustumCullingThreshold = 1024
 
 extension VimRenderer {
@@ -47,12 +50,21 @@ extension VimRenderer {
             context.destinationProvider.device!
         }
 
+        /// Boolean flag indicating if indirect command buffers are supported or not.
+        var supportsIndirectCommandBuffers: Bool {
+            device.supportsFamily(.apple4)
+        }
+
         /// The number of rotating buffers.
         let bufferCount: Int
         /// A render pipeline that is used for occlusion queries with the depth test.
         let pipelineState: MTLRenderPipelineState?
         /// The depth stencil state that performs no writes for the non-rendering pipeline state.
         let depthStencilState: MTLDepthStencilState?
+        /// The compute pipeline state.
+        var computePipelineState: MTLComputePipelineState?
+        /// The indirect command buffer to use to issue visibility results.
+        var indirectCommandBuffer: MTLIndirectCommandBuffer?
 
         /// The rotating visibility results buffers.
         var visibilityResultBuffer: [MTLBuffer?]
@@ -97,13 +109,13 @@ extension VimRenderer {
             guard let mesh = try? MTKMesh(mesh: proxyMesh, device: device) else { return nil }
             self.mesh = mesh
 
-            let vertexFunction = library.makeFunction(name: vertexFunctionName)
+            let vertexFunction = library.makeFunction(name: functionNameVertexVisibilityTest)
             let fragmentFunction = library.makeFunction(name: "fragmentMain")
 
             let vertexDescriptor = MTKMetalVertexDescriptorFromModelIO(mesh.vertexDescriptor)
 
             let pipelineDescriptor = MTLRenderPipelineDescriptor()
-            pipelineDescriptor.label = pipelineLabel
+            pipelineDescriptor.label = labelPipeline
 
             // Alpha Blending
             pipelineDescriptor.colorAttachments[0].pixelFormat = context.destinationProvider.colorFormat
@@ -137,6 +149,9 @@ extension VimRenderer {
             depthStencilDescriptor.isDepthWriteEnabled = options.visualizeVisibilityResults
             depthStencilState = device.makeDepthStencilState(descriptor: depthStencilDescriptor)
 
+            // Indirect Command Buffers
+            buildComputePipelineState(library)
+
             // Visibility Buffers
             buildVisibilityResultsBuffers()
 
@@ -151,7 +166,34 @@ extension VimRenderer {
                     break
                 }
             }.store(in: &subscribers)
+        }
 
+        /// Builds the compute pipeline state.
+        /// - Parameter library: the metal library
+        private func buildComputePipelineState(_ library: MTLLibrary) {
+
+            guard supportsIndirectCommandBuffers else {
+                debugPrint("💩 Indirect command buffers are not supported on this device.")
+                return
+            }
+
+            let descriptor = MTLIndirectCommandBufferDescriptor()
+            descriptor.commandTypes = [.drawIndexed]
+            descriptor.inheritBuffers = false
+            descriptor.inheritPipelineState = false
+
+            guard let function = library.makeFunction(name: functionNameEncodeIndirectCommands),
+                  let cps = try? device.makeComputePipelineState(function: function) else {
+                return
+            }
+
+            let maxCommandCount = 1024 * 64
+            let icb = device.makeIndirectCommandBuffer(descriptor: descriptor,
+                                                       maxCommandCount: maxCommandCount,
+                                                       options: [.storageModePrivate])
+            icb?.label = labelICB
+            self.indirectCommandBuffer = icb
+            self.computePipelineState = cps
         }
 
         /// Builds the visibility results buffers array.
@@ -175,7 +217,7 @@ extension VimRenderer {
             /// Configure the pipeline state object and depth state to disable writing to the color and depth attachments.
             renderEncoder.setRenderPipelineState(pipelineState)
             renderEncoder.setDepthStencilState(depthStencilState)
-            renderEncoder.pushDebugGroup(renderEncoderDebugGroupName)
+            renderEncoder.pushDebugGroup(labelRenderEncoderDebugGroupName)
 
             for i in currentResults {
                 drawProxyGeometry(renderEncoder: renderEncoder, index: i)

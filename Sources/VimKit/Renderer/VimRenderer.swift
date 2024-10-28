@@ -56,8 +56,6 @@ open class VimRenderer: NSObject {
     open var baseColorTexture: MTLTexture?
     open var instancePickingTexture: MTLTexture?
     open var renderPassDescriptor: MTLRenderPassDescriptor?
-    open var computePipelineState: MTLComputePipelineState?
-    open var indirectCommandBuffer: MTLIndirectCommandBuffer?
 
     // Uniforms Buffer
     public let alignedUniformsSize = ((MemoryLayout<UniformsArray>.size + 255) / 256) * 256
