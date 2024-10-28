@@ -37,12 +37,20 @@ public class VimCompositorRenderer: VimRenderer {
         self.clock = LayerRenderer.Clock()
         super.init(context)
 
+        // Wait for geometry to load into a ready state
+        context.vim.geometry?.$state.sink { state in
+            Task { @MainActor in
+                guard state == .ready else { return }
+                self.start()
+            }
+        }.store(in: &subscribers)
+
         // Subscribe to hand tracking updates
-        context.dataProviderContext.$handUpdates.sink { (_) in
+        context.dataProvider.$handUpdates.sink { (_) in
         }.store(in: &subscribers)
 
         // Subscribe to world tracking transform updates
-        context.dataProviderContext.$transform.sink { (_) in
+        context.dataProvider.$transform.sink { (_) in
         }.store(in: &subscribers)
 
         // Register for spatial events
@@ -57,10 +65,10 @@ public class VimCompositorRenderer: VimRenderer {
     private func startTracking() async {
 
         let worldTrackingTask = Task {
-            await context.dataProviderContext.publishWorldTrackingUpdates()
+            await context.dataProvider.publishWorldTrackingUpdates()
         }
         let handTrackingTask = Task {
-            await context.dataProviderContext.publishHandTrackingUpdates()
+            await context.dataProvider.publishHandTrackingUpdates()
         }
         tasks.append(contentsOf: [worldTrackingTask, handTrackingTask])
     }
@@ -77,6 +85,7 @@ public class VimCompositorRenderer: VimRenderer {
     }
 
     /// Starts the main render loop.
+    @MainActor
     public func start() {
         Task {
             await startTracking()
@@ -171,7 +180,7 @@ extension VimCompositorRenderer {
                 cameraPosition: camera.position,
                 viewMatrix: camera.viewMatrix,
                 projectionMatrix: camera.projectionMatrix,
-                sceneTransform: camera.transform
+                sceneTransform: camera.sceneTransform
             )
         }
 

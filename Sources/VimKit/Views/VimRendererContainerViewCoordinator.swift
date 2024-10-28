@@ -1,5 +1,5 @@
 //
-//  VimContainerViewCoordinator.swift
+//  VimRendererContainerViewCoordinator.swift
 //  
 //
 //  Created by Kevin McKee
@@ -8,20 +8,39 @@
 import GameController
 import MetalKit
 
-#if os(iOS)
+#if !os(visionOS)
+
+/// Keyboard navigation keys.
+private let keys: [GCKeyCode] = [
+    .keyW,
+    .keyS,
+    .keyA,
+    .keyD,
+    .keyE,
+    .keyQ,
+    .leftArrow,
+    .upArrow,
+    .rightArrow,
+    .downArrow
+]
+
 /// Provides a coordinator that is responsible for rendering into it's MTKView representable.
 @MainActor
-public class VimContainerViewCoordinator: NSObject, MTKViewDelegate {
+public class VimRendererContainerViewCoordinator: NSObject, MTKViewDelegate {
 
     let renderer: VimRenderer
-    let viewRepresentable: VimContainerView
+    let viewRepresentable: VimRendererContainerView
 
     /// Initializes the coordinator with the specified view representable.
     /// - Parameter viewRepresentable: the MTKView representable
-    init(_ viewRepresentable: VimContainerView) {
+    init(_ viewRepresentable: VimRendererContainerView) {
         self.viewRepresentable = viewRepresentable
         self.renderer = VimRenderer(viewRepresentable.renderContext)
         super.init()
+        #if os(macOS)
+        // Prevent the macOS beeping on keyDown events
+        NSEvent.addLocalMonitorForEvents(matching: .keyDown) { _ in nil }
+        #endif
     }
 
     public func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {
@@ -36,11 +55,32 @@ public class VimContainerViewCoordinator: NSObject, MTKViewDelegate {
 
 // MARK: Gesture Recognizers
 
-extension VimContainerViewCoordinator {
+extension VimRendererContainerViewCoordinator {
+
+#if os(macOS)
 
     @objc
-    func handleTap(_ gesture: UITapGestureRecognizer) {
+    func handleTap(_ gesture: NSGestureRecognizer) {
+        guard let view = gesture.view, let screen = NSScreen.main else { return }
+        switch gesture.state {
+        case .recognized:
+            let contentScaleFactor = Float(screen.backingScaleFactor)
+            // NSView 0,0 is in the lower left with positive values of Y going up.
+            // where UIView 0,0 is in the top left with positive values of Y going down
+            let frame = view.frame
+            let location = gesture.location(in: view)
+            let y = frame.height - location.y // Flip the Y coordinate
+            let point: SIMD2<Float> = [Float(location.x), Float(y)] * contentScaleFactor
+            renderer.didTap(at: point)
+        default:
+            break
+        }
+    }
 
+#else
+
+    @objc
+    func handleTap(_ gesture: UIGestureRecognizer) {
         guard let view = gesture.view else { return }
         switch gesture.state {
         case .recognized:
@@ -51,11 +91,12 @@ extension VimContainerViewCoordinator {
             break
         }
     }
+#endif
 }
 
 // MARK: Keyboard Events
 
-extension VimContainerViewCoordinator {
+extension VimRendererContainerViewCoordinator {
 
     // Navigates the current model with keyboard events
     fileprivate func keyPressed(keyCode: GCKeyCode) {
@@ -102,7 +143,6 @@ extension VimContainerViewCoordinator {
     // See: https://developer.apple.com/videos/play/wwdc2020/10617
     func pollKeyboardInput() {
         guard let keyboard = GCKeyboard.coalesced?.keyboardInput else { return }
-        let keys: [GCKeyCode] = [.keyW, .keyS, .keyA, .keyD, .keyE, .keyQ, .leftArrow, .upArrow, .rightArrow, .downArrow]
         for key in keys {
             if keyboard.button(forKeyCode: key)?.isPressed ?? false {
                 keyPressed(keyCode: key)

@@ -14,8 +14,8 @@ public class Vim: NSObject, ObservableObject, @unchecked Sendable {
     /// Represents the state of our file
     public enum State: Equatable, Sendable {
         case unknown
-        case initializing
         case downloading
+        case downloaded
         case loading
         case ready
         case error(String)
@@ -70,12 +70,14 @@ public class Vim: NSObject, ObservableObject, @unchecked Sendable {
     public var geometry: Geometry?
 
     /// The camera
-    @Published
     public var camera: Camera
 
     /// A set of options to apply.
     @Published
     public var options: Options
+
+    /// The source url of the file.
+    public var url: URL? = nil
 
     /// BFast Data Container
     private var bfast: BFast!
@@ -99,30 +101,42 @@ public class Vim: NSObject, ObservableObject, @unchecked Sendable {
         return bfast.totalByteSize
     }()
 
-    /// Initializes the VIM file from the specified url
-    /// - Parameters:
-    ///   - url: the url of the vim file
-    public init(_ url: URL) {
-        self.camera = Camera()
-        self.options = Options()
-        super.init()
-        Task {
-            await self.initialize(url)
-        }
+    /// Initializes the vim file.
+    override public init() {
+        self.camera = .init()
+        self.options = .init()
     }
 
-    /// Initialixes the VIM file from the specified URL.
+    /// Loads the vim file from the remote source file url.
     /// - Parameters:
-    ///   - url: the url of the vim file
-    private func initialize(_ url: URL) async {
+    ///   - url: the source url of the vim file
+    public func load(from url: URL) async {
+        self.camera = .init()
+        self.url = url
+        await download()
+    }
+
+    /// Downloads the vim file if the file isn't already cached.
+    /// The downloader checks the sha256Hash of the source file to see if we have a file with that name in the cache directory.
+    /// If no file exist it will be downloaded, otherwise the file will be loaded from it's local cached file url.
+    private func download() async {
+        // Reset the file state to unknown as a renderer may be currently running.
+        publish(state: .unknown)
+
+        guard let url else {
+            return publish(state: .error("💀 No url provided."))
+        }
+
         do {
             switch url.scheme {
             case "https":
                 publish(state: .downloading)
                 let localURL = try await Vim.Downloader.shared.download(url: url, delegate: self)
-                self.load(localURL)
+                publish(state: .downloaded)
+                await load(localURL)
             case "file":
-                self.load(url)
+                publish(state: .downloaded)
+                await load(url)
             default:
                 publish(state: .error("💀 Unable to handle url scheme [\(url.scheme ?? "")], please use file:// or https:// scheme"))
                 return
@@ -135,7 +149,7 @@ public class Vim: NSObject, ObservableObject, @unchecked Sendable {
     /// Loads the VIM file.
     /// - Parameters:
     ///   - url: the local url of the vim file
-    private func load(_ url: URL) {
+    private func load(_ url: URL) async {
 
         publish(state: .loading)
 
@@ -217,7 +231,7 @@ public class Vim: NSObject, ObservableObject, @unchecked Sendable {
     /// Publishes the vim file state onto the main thread.
     /// - Parameter state: the new state to publish
     private func publish(state: State) {
-        DispatchQueue.main.async {
+        Task { @MainActor in
             self.state = state
         }
     }
@@ -225,8 +239,8 @@ public class Vim: NSObject, ObservableObject, @unchecked Sendable {
     /// Increments the progress count by the specfied number of completed units on the main thread.
     /// - Parameter count: the number of units completed
     private func incrementProgressCount(_ count: Int64 = 1) {
-        DispatchQueue.main.async {
-            self.progress.completedUnitCount += count
+        Task { @MainActor in
+            progress.completedUnitCount += count
         }
     }
 }
@@ -258,9 +272,9 @@ extension Vim: IndexedStringDataProvider {
 extension Vim: URLSessionTaskDelegate {
 
     public func urlSession(_ session: URLSession, didCreateTask task: URLSessionTask) {
-        DispatchQueue.main.async { [weak self] in
-            guard let self else { return }
-            self.progress.addChild(task.progress, withPendingUnitCount: 0)
+
+        Task { @MainActor in
+            self.progress.addChild(task.progress, withPendingUnitCount: 1)
         }
     }
 }

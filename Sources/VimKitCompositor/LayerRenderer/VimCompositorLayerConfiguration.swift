@@ -24,7 +24,7 @@ public struct VimCompositorLayerConfiguration: CompositorLayerConfiguration {
 
         // Color Format
         if capabilities.supportedColorFormats.contains(.rgba16Float) {
-            configuration.colorFormat = .rgba16Float //.bgra8Unorm_srgb
+            configuration.colorFormat = .rgba16Float
         }
 
         // Depth Format

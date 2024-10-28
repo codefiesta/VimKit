@@ -13,7 +13,6 @@ import SwiftData
 private let sqliteExtension = ".sqlite"
 
 // See: https://github.com/vimaec/vim#entities-buffer
-@dynamicMemberLookup
 public class Database: ObservableObject, @unchecked Sendable {
 
     public class Table {
@@ -231,6 +230,17 @@ public class Database: ObservableObject, @unchecked Sendable {
         }
     }
 
+    /// Represents the observable state of our database.
+    public enum State: Equatable, Sendable {
+        case unknown
+        case importing
+        case ready
+        case error(String)
+    }
+
+    @MainActor @Published
+    public var state: State = .unknown
+
     /// The tables contained inside this buffer
     var tables = [String: Table]()
 
@@ -279,17 +289,16 @@ public class Database: ObservableObject, @unchecked Sendable {
         }
     }
 
+    /// Publishes the database state onto the main thread.
+    /// - Parameter state: the new state to publish
+    func publish(state: State) {
+        Task { @MainActor in
+            self.state = state
+        }
+    }
+
     /// Convenience var for accessing the table names sorted alphabetically.
     public lazy var tableNames: [String] = {
         tables.keys.sorted { $0 < $1 }
     }()
-
-    /// Dynamic subscipt to use `.dot syntax` for referencing tables
-    ///
-    /// Allows callers to dynamically reference tables names.
-    ///
-    /// `let table = entites.VimGeometry`.
-    subscript(dynamicMember member: String) -> Table? {
-        tables[member]
-    }
 }

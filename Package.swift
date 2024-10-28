@@ -6,15 +6,18 @@ import PackageDescription
 let package = Package(
     name: "VimKit",
     platforms: [
-        .iOS(.v17),
-        .macOS(.v14),
-        .macCatalyst(.v17),
-        .visionOS(.v1)
+        .iOS(.v18),
+        .macOS(.v15),
+        .visionOS(.v2)
     ],
     products: [
         .library(
             name: "VimKit",
             targets: ["VimKit"]
+        ),
+        .library(
+            name: "VimKitShaders",
+            targets: ["VimKitShaders"]
         ),
         .library(
             name: "VimKitCompositor",
@@ -50,8 +53,7 @@ let package = Package(
         ),
         .testTarget(
             name: "VimKitTests",
-            dependencies: ["VimKit"],
-            resources: [.copy("Resources/sample.vim")]
+            dependencies: ["VimKit"]
         )
     ]
 )

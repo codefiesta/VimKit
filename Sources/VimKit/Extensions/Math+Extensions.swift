@@ -335,8 +335,9 @@ public extension ProjectiveTransform3D {
 
     /// Convenience initializer with single precision values.
     init(fovyRadians: Float, aspectRatio: Float, nearZ: Float, farZ: Float, reverseZ: Bool = false) {
+        let fovY: Angle2D = .init(radians: Double(fovyRadians))
         self.init(
-            fovyRadians: Double(fovyRadians),
+            fovY: fovY,
             aspectRatio: Double(aspectRatio),
             nearZ: Double(nearZ),
             farZ: Double(farZ),

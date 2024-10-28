@@ -9,7 +9,9 @@ import Combine
 import Foundation
 import SwiftData
 
-fileprivate typealias CacheKey = String
+private typealias CacheKey = String
+private let cacheTotalCostLimit = 1024 * 1024 * 64
+private let batchSize = 10000 * 7
 
 extension Database {
 
@@ -27,26 +29,51 @@ extension Database {
 
     /// Starts the import process.
     /// - Parameters:
-    ///   - isStoredInMemoryOnly: if set to true, the model container is only stored in memory
     ///   - limit: the max limit of models per entity to import
     public func `import`(limit: Int = .max) async {
-        let importer = Database.ImportActor(self)
-        await importer.import(limit)
+
+        // Check if the import should
+        let checkTask = Task { @MainActor in
+            switch state {
+            case .importing, .ready, .error(_):
+                return false
+            case .unknown:
+                // Check the tracker
+                if let _ = ImportTaskTracker.shared.tasks[sha256Hash] {
+                    debugPrint("💩 Task already running")
+                    publish(state: .importing)
+                    return false
+                }
+                return true
+            }
+        }
+
+        let shouldImport = await checkTask.value
+
+        if shouldImport {
+            ImportTaskTracker.shared.tasks[sha256Hash] = true
+            let importer = Database.ImportActor(self)
+            await importer.import(limit)
+        }
     }
 
     /// A thread safe actor type that handles the importing
     /// of vim database information into a SwiftData container.
+    ///
+    /// For discussion, see this thread as wrapping the context as an unchecked sendable across tasks.
+    /// See: https://forums.developer.apple.com/forums/thread/736226
     actor ImportActor: ModelActor, ObservableObject {
 
         /// Progress reporting importing model data into the container.
         @MainActor @Published
         var progress = Progress(totalUnitCount: Int64(Database.models.count))
 
-        let batchSize = 1000 * 10
+        private var subscribers = Set<AnyCancellable>()
+        nonisolated let modelContainer: ModelContainer
+        nonisolated let modelExecutor: ModelExecutor
         let database: Database
-        let modelContainer: ModelContainer
-        let modelExecutor: ModelExecutor
         let cache: ImportCache
+        var count = 0
 
         /// Initializer
         /// - Parameters:
@@ -55,49 +82,90 @@ extension Database {
             self.database = database
             self.modelContainer = database.modelContainer
             self.modelExecutor = DefaultSerialModelExecutor(modelContext: ModelContext(modelContainer))
-            self.cache = ImportCache(modelExecutor)
+            self.cache = ImportCache()
+            // Register subscribers
+            NotificationCenter.default.publisher(for: ModelContext.willSave).sink{ _ in
+                debugPrint("􁗫 Model context will save...")
+            }.store(in: &subscribers)
+            NotificationCenter.default.publisher(for: ModelContext.didSave).sink{ _ in
+                debugPrint("􁗫 Model context saved.")
+            }.store(in: &subscribers)
         }
+
 
         /// Starts the import process.
         /// - Parameter limit: the max limit of models per entity to import
         func `import`(_ limit: Int = .max) {
 
-            defer {
-                try? modelExecutor.modelContext.save()
-            }
-
+            let group = DispatchGroup()
             let start = Date.now
 
-            // Warm the cache for the models. TODO: This could be reworked ...
-            for modelType in Database.models {
-                let modelName = modelType.modelName
-                guard shouldImport(modelName) else {
-                    debugPrint("􁃎 [\(modelName)] - skipping cache warming")
-                    continue
-                }
-                warmCache(modelType, limit)
+            defer {
+                didImport(start)
             }
 
+            // 1) Warm the model cache by stubbing out model skeletons.
             for modelType in Database.models {
-
-                // Update the progress whether we skip import or not
-                defer {
-                    Task {
-                        await progress.completedUnitCount += 1
+                group.enter()
+                Task {
+                    defer {
+                        group.leave()
                     }
-                }
 
-                let modelName = modelType.modelName
-                guard shouldImport(modelName) else {
-                    debugPrint("􁃎 [\(modelName)] - skipping import")
-                    continue
+                    let modelName = modelType.modelName
+                    guard shouldImport(modelName) else {
+                        debugPrint("􁃎 [\(modelName)] - skipping cache warming")
+                        return
+                    }
+                    warmCache(modelType, limit)
                 }
-
-                importModel(modelType, limit)
             }
+
+            group.wait()
+
+            // 2) Stitch together all of model relationships
+            for modelType in Database.models {
+
+                group.enter()
+
+                Task {
+                    // Update the progress whether we skip import or not
+                    defer {
+                        group.leave()
+                        Task { @MainActor in
+                            progress.completedUnitCount += 1
+                        }
+                    }
+
+                    let modelName = modelType.modelName
+                    guard shouldImport(modelName) else {
+                        debugPrint("􁃎 [\(modelName)] - skipping import")
+                        return
+                    }
+                    importModel(modelType, limit)
+                }
+            }
+
+            group.wait()
+
+            // 3) Perform a batch insert for all the models
+            batchInsert()
+        }
+
+        /// Performs post import tasks.
+        /// - Parameter start: the import start date / time.
+        private func didImport(_ start: Date) {
+            // Remove the task from the tracker
+            ImportTaskTracker.shared.tasks.removeValue(forKey: database.sha256Hash)
+            // Update the database state
+            database.publish(state: .ready)
+
             let timeInterval = abs(start.timeIntervalSinceNow)
-            debugPrint("􁗫 Database imported in [\(timeInterval.stringFromTimeInterval())]")
+            debugPrint("􁗫 Database imported [\(count)] models in [\(timeInterval.stringFromTimeInterval())]")
+
+            // Empty the cache and remove all subscribers
             cache.empty()
+            subscribers.removeAll()
         }
 
         /// Warms the cache for the specified model type.
@@ -117,28 +185,86 @@ extension Database {
         private func importModel(_ modelType: any IndexedPersistentModel.Type, _ limit: Int) {
             let modelName = modelType.modelName
             guard let table = database.tables[modelName] else {
-                updateMeta(modelName, state: .failed)
+                updateMeta(modelName, state: .unknown)
                 return
             }
 
             let start = Date.now
-            let count = table.rows.count
-            debugPrint("􀈄 [\(modelType.modelName)] - importing [\(count)] models")
-            for i in 0..<count {
+            let rowCount = table.rows.count
+            debugPrint("􀈄 [\(modelType.modelName)] - importing [\(rowCount)] models")
+            for i in 0..<rowCount {
                 if i >= limit || Task.isCancelled { break }
-
                 let index = Int64(i)
                 let row = table.rows[i]
                 upsert(index: index, modelType, data: row)
-
-                if i % batchSize == .zero {
-                    try? modelContext.save()
-                }
+                count += 1
             }
             let timeInterval = abs(start.timeIntervalSinceNow)
             let state: ModelMetadata.State = Task.isCancelled ? .failed : .imported
-            debugPrint("􂂼 [\(modelName)] - [\(state)] [\(count)] in [\(timeInterval.stringFromTimeInterval())]")
+            debugPrint("􂂼 [\(modelName)] - [\(state)] [\(rowCount)] in [\(timeInterval.stringFromTimeInterval())]")
             updateMeta(modelName, state: state)
+        }
+
+        /// Performs a batch insert of cached models. This is a performance optimization
+        /// that wraps all model context inserts into a single transaction and performs a single save to
+        /// avoid the overhead of writing to disk.
+        private func batchInsert() {
+            debugPrint("􀈄 [Batch] - inserting [\(cache.count)] models from cache.")
+
+            let start = Date.now
+            var batchCount = 0
+
+            // We only need a subset of the model caches as the relationships will cascade
+            let models: [any IndexedPersistentModel.Type] = [
+                Category.self,
+                CompoundStructureLayer.self,
+                DesignOption.self,
+                DisplayUnit.self,
+                Family.self,
+                FamilyInstance.self,
+                FamilyType.self,
+                Group.self,
+                Level.self,
+                Material.self,
+                MaterialInElement.self,
+                Node.self,
+                Parameter.self,
+                Room.self,
+                View.self,
+                Workset.self,
+            ]
+
+            let cacheKeys = models.map{ $0.modelName }.sorted{ $0 > $1 }
+            let shouldBatchSsave = cache.count >= batchSize * 2
+
+            defer {
+                let timeInterval = abs(start.timeIntervalSinceNow)
+                debugPrint("􂂼 [Batch] - inserted [\(batchCount)] models in [\(timeInterval.stringFromTimeInterval())]")
+            }
+            try? modelContext.transaction {
+                for cacheKey in cacheKeys {
+
+                    guard let cache = cache.caches[cacheKey] else { continue }
+                    let start = Date.now
+                    let keys = cache.keys
+
+                    defer {
+                        let timeInterval = abs(start.timeIntervalSinceNow)
+                        debugPrint("􂂼 [Batch] - inserted [\(cacheKey)] [\(keys.count)] in [\(timeInterval.stringFromTimeInterval())]")
+                        cache.empty()
+                    }
+
+                    for key in keys {
+                        guard let model = cache[key] else { continue }
+                        modelContext.insert(model)
+                        batchCount += 1
+
+                        if shouldBatchSsave, batchCount % batchSize == .zero {
+                            try? modelContext.save()
+                        }
+                    }
+                }
+            }
         }
 
         /// Determines if we should import the model with the specified name of skip it.
@@ -200,16 +326,19 @@ extension Database {
         }
     }
 
-    public final class ImportCache {
+    /// A type that holds a cache of models that can be used to hold in-memory models.
+    public final class ImportCache: @unchecked Sendable {
 
-        let modelExecutor: ModelExecutor
-        private var caches = [CacheKey: ModelCache]()
+        /// A hash of caches using the model name as the key and it's corresponding cache as the value.
+        fileprivate var caches = [CacheKey: ModelCache]()
+
+        /// Returns the total count of all models residing in all of the caches.
+        var count: Int {
+            caches.values.reduce(0) { $0 + $1.keys.count }
+        }
 
         /// Initializer.
-        /// - Parameter modelExecutor: the model executor to use for cache lookups.
-        init(_ modelExecutor: ModelExecutor) {
-            self.modelExecutor = modelExecutor
-        }
+        init() {}
 
         /// Warms the cache to a specific size
         /// - Parameter size: the size of the cache
@@ -235,7 +364,7 @@ extension Database {
         /// - Returns: a model cache with the specified key
         private func findOrCreateCache(_ cacheKey: CacheKey) -> ModelCache {
             guard let cache = caches[cacheKey] else {
-                let cache = ModelCache(modelExecutor)
+                let cache = ModelCache()
                 caches[cacheKey] = cache
                 return cache
             }
@@ -250,60 +379,50 @@ extension Database {
         }
     }
 
-    fileprivate final class ModelCache {
+    /// A type that holds a cache of specific models.
+    fileprivate final class ModelCache: @unchecked Sendable {
 
-        private let modelExecutor: ModelExecutor
-        private var models = [Int64: any IndexedPersistentModel]()
+        /// The backing storage cache.
+        private lazy var cache: Cache<Int64, any IndexedPersistentModel> = {
+            let cache = Cache<Int64, any IndexedPersistentModel>()
+            cache.totalCostLimit = cacheTotalCostLimit
+            cache.evictsObjectsWithDiscardedContent = true
+            return cache
+        }()
+
+        /// Convenience var for accessing the cache keys.
+        var keys: Set<Int64> {
+            cache.keys
+        }
 
         /// Initializer.
-        /// - Parameter modelExecutor: the model executor to use
-        init(_ modelExecutor: ModelExecutor) {
-            self.modelExecutor = modelExecutor
-        }
-
-        /// Returns true if the cache is empty.
-        var isEmpty: Bool {
-            models.count > 0
-        }
+        init() { }
 
         /// Warms the cache up to the specified index size. Any entities that
         /// have cache index misses are stubbed out skeletons that can later be filled in with `.update(data:cache:)`.
+        /// Please note that he models that are inserted into the cache are not inserted into the model context. As an import optimization,
+        /// all of the models are are inserted via the `.batchInsert()` method.
         /// - Parameter size: the upper bounds of the model index size
         /// - Returns: empty results for now, simply used to infer type from the generic - could be reworked
         @discardableResult
         func warm<T>(_ size: Int) -> [T] where T: IndexedPersistentModel {
             let cacheKey: CacheKey = T.modelName
-            if models.isNotEmpty || size <= .zero {
+            if size <= .zero {
                 debugPrint("􂂼 [\(cacheKey)] - skipping warm - [\(models.count)] [\(size)]")
                 return []
             }
             debugPrint("􁰹 [\(cacheKey)] - warming cache [\(size)]")
+
             let start = Date.now
 
-            let results = T.fetch(in: modelExecutor.modelContext)
-            results.forEach { model in
-                models[model.index] = model
-            }
-
-            if results.count == size {
-                let timeInterval = abs(start.timeIntervalSinceNow)
-                debugPrint("􂂼 [\(cacheKey)] - cache created [\(size)] in [\(timeInterval.stringFromTimeInterval())]")
-                return []
-            }
-
             let range: Range<Int64> = 0..<Int64(size)
-            let indexes = Set(range)
-            let cacheHits = Set(models.keys)
-            let cacheMisses = indexes.subtracting(cacheHits)
-            for index in cacheMisses {
+            for index in range {
                 let model: T = .init()
                 model.index = index
-                modelExecutor.modelContext.insert(model)
-                assert(model.index != .empty)
-                models[index] = model
+                cache[index] = model
             }
             let timeInterval = abs(start.timeIntervalSinceNow)
-            debugPrint("􂂼 [\(cacheKey)] - cache created [\(size)] with [\(cacheMisses.count)] misses in [\(timeInterval.stringFromTimeInterval())]")
+            debugPrint("􂂼 [\(cacheKey)] - cache created [\(size)] in [\(timeInterval.stringFromTimeInterval())]")
             return []
         }
 
@@ -311,28 +430,39 @@ extension Database {
         /// - Parameter index: the entity index.
         /// - Returns: an entity with the specified index.
         func findOrCreate<T>(_ index: Int64) -> T where T: IndexedPersistentModel {
-            guard let model = models[index] as? T else {
-                let predicate = T.predicate(index)
-                var fetchDescriptor = FetchDescriptor<T>(predicate: predicate)
-                fetchDescriptor.fetchLimit = 1
-                guard let results = try? modelExecutor.modelContext.fetch(fetchDescriptor), results.isNotEmpty else {
-                    let model: T = .init()
-                    model.index = index
-                    modelExecutor.modelContext.insert(model)
-                    assert(model.index != .empty)
-                    models[index] = model
-                    return model
-                }
-                let result = results[0]
-                models[index] = result
-                return result
+            guard let model = cache[index] as? T else {
+                let model: T = .init()
+                model.index = index
+                cache[index] = model
+                return model
             }
             return model
         }
 
+        /// Convenience subscript to retrive the cache value for the given key.
+        /// - Parameter key: the value key
+        subscript(key: Int64) -> (any IndexedPersistentModel)? {
+            cache[key]
+        }
+
+        /// Removes the value for the specified key.
+        /// - Parameter key: the cache key
+        func removeValue(for key: Int64) {
+            cache.removeValue(for: key)
+        }
+
         /// Empties the cache entries.
         func empty() {
-            models.removeAll()
+            cache.removeAll()
         }
     }
+}
+
+/// A singleton that keeps track of current import tasks.
+fileprivate class ImportTaskTracker: @unchecked Sendable {
+
+    static let shared = ImportTaskTracker()
+
+    /// Import tasks.
+    var tasks = [String: Bool]()
 }

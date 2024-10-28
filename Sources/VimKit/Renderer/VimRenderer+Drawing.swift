@@ -37,8 +37,10 @@ public extension VimRenderer {
 
     /// Renders a new frame.
     private func renderNewFrame() {
-        // Prepare the render descriptor
+
+        // Prepare the render pass descriptor
         buildRenderPassDescriptor()
+
         guard let geometry, geometry.state == .ready else { return }
         guard let renderPassDescriptor,
               let drawable = context.destinationProvider.currentDrawable,
@@ -125,7 +127,7 @@ public extension VimRenderer {
     /// Performs any draws after the main scene draw.
     /// - Parameter renderEncoder: the render encoder
     func didDrawScene(renderEncoder: MTLRenderCommandEncoder) {
-        skycube?.draw(renderEncoder: renderEncoder)
+        skycube?.draw(renderEncoder: renderEncoder, uniformBuffer: uniformBuffer, uniformBufferOffset: uniformBufferOffset, samplerState: samplerState)
         visibility?.draw(renderEncoder: renderEncoder)
     }
 

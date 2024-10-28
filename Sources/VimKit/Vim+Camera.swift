@@ -28,7 +28,7 @@ extension Vim {
 
         /// Holds our scene rotation transform which is used to
         /// convert from other cameras (such as ARKit or VisionPro).
-        var sceneTransform: float4x4 = .identity
+        public var sceneTransform: float4x4 = .identity
 
         /// The position and orientation of the camera in world coordinate space.
         /// The transform follows left-handed convention where the postive z-axis points up and the
@@ -336,12 +336,8 @@ extension Vim.Camera {
         // Get the current device anchor
         guard let deviceAnchor = drawable.deviceAnchor else { return }
 
-        let view = drawable.views[index]
-        let tangents = view.tangents
-        let depthRange = drawable.depthRange
-
-        let projectiveTransform = ProjectiveTransform3D(tangents: tangents, depthRange: depthRange)
-        projectionMatrix = .init(projectiveTransform)
+        let projection = drawable.computeProjection(convention: .rightUpForward, viewIndex: index)
+        projectionMatrix = projection
         transform = sceneTransform * deviceAnchor.originFromAnchorTransform
         position *= velocity
         frustum.update(self)
