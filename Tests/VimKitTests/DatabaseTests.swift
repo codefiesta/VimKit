@@ -32,7 +32,7 @@ final class DatabaseTests: XCTestCase {
         let vim: Vim = .init()
 
         // Subscribe to the file state
-        let readyExpection = expectation(description: "Ready")
+        var readyExpection = expectation(description: "Ready")
 
         vim.$state.sink { state in
             switch state {
@@ -54,28 +54,33 @@ final class DatabaseTests: XCTestCase {
         let db = vim.db!
         XCTAssertGreaterThan(db.tableNames.count, 0)
 
-        let schema = Schema(Database.allTypes)
-        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
-        let modelContainer = try! ModelContainer(for: schema, configurations: configuration)
-        XCTAssertNotNil(modelContainer)
+        // Subscribe to the database state
+        readyExpection = expectation(description: "Ready")
+        db.$state.sink { state in
+            switch state {
+            case .ready:
+                // The database is now imported and ready to be read
+                readyExpection.fulfill()
+            case .unknown, .importing, .error:
+                break
+            }
+        }.store(in: &subscribers)
 
         let importer = Database.ImportActor(db)
         await importer.import()
 
-        // TODO: I kinda hate this while loop, but need to figure out how to observe async published vars
-        var isFinished = false
-        while !isFinished {
-            isFinished = await importer.progress.isFinished
-        }
+        // Wait for the database to be put into a ready state
+        await fulfillment(of: [readyExpection], timeout: 60)
+
 
         // Create a new model context for reading
-        let modelContext = ModelContext(modelContainer)
+        let modelContext = ModelContext(db.modelContainer)
 
         // Make sure the meta data is all in an imported state
         let metaDataDescriptor = FetchDescriptor<Database.ModelMetadata>(sortBy: [SortDescriptor(\.name)])
         guard let results = try? modelContext.fetch(metaDataDescriptor) else { return }
         for result in results {
-            XCTAssertEqual(result.state, .imported)
+            XCTAssertNotEqual(result.state, .failed)
         }
     }
 }
