@@ -72,7 +72,7 @@ final class DatabaseTests: XCTestCase {
         // Wait for the database to be put into a ready state
         await fulfillment(of: [readyExpection], timeout: 60)
 
-        
+
         // Create a new model context for reading
         let modelContext = ModelContext(db.modelContainer)
 

@@ -11,6 +11,7 @@ import SwiftData
 
 private typealias CacheKey = String
 private let cacheTotalCostLimit = 1024 * 1024 * 64
+private let batchSize = 10000 * 7
 
 extension Database {
 
@@ -58,6 +59,9 @@ extension Database {
 
     /// A thread safe actor type that handles the importing
     /// of vim database information into a SwiftData container.
+    ///
+    /// For discussion, see this thread as wrapping the context as an unchecked sendable across tasks.
+    /// See: https://forums.developer.apple.com/forums/thread/736226
     actor ImportActor: ModelActor, ObservableObject {
 
         /// Progress reporting importing model data into the container.
@@ -87,6 +91,7 @@ extension Database {
                 debugPrint("􁗫 Model context saved.")
             }.store(in: &subscribers)
         }
+
 
         /// Starts the import process.
         /// - Parameter limit: the max limit of models per entity to import
@@ -209,22 +214,54 @@ extension Database {
             let start = Date.now
             var batchCount = 0
 
+            // We only need a subset of the model caches as the relationships will cascade
+            let models: [any IndexedPersistentModel.Type] = [
+                Category.self,
+                CompoundStructureLayer.self,
+                DesignOption.self,
+                DisplayUnit.self,
+                Family.self,
+                FamilyInstance.self,
+                FamilyType.self,
+                Group.self,
+                Level.self,
+                MaterialInElement.self,
+                Node.self,
+                Parameter.self,
+                Room.self,
+                View.self,
+                Workset.self,
+            ]
+
+            let cacheKeys = models.map{ $0.modelName }.sorted{ $0 > $1 }
+            let shouldBatchSsave = cache.count >= batchSize * 2
+
             defer {
                 let timeInterval = abs(start.timeIntervalSinceNow)
                 debugPrint("􂂼 [Batch] - inserted [\(batchCount)] models in [\(timeInterval.stringFromTimeInterval())]")
             }
             try? modelContext.transaction {
-                for (cacheKey, cache) in cache.caches {
+                for cacheKey in cacheKeys {
+
+                    guard let cache = cache.caches[cacheKey] else { continue }
                     let start = Date.now
                     let keys = cache.keys
+
+                    defer {
+                        let timeInterval = abs(start.timeIntervalSinceNow)
+                        debugPrint("􂂼 [Batch] - inserted [\(cacheKey)] [\(keys.count)] in [\(timeInterval.stringFromTimeInterval())]")
+                        cache.empty()
+                    }
+
                     for key in keys {
                         guard let model = cache[key] else { continue }
                         modelContext.insert(model)
                         batchCount += 1
+
+                        if shouldBatchSsave, batchCount % batchSize == .zero {
+                            try? modelContext.save()
+                        }
                     }
-                    let timeInterval = abs(start.timeIntervalSinceNow)
-                    debugPrint("􂂼 [Batch] - inserted [\(cacheKey)] [\(keys.count)] in [\(timeInterval.stringFromTimeInterval())]")
-                    cache.empty()
                 }
             }
         }
@@ -296,7 +333,7 @@ extension Database {
 
         /// Returns the total count of all models residing in all of the caches.
         var count: Int {
-            caches.values.map{ $0.keys.count }.reduce(0, +)
+            caches.values.reduce(0) { $0 + $1.keys.count }
         }
 
         /// Initializer.
