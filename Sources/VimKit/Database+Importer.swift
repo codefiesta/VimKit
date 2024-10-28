@@ -225,6 +225,7 @@ extension Database {
                 FamilyType.self,
                 Group.self,
                 Level.self,
+                Material.self,
                 MaterialInElement.self,
                 Node.self,
                 Parameter.self,
