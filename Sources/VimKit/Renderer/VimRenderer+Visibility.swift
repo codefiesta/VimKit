@@ -65,6 +65,8 @@ extension VimRenderer {
         var computePipelineState: MTLComputePipelineState?
         /// The indirect command buffer to use to issue visibility results.
         var indirectCommandBuffer: MTLIndirectCommandBuffer?
+        /// Performs the visibility test and encodes drawing commands.
+        var visibilityFunction: MTLFunction?
 
         /// The rotating visibility results buffers.
         var visibilityResultBuffer: [MTLBuffer?]
@@ -226,6 +228,20 @@ extension VimRenderer {
 
             // Finsh the frame and update the read index for the next frame
             finish()
+        }
+
+        /// Performs the visibiloity test results using an indirect command buffer to encode the drawing commands on the GPU.
+        /// - Parameters:
+        ///   - renderEncoder: the render encoder
+        ///   - indirectCommandBuffer: the indirect command buffer
+        private func drawIndirect(renderEncoder: MTLRenderCommandEncoder,
+                                  indirectCommandBuffer: MTLIndirectCommandBuffer) {
+
+            guard let visibilityFunction else { return }
+            let argumentEncoder = visibilityFunction.makeArgumentEncoder(.commandBufferContainer)
+            let argumentBuffer = device.makeBuffer(length: argumentEncoder.encodedLength, options: [.storageModeShared])
+            argumentEncoder.setArgumentBuffer(argumentBuffer, offset: 0)
+            argumentEncoder.setIndirectCommandBuffer(indirectCommandBuffer, index: .commandBuffer)
         }
 
         /// Draws simplified proxy geometry for each instanced mesh.

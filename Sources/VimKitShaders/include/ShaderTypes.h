@@ -131,15 +131,21 @@ typedef NS_ENUM(EnumBackingType, VertexBufferIndex) {
     VertexBufferIndexRenderOptions = 9
 };
 
-typedef NS_ENUM(EnumBackingType, KernelBufferIndex) {
-    KernelBufferIndexCommandBufferContainer = 0
-};
-
-// Enum constances for the attribute index of an incoming vertex
+// Enum constants for the attribute index of an incoming vertex
 typedef NS_ENUM(EnumBackingType, VertexAttribute) {
     VertexAttributePosition = 0,
     VertexAttributeNormal = 1,
     VertexAttributeUv = 2
+};
+
+// Enum constants for kernel compute function buffer indices
+typedef NS_ENUM(EnumBackingType, KernelBufferIndex) {
+    KernelBufferIndexCommandBufferContainer = 0
+};
+
+// Enum constants for argument buffer indices
+typedef NS_ENUM(EnumBackingType, ArgumentBufferIndex) {
+    ArgumentBufferIndexCommandBuffer = 0
 };
 
 //***********************************************************************
@@ -193,7 +199,7 @@ typedef struct {
 // The argument buffer that contains the indirect command buffer.
 typedef struct {
     // The icb
-    command_buffer commandBuffer [[id(0)]];
+    command_buffer commandBuffer [[id(ArgumentBufferIndexCommandBuffer)]];
 } IcbContainer;
 
 #endif
