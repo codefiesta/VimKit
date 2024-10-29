@@ -239,7 +239,8 @@ extension VimRenderer {
 
             guard let visibilityFunction else { return }
             let argumentEncoder = visibilityFunction.makeArgumentEncoder(.commandBufferContainer)
-            let argumentBuffer = device.makeBuffer(length: argumentEncoder.encodedLength, options: [.storageModeShared])
+            let argumentBuffer = device.makeBuffer(length: argumentEncoder.encodedLength,
+                                                   options: [.storageModeShared])
             argumentEncoder.setArgumentBuffer(argumentBuffer, offset: 0)
             argumentEncoder.setIndirectCommandBuffer(indirectCommandBuffer, index: .commandBuffer)
         }
