@@ -85,7 +85,7 @@ extension VimRenderer {
         let descriptor = MTLIndirectCommandBufferDescriptor()
         descriptor.commandTypes = [.drawIndexed]
         descriptor.inheritBuffers = false
-        descriptor.inheritPipelineState = false
+        descriptor.inheritPipelineState = true
 
         guard let function = library.makeFunction(name: functionNameEncodeIndirectCommands),
               let cps = try? device.makeComputePipelineState(function: function) else {

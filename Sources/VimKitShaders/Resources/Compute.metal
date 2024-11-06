@@ -126,7 +126,7 @@ kernel void encodeIndirectCommands(uint index [[thread_position_in_grid]],
                                    constant Submesh *submeshes [[buffer(KernelBufferIndexSubmeshes)]],
                                    constant Material *materials [[buffer(KernelBufferIndexMaterials)]],
                                    constant float4 *colors [[buffer(KernelBufferIndexColors)]],
-                                   constant Identifiers &identifiers [[buffer(KernelBufferIndexIdentifiers)]],
+                                   device Identifiers &identifiers [[buffer(KernelBufferIndexIdentifiers)]],
                                    constant RenderOptions &options [[buffer(KernelBufferIndexRenderOptions)]],
                                    constant uint64_t *visibilityResults [[buffer(KernelBufferIndexVisibilityResults)]],
                                    device ICBContainer *icbContainer [[buffer(KernelBufferIndexCommandBufferContainer)]]) {
@@ -147,6 +147,7 @@ kernel void encodeIndirectCommands(uint index [[thread_position_in_grid]],
         render_command cmd(icbContainer->commandBuffer, index);
         
         // Encode the buffers
+        cmd.set_vertex_buffer(&uniformsArray, KernelBufferIndexUniforms);
         cmd.set_vertex_buffer(positions, VertexBufferIndexPositions);
         cmd.set_vertex_buffer(normals, VertexBufferIndexNormals);
         cmd.set_vertex_buffer(instances, VertexBufferIndexInstances);
@@ -154,8 +155,6 @@ kernel void encodeIndirectCommands(uint index [[thread_position_in_grid]],
         cmd.set_vertex_buffer(submeshes, VertexBufferIndexSubmeshes);
         cmd.set_vertex_buffer(materials, VertexBufferIndexMaterials);
         cmd.set_vertex_buffer(colors, VertexBufferIndexColors);
-        
-        // TODO: Encode the Identifiers
         
         // TODO: Encode the Fragment Buffers
 
@@ -165,6 +164,11 @@ kernel void encodeIndirectCommands(uint index [[thread_position_in_grid]],
             const BoundedRange indexRange = submesh.indices;
             const uint indexCount = (uint)indexRange.upperBound - (uint)indexRange.lowerBound;
             
+            const size_t submeshIndex = indexRange.lowerBound + i;
+            identifiers.mesh = instancedMesh.mesh;
+            identifiers.submesh = submeshIndex;
+            cmd.set_vertex_buffer(&identifiers, VertexBufferIndexIdentifiers);
+
             // Execute the draw call
             cmd.draw_indexed_primitives(primitive_type::triangle,
                                         indexCount,

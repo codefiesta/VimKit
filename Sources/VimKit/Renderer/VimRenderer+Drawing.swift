@@ -38,6 +38,11 @@ public extension VimRenderer {
     /// Renders a new frame.
     private func renderNewFrame() {
 
+        if supportsIndirectCommandBuffers {
+
+            return
+        }
+
         // Prepare the render pass descriptor
         buildRenderPassDescriptor()
 
@@ -113,7 +118,8 @@ public extension VimRenderer {
         guard let geometry else { return }
 
         if supportsIndirectCommandBuffers {
-
+            drawIndirect(renderEncoder: renderEncoder, commandBuffer: commandBuffer)
+            return
         }
 
         renderEncoder.pushDebugGroup(renderEncoderDebugGroupName)
@@ -151,6 +157,7 @@ public extension VimRenderer {
               let visibilityResults = visibility?.currentVisibilityResultBuffer,
               let computeEncoder = commandBuffer.makeComputeCommandEncoder() else { return }
 
+        // 1) Encode
         computeEncoder.setComputePipelineState(computePipelineState)
         computeEncoder.setBuffer(positionsBuffer, offset: 0, index: .positions)
         computeEncoder.setBuffer(normalsBuffer, offset: 0, index: .normals)
@@ -162,15 +169,22 @@ public extension VimRenderer {
         computeEncoder.setBuffer(colorsBuffer, offset: 0, index: .colors)
         computeEncoder.setBuffer(visibilityResults, offset: 0, index: .visibilityResults)
         computeEncoder.setBuffer(indirectArgumentBuffer, offset: 0, index: .commandBufferContainer)
+
+        // 2) Use Resources
         computeEncoder.useResource(indirectCommandBuffer, usage: .write)
-        renderEncoder.executeCommandsInBuffer(indirectCommandBuffer, range: 0..<geometry.instancedMeshes.count)
 
-
-        // Set the thread group size and dispatch
-        let gridSize: MTLSize = MTLSizeMake(1, 1, 1);
+        // 3) Dispatch the threads
+        let drawCount = geometry.instancedMeshes.count
+        let gridSize: MTLSize = .init(width: drawCount, height: 1, depth: 1)
         let threadExecutionWidth = computePipelineState.threadExecutionWidth
-        let threadgroupSize = MTLSizeMake(threadExecutionWidth, 1, 1)
+        let threadgroupSize: MTLSize = .init(width: threadExecutionWidth, height: 1, depth: 1)
         computeEncoder.dispatchThreads(gridSize, threadsPerThreadgroup: threadgroupSize)
+
+        // 4) End Encoding
+        computeEncoder.endEncoding()
+
+        let range = 0..<drawCount
+        renderEncoder.executeCommandsInBuffer(indirectCommandBuffer, range: range)
     }
 
     /// Performs any draws after the main scene draw.
