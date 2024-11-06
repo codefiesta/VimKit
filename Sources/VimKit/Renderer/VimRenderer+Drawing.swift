@@ -56,7 +56,7 @@ public extension VimRenderer {
         willDrawScene(renderEncoder: renderEncoder)
 
         // Draw the scene
-        drawScene(renderEncoder: renderEncoder)
+        drawScene(renderEncoder: renderEncoder, commandBuffer: commandBuffer)
 
         // Perform any post scene draws
         didDrawScene(renderEncoder: renderEncoder)
@@ -105,10 +105,16 @@ public extension VimRenderer {
     }
 
     /// Draws the entire scene.
-    /// - Parameter renderEncoder: the render encoder
-    func drawScene(renderEncoder: MTLRenderCommandEncoder) {
+    /// - Parameters:
+    ///   - renderEncoder: the render encoder
+    ///   - commandBuffer: the command buffer
+    func drawScene(renderEncoder: MTLRenderCommandEncoder, commandBuffer: MTLCommandBuffer) {
 
         guard let geometry else { return }
+
+        if supportsIndirectCommandBuffers {
+
+        }
 
         renderEncoder.pushDebugGroup(renderEncoderDebugGroupName)
 
@@ -124,8 +130,52 @@ public extension VimRenderer {
         renderEncoder.popDebugGroup()
     }
 
+
+    /// Performs indirect drawing by using the indirect command buffer to encode the drawing commands on the GPU.
+    /// - Parameters:
+    ///   - renderEncoder: the render encoder
+    ///   - commandBuffer: the command buffer
+    private func drawIndirect(renderEncoder: MTLRenderCommandEncoder, commandBuffer: MTLCommandBuffer) {
+        guard let geometry,
+              let computePipelineState,
+              let indirectCommandBuffer,
+              let indirectArgumentBuffer,
+              let positionsBuffer = geometry.positionsBuffer,
+              let normalsBuffer = geometry.normalsBuffer,
+              let instancesBuffer = geometry.instancesBuffer,
+              let instancedMeshesBuffer = geometry.instancedMeshesBuffer,
+              let meshesBuffer = geometry.meshesBuffer,
+              let submeshesBuffer = geometry.submeshesBuffer,
+              let materialsBuffer = geometry.materialsBuffer,
+              let colorsBuffer = geometry.colorsBuffer,
+              let visibilityResults = visibility?.currentVisibilityResultBuffer,
+              let computeEncoder = commandBuffer.makeComputeCommandEncoder() else { return }
+
+        computeEncoder.setComputePipelineState(computePipelineState)
+        computeEncoder.setBuffer(positionsBuffer, offset: 0, index: .positions)
+        computeEncoder.setBuffer(normalsBuffer, offset: 0, index: .normals)
+        computeEncoder.setBuffer(instancesBuffer, offset: 0, index: .instances)
+        computeEncoder.setBuffer(instancedMeshesBuffer, offset: 0, index: .instancedMeshes)
+        computeEncoder.setBuffer(meshesBuffer, offset: 0, index: .meshes)
+        computeEncoder.setBuffer(submeshesBuffer, offset: 0, index: .submeshes)
+        computeEncoder.setBuffer(materialsBuffer, offset: 0, index: .materials)
+        computeEncoder.setBuffer(colorsBuffer, offset: 0, index: .colors)
+        computeEncoder.setBuffer(visibilityResults, offset: 0, index: .visibilityResults)
+        computeEncoder.setBuffer(indirectArgumentBuffer, offset: 0, index: .commandBufferContainer)
+        computeEncoder.useResource(indirectCommandBuffer, usage: .write)
+        renderEncoder.executeCommandsInBuffer(indirectCommandBuffer, range: 0..<geometry.instancedMeshes.count)
+
+
+        // Set the thread group size and dispatch
+        let gridSize: MTLSize = MTLSizeMake(1, 1, 1);
+        let threadExecutionWidth = computePipelineState.threadExecutionWidth
+        let threadgroupSize = MTLSizeMake(threadExecutionWidth, 1, 1)
+        computeEncoder.dispatchThreads(gridSize, threadsPerThreadgroup: threadgroupSize)
+    }
+
     /// Performs any draws after the main scene draw.
-    /// - Parameter renderEncoder: the render encoder
+    /// - Parameters:
+    ///   - renderEncoder: the render encoder
     func didDrawScene(renderEncoder: MTLRenderCommandEncoder) {
         skycube?.draw(renderEncoder: renderEncoder, uniformBuffer: uniformBuffer, uniformBufferOffset: uniformBufferOffset, samplerState: samplerState)
         visibility?.draw(renderEncoder: renderEncoder)

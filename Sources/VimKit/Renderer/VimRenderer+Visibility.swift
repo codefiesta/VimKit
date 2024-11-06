@@ -10,10 +10,8 @@ import MetalKit
 import VimKitShaders
 
 private let functionNameVertexVisibilityTest = "vertexVisibilityTest"
-private let functionNameEncodeIndirectCommands = "encodeIndirectCommands"
 private let labelRenderEncoderDebugGroupName = "VimVisibilityResultsDrawGroup"
 private let labelPipeline = "VimVisibilityResultsPipeline"
-private let labelICB = "VimIndirectCommandBuffer"
 
 private let minFrustumCullingThreshold = 1024
 
@@ -61,12 +59,6 @@ extension VimRenderer {
         let pipelineState: MTLRenderPipelineState?
         /// The depth stencil state that performs no writes for the non-rendering pipeline state.
         let depthStencilState: MTLDepthStencilState?
-        /// The compute pipeline state.
-        var computePipelineState: MTLComputePipelineState?
-        /// The indirect command buffer to use to issue visibility results.
-        var indirectCommandBuffer: MTLIndirectCommandBuffer?
-        /// Performs the visibility test and encodes drawing commands.
-        var visibilityFunction: MTLFunction?
 
         /// The rotating visibility results buffers.
         var visibilityResultBuffer: [MTLBuffer?]
@@ -151,9 +143,6 @@ extension VimRenderer {
             depthStencilDescriptor.isDepthWriteEnabled = options.visualizeVisibilityResults
             depthStencilState = device.makeDepthStencilState(descriptor: depthStencilDescriptor)
 
-            // Indirect Command Buffers
-            buildComputePipelineState(library)
-
             // Visibility Buffers
             buildVisibilityResultsBuffers()
 
@@ -168,34 +157,6 @@ extension VimRenderer {
                     break
                 }
             }.store(in: &subscribers)
-        }
-
-        /// Builds the compute pipeline state.
-        /// - Parameter library: the metal library
-        private func buildComputePipelineState(_ library: MTLLibrary) {
-
-            guard supportsIndirectCommandBuffers else {
-                debugPrint("💩 Indirect command buffers are not supported on this device.")
-                return
-            }
-
-            let descriptor = MTLIndirectCommandBufferDescriptor()
-            descriptor.commandTypes = [.drawIndexed]
-            descriptor.inheritBuffers = false
-            descriptor.inheritPipelineState = false
-
-            guard let function = library.makeFunction(name: functionNameEncodeIndirectCommands),
-                  let cps = try? device.makeComputePipelineState(function: function) else {
-                return
-            }
-
-            let maxCommandCount = 1024 * 64
-            let icb = device.makeIndirectCommandBuffer(descriptor: descriptor,
-                                                       maxCommandCount: maxCommandCount,
-                                                       options: [.storageModePrivate])
-            icb?.label = labelICB
-            self.indirectCommandBuffer = icb
-            self.computePipelineState = cps
         }
 
         /// Builds the visibility results buffers array.
@@ -228,21 +189,6 @@ extension VimRenderer {
 
             // Finsh the frame and update the read index for the next frame
             finish()
-        }
-
-        /// Performs the visibiloity test results using an indirect command buffer to encode the drawing commands on the GPU.
-        /// - Parameters:
-        ///   - renderEncoder: the render encoder
-        ///   - indirectCommandBuffer: the indirect command buffer
-        private func drawIndirect(renderEncoder: MTLRenderCommandEncoder,
-                                  indirectCommandBuffer: MTLIndirectCommandBuffer) {
-
-            guard let visibilityFunction else { return }
-            let argumentEncoder = visibilityFunction.makeArgumentEncoder(.commandBufferContainer)
-            let argumentBuffer = device.makeBuffer(length: argumentEncoder.encodedLength,
-                                                   options: [.storageModeShared])
-            argumentEncoder.setArgumentBuffer(argumentBuffer, offset: 0)
-            argumentEncoder.setIndirectCommandBuffer(indirectCommandBuffer, index: .commandBuffer)
         }
 
         /// Draws simplified proxy geometry for each instanced mesh.

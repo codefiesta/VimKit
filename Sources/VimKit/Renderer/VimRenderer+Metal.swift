@@ -8,10 +8,12 @@
 import MetalKit
 import VimKitShaders
 
-private let labelInstancePickingTexture = "InstancePickingTexture"
-private let labelPipeline = "VimRendererPipeline"
 private let functionNameVertexMain = "vertexMain"
 private let functionNameFragmentMain = "fragmentMain"
+private let functionNameEncodeIndirectCommands = "encodeIndirectCommands"
+private let labelInstancePickingTexture = "InstancePickingTexture"
+private let labelPipeline = "VimRendererPipeline"
+private let labelICB = "VimIndirectCommandBuffer"
 
 extension VimRenderer {
 
@@ -28,6 +30,7 @@ extension VimRenderer {
         pipelineState = buildPipelineState(library, vertexFunction, fragmentFunction, vertexDescriptor, labelPipeline)
         depthStencilState = buildDepthStencilState()
         samplerState = buildSamplerState()
+        buildComputePipelineState(library)
     }
 
     /// Builds the render pipeline state.
@@ -68,6 +71,42 @@ extension VimRenderer {
 
         guard let pipeline = try? device.makeRenderPipelineState(descriptor: pipelineDescriptor) else { return nil }
         return pipeline
+    }
+
+    /// Builds the compute pipeline state.
+    /// - Parameter library: the metal library
+    private func buildComputePipelineState(_ library: MTLLibrary) {
+
+        guard supportsIndirectCommandBuffers else {
+            debugPrint("💩 Indirect command buffers are not supported on this device.")
+            return
+        }
+
+        let descriptor = MTLIndirectCommandBufferDescriptor()
+        descriptor.commandTypes = [.drawIndexed]
+        descriptor.inheritBuffers = false
+        descriptor.inheritPipelineState = false
+
+        guard let function = library.makeFunction(name: functionNameEncodeIndirectCommands),
+              let cps = try? device.makeComputePipelineState(function: function) else {
+            return
+        }
+
+        // Create icb using private storage mode since only the GPU will read+write to/from buffer
+        let maxCommandCount = 1024 * 64
+        let icb = device.makeIndirectCommandBuffer(descriptor: descriptor,
+                                                   maxCommandCount: maxCommandCount,
+                                                   options: [.storageModePrivate])
+        icb?.label = labelICB
+        self.indirectCommandBuffer = icb
+        self.computePipelineState = cps
+
+        let argumentEncoder = function.makeArgumentEncoder(.commandBufferContainer)
+        indirectArgumentBuffer = device.makeBuffer(length: argumentEncoder.encodedLength,
+                                                   options: [.storageModeShared])
+        argumentEncoder.setArgumentBuffer(indirectArgumentBuffer, offset: 0)
+        argumentEncoder.setIndirectCommandBuffer(indirectCommandBuffer, index: .commandBuffer)
+
     }
 
     /// Builds the depth stencil state

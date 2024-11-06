@@ -86,9 +86,9 @@ typedef struct {
     simd_float3 maxBounds;
     // The parent index of the instance (-1 indicates no parent).
     size_t parent;
-    /// The mesh index (-1 indicates no mesh)
+    // The mesh index (-1 indicates no mesh)
     size_t mesh;
-    /// Flag indicating if this instance is transparent or not.
+    // Flag indicating if this instance is transparent or not.
     bool transparent;
 } Instance;
 
@@ -140,7 +140,20 @@ typedef NS_ENUM(EnumBackingType, VertexAttribute) {
 
 // Enum constants for kernel compute function buffer indices
 typedef NS_ENUM(EnumBackingType, KernelBufferIndex) {
-    KernelBufferIndexCommandBufferContainer = 0
+    KernelBufferIndexPositions = 0,
+    KernelBufferIndexNormals = 1,
+    KernelBufferIndexIndexBuffer = 2,
+    KernelBufferIndexUniforms = 3,
+    KernelBufferIndexInstances = 4,
+    KernelBufferIndexInstancedMeshes = 5,
+    KernelBufferIndexMeshes = 6,
+    KernelBufferIndexSubmeshes = 7,
+    KernelBufferIndexMaterials = 8,
+    KernelBufferIndexColors = 9,
+    KernelBufferIndexIdentifiers = 10,
+    KernelBufferIndexRenderOptions = 11,
+    KernelBufferIndexVisibilityResults = 12,
+    KernelBufferIndexCommandBufferContainer = 13
 };
 
 // Enum constants for argument buffer indices
@@ -200,7 +213,7 @@ typedef struct {
 typedef struct {
     // The icb
     command_buffer commandBuffer [[id(ArgumentBufferIndexCommandBuffer)]];
-} IcbContainer;
+} ICBContainer;
 
 #endif
 

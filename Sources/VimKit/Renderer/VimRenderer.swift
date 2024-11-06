@@ -49,6 +49,11 @@ open class VimRenderer: NSObject {
         context.destinationProvider.device!
     }
 
+    /// Boolean flag indicating if indirect command buffers are supported or not.
+    open var supportsIndirectCommandBuffers: Bool {
+        device.supportsFamily(.apple4)
+    }
+
     open var commandQueue: MTLCommandQueue!
     open var pipelineState: MTLRenderPipelineState?
     open var depthStencilState: MTLDepthStencilState?
@@ -56,6 +61,13 @@ open class VimRenderer: NSObject {
     open var baseColorTexture: MTLTexture?
     open var instancePickingTexture: MTLTexture?
     open var renderPassDescriptor: MTLRenderPassDescriptor?
+
+    /// The compute pipeline state.
+    open var computePipelineState: MTLComputePipelineState?
+    /// The indirect command buffer to use to issue visibility results.
+    open var indirectCommandBuffer: MTLIndirectCommandBuffer?
+    /// Argument buffer containing the indirect command buffer encoded in the kernel
+    open var indirectArgumentBuffer: MTLBuffer?
 
     // Uniforms Buffer
     public let alignedUniformsSize = ((MemoryLayout<UniformsArray>.size + 255) / 256) * 256

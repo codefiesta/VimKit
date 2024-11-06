@@ -114,6 +114,66 @@ kernel void computeBoundingBoxes(device const float *positions,
     }
 }
 
-kernel void encodeIndirectCommands(device IcbContainer *icbContainer [[ buffer(KernelBufferIndexCommandBufferContainer) ]]) {
+// Encodes the buffers and adds draw commands via indirect command buffer.
+kernel void encodeIndirectCommands(uint index [[thread_position_in_grid]],
+                                   constant float *positions [[buffer(KernelBufferIndexPositions)]],
+                                   constant float *normals [[buffer(KernelBufferIndexNormals)]],
+                                   constant uint32_t *indexBuffer [[buffer(KernelBufferIndexIndexBuffer)]],
+                                   constant UniformsArray &uniformsArray [[buffer(KernelBufferIndexUniforms)]],
+                                   constant Instance *instances [[buffer(KernelBufferIndexInstances)]],
+                                   constant InstancedMesh *instancedMeshes [[buffer(KernelBufferIndexInstancedMeshes)]],
+                                   constant Mesh *meshes [[buffer(KernelBufferIndexMeshes)]],
+                                   constant Submesh *submeshes [[buffer(KernelBufferIndexSubmeshes)]],
+                                   constant Material *materials [[buffer(KernelBufferIndexMaterials)]],
+                                   constant float4 *colors [[buffer(KernelBufferIndexColors)]],
+                                   constant Identifiers &identifiers [[buffer(KernelBufferIndexIdentifiers)]],
+                                   constant RenderOptions &options [[buffer(KernelBufferIndexRenderOptions)]],
+                                   constant uint64_t *visibilityResults [[buffer(KernelBufferIndexVisibilityResults)]],
+                                   device ICBContainer *icbContainer [[buffer(KernelBufferIndexCommandBufferContainer)]]) {
     
+    
+    // Check the visibility result
+    uint64_t visibilityResult = visibilityResults[index];
+    bool visible = visibilityResult != 0;
+
+    // If visible, set the buffers and add draw commands
+    if (visible) {
+
+        const InstancedMesh instancedMesh = instancedMeshes[index];
+        const Mesh mesh = meshes[instancedMesh.mesh];
+        const BoundedRange submeshRange = mesh.submeshes;
+        
+        // Get indirect render commnd from the indirect command buffer
+        render_command cmd(icbContainer->commandBuffer, index);
+        
+        // Encode the buffers
+        cmd.set_vertex_buffer(positions, VertexBufferIndexPositions);
+        cmd.set_vertex_buffer(normals, VertexBufferIndexNormals);
+        cmd.set_vertex_buffer(instances, VertexBufferIndexInstances);
+        cmd.set_vertex_buffer(meshes, VertexBufferIndexMeshes);
+        cmd.set_vertex_buffer(submeshes, VertexBufferIndexSubmeshes);
+        cmd.set_vertex_buffer(materials, VertexBufferIndexMaterials);
+        cmd.set_vertex_buffer(colors, VertexBufferIndexColors);
+        
+        // TODO: Encode the Identifiers
+        
+        // TODO: Encode the Fragment Buffers
+
+        // Loop through the submeshes and execute the draw calls
+        for (int i = (int)submeshRange.lowerBound; i < (int)submeshRange.upperBound; i++) {
+            const Submesh submesh = submeshes[i];
+            const BoundedRange indexRange = submesh.indices;
+            const uint indexCount = (uint)indexRange.upperBound - (uint)indexRange.lowerBound;
+            
+            // Execute the draw call
+            cmd.draw_indexed_primitives(primitive_type::triangle,
+                                        indexCount,
+                                        indexBuffer,
+                                        instancedMesh.instanceCount,
+                                        0,
+                                        instancedMesh.baseInstance);
+        }
+    }
+
+    // If not visible, no draw command will be sent
 }

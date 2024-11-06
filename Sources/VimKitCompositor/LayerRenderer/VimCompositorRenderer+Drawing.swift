@@ -46,7 +46,7 @@ extension VimCompositorRenderer {
         willDrawScene(renderEncoder: renderEncoder)
 
         // Draw the scene
-        drawScene(renderEncoder: renderEncoder)
+        drawScene(renderEncoder: renderEncoder, commandBuffer: commandBuffer)
 
         // Perform any post scene draws
         didDrawScene(renderEncoder: renderEncoder)
