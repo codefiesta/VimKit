@@ -52,11 +52,11 @@ public extension VimRenderer {
         if supportsIndirectCommandBuffers {
             drawIndirect(commandBuffer: commandBuffer)
         } else {
-            
+
             guard let renderEncoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPassDescriptor) else { return }
             renderEncoder.label = renderEncoderLabel
 
-            
+
             // Perform any pre scene draws
             willDrawScene(renderEncoder: renderEncoder)
             // Draw the scene
