@@ -1,5 +1,5 @@
 //
-//  VimCompositorRenderer+Metal.swift
+//  CompositorRenderer+Metal.swift
 //  
 //
 //  Created by Kevin McKee
@@ -11,7 +11,7 @@ import MetalKit
 import VimKit
 import VimKitShaders
 
-extension VimCompositorRenderer {
+extension CompositorRenderer {
 
     /// Builds a single render descriptor
     /// See: https://developer.apple.com/documentation/compositorservices/drawing_fully_immersive_content_using_metal#4225666

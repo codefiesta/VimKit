@@ -1,5 +1,5 @@
 //
-//  VimRenderer+Drawing.swift
+//  Renderer+Drawing.swift
 //
 //
 //  Created by Kevin McKee
@@ -17,7 +17,7 @@ private let minFrustumCullingThreshold = 1024
 
 #if !os(visionOS)
 
-extension VimRenderer: MTKViewDelegate {
+extension Renderer: MTKViewDelegate {
 
     public func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {
         let isLandscape = size.height < size.width
@@ -33,7 +33,7 @@ extension VimRenderer: MTKViewDelegate {
 
 #endif
 
-public extension VimRenderer {
+public extension Renderer {
 
     /// Renders a new frame.
     private func renderNewFrame() {
@@ -83,7 +83,6 @@ public extension VimRenderer {
               let normalsBuffer = geometry.normalsBuffer,
               let instancesBuffer = geometry.instancesBuffer,
               let submeshesBuffer = geometry.submeshesBuffer,
-              let materialsBuffer = geometry.materialsBuffer,
               let colorsBuffer = geometry.colorsBuffer else { return }
 
         renderEncoder.setRenderPipelineState(pipelineState)
@@ -99,8 +98,8 @@ public extension VimRenderer {
         renderEncoder.setVertexBuffer(instancesBuffer, offset: 0, index: .instances)
         renderEncoder.setVertexBuffer(submeshesBuffer, offset: 0, index: .submeshes)
         renderEncoder.setVertexBuffer(colorsBuffer, offset: 0, index: .colors)
-//        renderEncoder.setFragmentTexture(baseColorTexture, index: 0)
-//        renderEncoder.setFragmentSamplerState(samplerState, index: 0)
+        renderEncoder.setFragmentTexture(baseColorTexture, index: 0)
+        renderEncoder.setFragmentSamplerState(samplerState, index: 0)
 
         // Set the per frame render options
         var options = RenderOptions(xRay: xRayMode)

@@ -1,5 +1,5 @@
 //
-//  VimCompositorContext.swift
+//  CompositorContext.swift
 //  
 //
 //  Created by Kevin McKee
@@ -9,11 +9,11 @@ import CompositorServices
 import SwiftUI
 import VimKit
 
-public struct VimCompositorContext: VimRendererContext, VimRenderDestinationProvider {
+public struct CompositorContext: RendererContext, RenderDestinationProvider {
 
     public let vim: Vim
     public let layerRenderer: LayerRenderer
-    public var destinationProvider: VimRenderDestinationProvider {
+    public var destinationProvider: RenderDestinationProvider {
         self
     }
 

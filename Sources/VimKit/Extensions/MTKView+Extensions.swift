@@ -9,7 +9,7 @@ import MetalKit
 
 #if !os(visionOS)
 
-extension MTKView: VimRenderDestinationProvider {
+extension MTKView: RenderDestinationProvider {
 
     public var colorFormat: MTLPixelFormat { colorPixelFormat }
 

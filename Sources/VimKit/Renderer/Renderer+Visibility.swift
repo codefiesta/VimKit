@@ -1,5 +1,5 @@
 //
-//  VimRenderer+Visibility.swift
+//  Renderer+Visibility.swift
 //  VimKit
 //
 //  Created by Kevin McKee
@@ -15,7 +15,7 @@ private let labelPipeline = "VimVisibilityResultsPipeline"
 
 private let minFrustumCullingThreshold = 1024
 
-extension VimRenderer {
+extension Renderer {
 
     /// A class that culls occluded geometry by performing visibility testing.
     /// The render pass descriptor needs to have the visibilityResultBuffer value set in order to perform visibility tests.
@@ -26,7 +26,7 @@ extension VimRenderer {
     class Visibility {
 
         /// The context that provides all of the data we need
-        let context: VimRendererContext
+        let context: RendererContext
 
         /// Returns the rendering options.
         var options: Vim.Options {
@@ -86,7 +86,7 @@ extension VimRenderer {
         /// - Parameters:
         ///   - context: the renderer context
         ///   - bufferCount: the number of rotating buffers
-        init?(_ context: VimRendererContext, bufferCount: Int) {
+        init?(_ context: RendererContext, bufferCount: Int) {
 
             guard let library = MTLContext.makeLibrary(),
                   let device = context.destinationProvider.device else { return nil }

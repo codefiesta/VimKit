@@ -1,5 +1,5 @@
 //
-//  VimRendererContainerView.swift
+//  RendererContainerView.swift
 //
 //
 //  Created by Kevin McKee
@@ -10,9 +10,9 @@ import MetalKit
 import SwiftUI
 
 #if !os(visionOS)
-private struct VimContainerViewRendererContext: VimRendererContext {
+private struct RendererContainerViewContext: RendererContext {
     public var vim: Vim
-    public var destinationProvider: VimRenderDestinationProvider
+    public var destinationProvider: RenderDestinationProvider
 }
 
 #if os(macOS)
@@ -23,8 +23,8 @@ private typealias ViewReprentable = UIViewRepresentable
 private typealias GestureRecognizerType = UITapGestureRecognizer
 #endif
 
-/// Provides a UIViewRepresentable wrapper around an MTKView that is being driven by the `VimRenderer`.
-public struct VimRendererContainerView: ViewReprentable {
+/// Provides a UIViewRepresentable wrapper around an MTKView that is being driven by the `Renderer`.
+public struct RendererContainerView: ViewReprentable {
 
 #if os(macOS)
     public typealias NSViewType = MTKView
@@ -35,7 +35,7 @@ public struct VimRendererContainerView: ViewReprentable {
     private var mtkView: MTKView = .init(frame: .zero)
 
     /// Provides the rendering context used to pass to the coordinator's renderer
-    var renderContext: VimRendererContext
+    var renderContext: RendererContext
 
     public init(vim: Vim) {
         self.mtkView.device = MTLContext.device
@@ -43,7 +43,7 @@ public struct VimRendererContainerView: ViewReprentable {
         self.mtkView.colorPixelFormat = .rgba16Float
         self.mtkView.depthStencilPixelFormat = .depth32Float_stencil8
         self.mtkView.clearColor = Color.skyBlueColor.mtlClearColor
-        self.renderContext = VimContainerViewRendererContext(vim: vim, destinationProvider: mtkView)
+        self.renderContext = RendererContainerViewContext(vim: vim, destinationProvider: mtkView)
     }
 
 #if os(macOS)
@@ -68,8 +68,8 @@ public struct VimRendererContainerView: ViewReprentable {
 
 #endif
 
-    public func makeCoordinator() -> VimRendererContainerViewCoordinator {
-        VimRendererContainerViewCoordinator(self)
+    public func makeCoordinator() -> RendererContainerViewCoordinator {
+        RendererContainerViewCoordinator(self)
      }
 
     /// Adds gesture recognizers to the metal view.

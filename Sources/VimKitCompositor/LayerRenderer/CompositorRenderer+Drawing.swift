@@ -1,5 +1,5 @@
 //
-//  File.swift
+//  CompositorRenderer+Drawing.swift
 //  
 //
 //  Created by Kevin McKee
@@ -12,7 +12,7 @@ import VimKit
 
 private let renderEncoderLabel = "VimCompositorRenderEncoder"
 
-extension VimCompositorRenderer {
+extension CompositorRenderer {
 
     /// The draw call.
     /// - Parameters:

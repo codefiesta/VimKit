@@ -1,5 +1,5 @@
 //
-//  VimCompositorRenderer.swift
+//  CompositorRenderer.swift
 //  VimViewer
 //
 //  Created by Kevin McKee
@@ -21,10 +21,10 @@ import VimKitShaders
 /// -  https://developer.apple.com/videos/play/wwdc2023/10089/
 /// -  https://developer.apple.com/videos/play/wwdc2023/10082
 /// -  https://developer.apple.com/documentation/compositorservices/drawing_fully_immersive_content_using_metal
-public class VimCompositorRenderer: VimRenderer {
+public class CompositorRenderer: Renderer {
 
     // The context that provides all of the data we need
-    let context: VimCompositorContext
+    let context: CompositorContext
     // Used for timing
     let clock: LayerRenderer.Clock
 
@@ -32,7 +32,7 @@ public class VimCompositorRenderer: VimRenderer {
     ///
     /// - Parameters:
     ///   - context: The compositor context
-    public init(_ context: VimCompositorContext) {
+    public init(_ context: CompositorContext) {
         self.context = context
         self.clock = LayerRenderer.Clock()
         super.init(context)
@@ -163,7 +163,7 @@ public class VimCompositorRenderer: VimRenderer {
 
 // MARK: Per Frame Uniforms
 
-extension VimCompositorRenderer {
+extension CompositorRenderer {
 
     /// Updates the per frame uniforms from the camera
     ///

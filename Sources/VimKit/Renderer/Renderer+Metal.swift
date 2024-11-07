@@ -1,5 +1,5 @@
 //
-//  VimRenderer+Metal.swift
+//  Renderer+Metal.swift
 //  
 //
 //  Created by Kevin McKee
@@ -15,7 +15,7 @@ private let labelInstancePickingTexture = "InstancePickingTexture"
 private let labelPipeline = "VimRendererPipeline"
 private let labelICB = "VimIndirectCommandBuffer"
 
-extension VimRenderer {
+extension Renderer {
 
     /// Loads all our metal resources.
     public func loadMetal() {

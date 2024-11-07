@@ -1,5 +1,5 @@
 //
-//  VimRendererer+Skycube.swift
+//  Rendererer+Skycube.swift
 //
 //
 //  Created by Kevin McKee
@@ -13,14 +13,14 @@ private let skycubeGroupName = "Skycube"
 private let skycubeVertexFunctionName = "vertexSkycube"
 private let skycubeFragmentFunctionName = "fragmentSkycube"
 
-extension VimRenderer {
+extension Renderer {
 
     /// A struct that draws the scene background skycube.
     @MainActor
     class Skycube {
 
         /// The context that provides all of the data we need
-        let context: VimRendererContext
+        let context: RendererContext
 
         /// Returns the rendering options.
         var options: Vim.Options {
@@ -39,7 +39,7 @@ extension VimRenderer {
 
         /// Initializes the skycube with the provided context.
         /// - Parameter context: the rendering context.
-        init?(_ context: VimRendererContext) {
+        init?(_ context: RendererContext) {
             guard let library = MTLContext.makeLibrary(),
                   let device = context.destinationProvider.device else {
                 return nil

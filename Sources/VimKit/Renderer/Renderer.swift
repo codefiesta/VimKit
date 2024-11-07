@@ -1,5 +1,5 @@
 //
-//  VimRenderer.swift
+//  Renderer.swift
 //
 //
 //  Created by Kevin McKee
@@ -14,10 +14,10 @@ import VimKitShaders
 private let maxBuffersInFlight = 3
 
 @MainActor
-open class VimRenderer: NSObject {
+open class Renderer: NSObject {
 
     /// The context that provides all of the data we need
-    let context: VimRendererContext
+    let context: RendererContext
 
     /// Allow override for subclasses
     open var geometry: Geometry? {
@@ -102,7 +102,7 @@ open class VimRenderer: NSObject {
 
     /// Common initializer.
     /// - Parameter context: the rendering context
-    public init(_ context: VimRendererContext) {
+    public init(_ context: RendererContext) {
         self.context = context
         super.init()
 
@@ -120,7 +120,7 @@ open class VimRenderer: NSObject {
 
 // MARK: Per Frame Uniforms
 
-extension VimRenderer {
+extension Renderer {
 
     /// Update the per-frame rendering state
     public func updatFrameState() {
@@ -151,7 +151,7 @@ extension VimRenderer {
 
 // MARK: Object Selection
 
-extension VimRenderer {
+extension Renderer {
 
     /// Informs the renderer that the model was tapped at the specified point.
     /// Creates a region at the specified point the size of a single pixel and

@@ -1,5 +1,5 @@
 //
-//  VimRendererContainerViewCoordinator.swift
+//  RendererContainerViewCoordinator.swift
 //  
 //
 //  Created by Kevin McKee
@@ -26,16 +26,16 @@ private let keys: [GCKeyCode] = [
 
 /// Provides a coordinator that is responsible for rendering into it's MTKView representable.
 @MainActor
-public class VimRendererContainerViewCoordinator: NSObject, MTKViewDelegate {
+public class RendererContainerViewCoordinator: NSObject, MTKViewDelegate {
 
-    let renderer: VimRenderer
-    let viewRepresentable: VimRendererContainerView
+    let renderer: Renderer
+    let viewRepresentable: RendererContainerView
 
     /// Initializes the coordinator with the specified view representable.
     /// - Parameter viewRepresentable: the MTKView representable
-    init(_ viewRepresentable: VimRendererContainerView) {
+    init(_ viewRepresentable: RendererContainerView) {
         self.viewRepresentable = viewRepresentable
-        self.renderer = VimRenderer(viewRepresentable.renderContext)
+        self.renderer = Renderer(viewRepresentable.renderContext)
         super.init()
         #if os(macOS)
         // Prevent the macOS beeping on keyDown events
@@ -55,7 +55,7 @@ public class VimRendererContainerViewCoordinator: NSObject, MTKViewDelegate {
 
 // MARK: Gesture Recognizers
 
-extension VimRendererContainerViewCoordinator {
+extension RendererContainerViewCoordinator {
 
 #if os(macOS)
 
@@ -96,7 +96,7 @@ extension VimRendererContainerViewCoordinator {
 
 // MARK: Keyboard Events
 
-extension VimRendererContainerViewCoordinator {
+extension RendererContainerViewCoordinator {
 
     // Navigates the current model with keyboard events
     fileprivate func keyPressed(keyCode: GCKeyCode) {

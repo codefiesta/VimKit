@@ -1,5 +1,5 @@
 //
-//  VimRendererContext.swift
+//  RendererContext.swift
 //
 //
 //  Created by Kevin McKee
@@ -11,7 +11,7 @@ import CompositorServices
 import MetalKit
 
 @MainActor
-public protocol VimRenderDestinationProvider {
+public protocol RenderDestinationProvider {
 
     /// The Metal device used to interface with the GPU.
     var device: MTLDevice? { get }
@@ -38,13 +38,13 @@ public protocol VimRenderDestinationProvider {
 }
 
 @MainActor
-public protocol VimRendererContext {
+public protocol RendererContext {
 
     /// The vim file that provides the geometry data.
     var vim: Vim { get }
 
     /// The render destination provider
-    var destinationProvider: VimRenderDestinationProvider { get }
+    var destinationProvider: RenderDestinationProvider { get }
 
     #if os(visionOS)
 

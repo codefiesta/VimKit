@@ -1,5 +1,5 @@
 //
-//  VimRenderer+Shapes.swift
+//  Renderer+Shapes.swift
 //
 //
 //  Created by Kevin McKee
@@ -14,14 +14,14 @@ private let shapeFragmentFunctionName = "fragmentShape"
 // Default Shape color (Purple with 0.5 opacity)
 private let shapeDefaultColor: SIMD4<Float> = [1.0, .zero, 1.0, .half]
 
-extension VimRenderer {
+extension Renderer {
 
     /// A struct that draws shapes.
     @MainActor
     struct Shapes {
 
         /// The context that provides all of the data we need
-        let context: VimRendererContext
+        let context: RendererContext
 
         /// Returns the camera.
         var camera: Vim.Camera {
@@ -38,7 +38,7 @@ extension VimRenderer {
 
         /// Common initializer.
         /// - Parameter context: the rendering context
-        init?(_ context: VimRendererContext) {
+        init?(_ context: RendererContext) {
             self.context = context
             guard let library = MTLContext.makeLibrary(),
                   let device = context.destinationProvider.device else { return nil }

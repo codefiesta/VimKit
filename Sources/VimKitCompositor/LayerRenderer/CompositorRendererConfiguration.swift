@@ -1,5 +1,5 @@
 //
-//  VimCompositorLayerConfiguration.swift
+//  CompositorRendererConfiguration.swift
 //  VimViewer
 //
 //  Created by Kevin McKee
@@ -10,7 +10,7 @@ import CompositorServices
 import SwiftUI
 
 @MainActor
-public struct VimCompositorLayerConfiguration: CompositorLayerConfiguration {
+public struct CompositorRendererConfiguration: CompositorLayerConfiguration {
 
     public init() { }
 
