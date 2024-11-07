@@ -60,7 +60,7 @@ public extension Renderer {
             // Perform any pre scene draws
             willDrawScene(renderEncoder: renderEncoder)
             // Draw the scene
-            drawScene(renderEncoder: renderEncoder, commandBuffer: commandBuffer)
+            drawScene(renderEncoder: renderEncoder)
 
             // Perform any post scene draws
             didDrawScene(renderEncoder: renderEncoder)
@@ -110,7 +110,7 @@ public extension Renderer {
     /// - Parameters:
     ///   - renderEncoder: the render encoder
     ///   - commandBuffer: the command buffer
-    func drawScene(renderEncoder: MTLRenderCommandEncoder, commandBuffer: MTLCommandBuffer) {
+    func drawScene(renderEncoder: MTLRenderCommandEncoder) {
 
         guard let geometry else { return }
 

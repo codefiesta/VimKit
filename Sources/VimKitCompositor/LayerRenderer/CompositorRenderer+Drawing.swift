@@ -46,7 +46,7 @@ extension CompositorRenderer {
         willDrawScene(renderEncoder: renderEncoder)
 
         // Draw the scene
-        drawScene(renderEncoder: renderEncoder, commandBuffer: commandBuffer)
+        drawScene(renderEncoder: renderEncoder)
 
         // Perform any post scene draws
         didDrawScene(renderEncoder: renderEncoder)
