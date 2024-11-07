@@ -52,7 +52,7 @@ public extension VimRenderer {
         if supportsIndirectCommandBuffers {
             drawIndirect(commandBuffer: commandBuffer)
         }
-        
+
 //        guard let renderEncoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPassDescriptor) else { return }
 //        renderEncoder.label = renderEncoderLabel
 //
@@ -190,7 +190,7 @@ public extension VimRenderer {
         computeEncoder.endEncoding()
 
         let range = 0..<drawCount
-        
+
         guard let renderPassDescriptor, let renderEncoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPassDescriptor) else { return }
         renderEncoder.label = renderEncoderLabel
 

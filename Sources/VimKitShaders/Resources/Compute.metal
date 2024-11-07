@@ -131,9 +131,10 @@ kernel void encodeIndirectCommands(uint index [[thread_position_in_grid]],
                                    device ICBContainer *icbContainer [[buffer(KernelBufferIndexCommandBufferContainer)]]) {
     
     
-    // Check the visibility result
-    uint64_t visibilityResult = visibilityResults[index];
-    bool visible = visibilityResult == (size_t)0;
+    // TODO: Check the visibility result
+    // uint64_t visibilityResult = visibilityResults[index];
+    // bool visible = visibilityResult == (size_t)0;
+    bool visible = true;
 
     // If visible, set the buffers and add draw commands
     if (visible) {
@@ -150,8 +151,9 @@ kernel void encodeIndirectCommands(uint index [[thread_position_in_grid]],
         cmd.set_vertex_buffer(positions, VertexBufferIndexPositions);
         cmd.set_vertex_buffer(normals, VertexBufferIndexNormals);
         cmd.set_vertex_buffer(instances, VertexBufferIndexInstances);
+        cmd.set_vertex_buffer(materials, VertexBufferIndexMaterials);
         cmd.set_vertex_buffer(colors, VertexBufferIndexColors);
-        cmd.set_vertex_buffer(&options, KernelBufferIndexRenderOptions);
+        cmd.set_vertex_buffer(&options, VertexBufferIndexRenderOptions);
         
         // TODO: Encode the Fragment Buffers
 
@@ -163,19 +165,18 @@ kernel void encodeIndirectCommands(uint index [[thread_position_in_grid]],
             const uint indexBufferOffset = indexRange.lowerBound;
 
             if (submesh.material != (size_t)-1) {
-                
-                // Set the material
+                // Offet the material
                 cmd.set_vertex_buffer(materials + submesh.material, VertexBufferIndexMaterials);
-
-                // Execute the draw call
-                cmd.draw_indexed_primitives(primitive_type::triangle,
-                                            indexCount,
-                                            indexBuffer + indexBufferOffset,
-                                            instancedMesh.instanceCount,
-                                            0,
-                                            instancedMesh.baseInstance);
-                
             }
+            
+            // Execute the draw call
+            cmd.draw_indexed_primitives(primitive_type::triangle,
+                                        indexCount,
+                                        indexBuffer + indexBufferOffset,
+                                        instancedMesh.instanceCount,
+                                        0,
+                                        instancedMesh.baseInstance);
+
         }
     }
 
