@@ -106,7 +106,7 @@ fragment FragmentOut fragmentMain(VertexOut in [[stage_in]],
                                   sampler colorSampler [[sampler(0)]]) {
 
     // If the color alpha is zero, discard the fragment
-    if (in.color.w == 0) {
+    if (in.color.w == 0.0) {
         discard_fragment();
     }
 

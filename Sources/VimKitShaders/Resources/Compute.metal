@@ -131,10 +131,9 @@ kernel void encodeIndirectCommands(uint index [[thread_position_in_grid]],
                                    device ICBContainer *icbContainer [[buffer(KernelBufferIndexCommandBufferContainer)]]) {
     
     
-    // TODO: Check the visibility result
-    // uint64_t visibilityResult = visibilityResults[index];
-    // bool visible = visibilityResult == (size_t)0;
-    bool visible = true;
+    // Check the visibility result
+    uint64_t visibilityResult = visibilityResults[index];
+    bool visible = visibilityResult == (size_t)0;
 
     // If visible, set the buffers and add draw commands
     if (visible) {

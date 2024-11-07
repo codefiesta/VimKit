@@ -51,21 +51,23 @@ public extension VimRenderer {
 
         if supportsIndirectCommandBuffers {
             drawIndirect(commandBuffer: commandBuffer)
+        } else {
+            
+            guard let renderEncoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPassDescriptor) else { return }
+            renderEncoder.label = renderEncoderLabel
+
+            
+            // Perform any pre scene draws
+            willDrawScene(renderEncoder: renderEncoder)
+            // Draw the scene
+            drawScene(renderEncoder: renderEncoder, commandBuffer: commandBuffer)
+
+            // Perform any post scene draws
+            didDrawScene(renderEncoder: renderEncoder)
+
+            renderEncoder.endEncoding()
         }
 
-//        guard let renderEncoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPassDescriptor) else { return }
-//        renderEncoder.label = renderEncoderLabel
-//
-//        
-//        // Perform any pre scene draws
-//        willDrawScene(renderEncoder: renderEncoder)
-//        // Draw the scene
-//        drawScene(renderEncoder: renderEncoder, commandBuffer: commandBuffer)
-//
-//        // Perform any post scene draws
-//        didDrawScene(renderEncoder: renderEncoder)
-//
-//        renderEncoder.endEncoding()
 
         // Schedule the presentation and commit
         commandBuffer.present(drawable)
