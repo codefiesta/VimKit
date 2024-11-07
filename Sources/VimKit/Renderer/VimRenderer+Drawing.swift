@@ -38,11 +38,6 @@ public extension VimRenderer {
     /// Renders a new frame.
     private func renderNewFrame() {
 
-        if supportsIndirectCommandBuffers {
-
-            return
-        }
-
         // Prepare the render pass descriptor
         buildRenderPassDescriptor()
 
@@ -51,22 +46,26 @@ public extension VimRenderer {
               let drawable = context.destinationProvider.currentDrawable,
               let commandBuffer = commandQueue.makeCommandBuffer() else { return }
 
-        guard let renderEncoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPassDescriptor) else { return }
-        renderEncoder.label = renderEncoderLabel
-
         // Update the per-frame state
         updatFrameState()
 
-        // Perform any pre scene draws
-        willDrawScene(renderEncoder: renderEncoder)
-
-        // Draw the scene
-        drawScene(renderEncoder: renderEncoder, commandBuffer: commandBuffer)
-
-        // Perform any post scene draws
-        didDrawScene(renderEncoder: renderEncoder)
-
-        renderEncoder.endEncoding()
+        if supportsIndirectCommandBuffers {
+            drawIndirect(commandBuffer: commandBuffer)
+        }
+        
+//        guard let renderEncoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPassDescriptor) else { return }
+//        renderEncoder.label = renderEncoderLabel
+//
+//        
+//        // Perform any pre scene draws
+//        willDrawScene(renderEncoder: renderEncoder)
+//        // Draw the scene
+//        drawScene(renderEncoder: renderEncoder, commandBuffer: commandBuffer)
+//
+//        // Perform any post scene draws
+//        didDrawScene(renderEncoder: renderEncoder)
+//
+//        renderEncoder.endEncoding()
 
         // Schedule the presentation and commit
         commandBuffer.present(drawable)
@@ -81,7 +80,6 @@ public extension VimRenderer {
               let positionsBuffer = geometry.positionsBuffer,
               let normalsBuffer = geometry.normalsBuffer,
               let instancesBuffer = geometry.instancesBuffer,
-              let meshesBuffer = geometry.meshesBuffer,
               let submeshesBuffer = geometry.submeshesBuffer,
               let materialsBuffer = geometry.materialsBuffer,
               let colorsBuffer = geometry.colorsBuffer else { return }
@@ -97,12 +95,10 @@ public extension VimRenderer {
         renderEncoder.setVertexBuffer(positionsBuffer, offset: 0, index: .positions)
         renderEncoder.setVertexBuffer(normalsBuffer, offset: 0, index: .normals)
         renderEncoder.setVertexBuffer(instancesBuffer, offset: 0, index: .instances)
-        renderEncoder.setVertexBuffer(meshesBuffer, offset: 0, index: .meshes)
         renderEncoder.setVertexBuffer(submeshesBuffer, offset: 0, index: .submeshes)
-        renderEncoder.setVertexBuffer(materialsBuffer, offset: 0, index: .materials)
         renderEncoder.setVertexBuffer(colorsBuffer, offset: 0, index: .colors)
-        renderEncoder.setFragmentTexture(baseColorTexture, index: 0)
-        renderEncoder.setFragmentSamplerState(samplerState, index: 0)
+//        renderEncoder.setFragmentTexture(baseColorTexture, index: 0)
+//        renderEncoder.setFragmentSamplerState(samplerState, index: 0)
 
         // Set the per frame render options
         var options = RenderOptions(xRay: xRayMode)
@@ -116,11 +112,6 @@ public extension VimRenderer {
     func drawScene(renderEncoder: MTLRenderCommandEncoder, commandBuffer: MTLCommandBuffer) {
 
         guard let geometry else { return }
-
-        if supportsIndirectCommandBuffers {
-            drawIndirect(renderEncoder: renderEncoder, commandBuffer: commandBuffer)
-            return
-        }
 
         renderEncoder.pushDebugGroup(renderEncoderDebugGroupName)
 
@@ -141,13 +132,14 @@ public extension VimRenderer {
     /// - Parameters:
     ///   - renderEncoder: the render encoder
     ///   - commandBuffer: the command buffer
-    private func drawIndirect(renderEncoder: MTLRenderCommandEncoder, commandBuffer: MTLCommandBuffer) {
+    private func drawIndirect(commandBuffer: MTLCommandBuffer) {
         guard let geometry,
               let computePipelineState,
-              let indirectCommandBuffer,
-              let indirectArgumentBuffer,
+              let icb,
+              let icbBuffer,
               let positionsBuffer = geometry.positionsBuffer,
               let normalsBuffer = geometry.normalsBuffer,
+              let indexBuffer = geometry.indexBuffer,
               let instancesBuffer = geometry.instancesBuffer,
               let instancedMeshesBuffer = geometry.instancedMeshesBuffer,
               let meshesBuffer = geometry.meshesBuffer,
@@ -159,8 +151,10 @@ public extension VimRenderer {
 
         // 1) Encode
         computeEncoder.setComputePipelineState(computePipelineState)
+        computeEncoder.setBuffer(uniformBuffer, offset: uniformBufferOffset, index: .uniforms)
         computeEncoder.setBuffer(positionsBuffer, offset: 0, index: .positions)
         computeEncoder.setBuffer(normalsBuffer, offset: 0, index: .normals)
+        computeEncoder.setBuffer(indexBuffer, offset: 0, index: .indexBuffer)
         computeEncoder.setBuffer(instancesBuffer, offset: 0, index: .instances)
         computeEncoder.setBuffer(instancedMeshesBuffer, offset: 0, index: .instancedMeshes)
         computeEncoder.setBuffer(meshesBuffer, offset: 0, index: .meshes)
@@ -168,10 +162,22 @@ public extension VimRenderer {
         computeEncoder.setBuffer(materialsBuffer, offset: 0, index: .materials)
         computeEncoder.setBuffer(colorsBuffer, offset: 0, index: .colors)
         computeEncoder.setBuffer(visibilityResults, offset: 0, index: .visibilityResults)
-        computeEncoder.setBuffer(indirectArgumentBuffer, offset: 0, index: .commandBufferContainer)
+        computeEncoder.setBuffer(icbBuffer, offset: 0, index: .commandBufferContainer)
+
+        var options = RenderOptions(xRay: xRayMode)
+        computeEncoder.setBytes(&options, length: MemoryLayout<RenderOptions>.size, index: .renderOptions)
 
         // 2) Use Resources
-        computeEncoder.useResource(indirectCommandBuffer, usage: .write)
+        computeEncoder.useResource(icb, usage: .write)
+        computeEncoder.useResource(uniformBuffer, usage: .read)
+        computeEncoder.useResource(visibilityResults, usage: .read)
+        computeEncoder.useResource(materialsBuffer, usage: .read)
+        computeEncoder.useResource(instancesBuffer, usage: .read)
+        computeEncoder.useResource(instancedMeshesBuffer, usage: .read)
+        computeEncoder.useResource(meshesBuffer, usage: .read)
+        computeEncoder.useResource(submeshesBuffer, usage: .read)
+        computeEncoder.useResource(meshesBuffer, usage: .read)
+        computeEncoder.useResource(indexBuffer, usage: .write)
 
         // 3) Dispatch the threads
         let drawCount = geometry.instancedMeshes.count
@@ -184,7 +190,15 @@ public extension VimRenderer {
         computeEncoder.endEncoding()
 
         let range = 0..<drawCount
-        renderEncoder.executeCommandsInBuffer(indirectCommandBuffer, range: range)
+        
+        guard let renderPassDescriptor, let renderEncoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPassDescriptor) else { return }
+        renderEncoder.label = renderEncoderLabel
+
+        willDrawScene(renderEncoder: renderEncoder)
+        renderEncoder.executeCommandsInBuffer(icb, range: range)
+        didDrawScene(renderEncoder: renderEncoder)
+
+        renderEncoder.endEncoding()
     }
 
     /// Performs any draws after the main scene draw.
@@ -200,16 +214,16 @@ public extension VimRenderer {
     ///   - instanced: the instanced mesh to draw
     ///   - renderEncoder: the render encoder
     private func drawInstanced(_ instanced: InstancedMesh, renderEncoder: MTLRenderCommandEncoder) {
-        guard let geometry else { return }
+        guard let geometry, let materialsBuffer = geometry.materialsBuffer else { return }
         let mesh = geometry.meshes[instanced.mesh]
         let submeshes = geometry.submeshes[mesh.submeshes]
         for (i, submesh) in submeshes.enumerated() {
-            let s = mesh.submeshes.range.lowerBound + i
-            renderEncoder.pushDebugGroup("SubMesh[\(s)]")
+            guard submesh.material != .empty else { continue }
 
-            // Set the identifiers of the mesh + submesh
-            var ids = Identifiers(mesh: instanced.mesh, submesh: s)
-            renderEncoder.setVertexBytes(&ids, length: MemoryLayout<Identifiers>.size, index: .identifiers)
+            renderEncoder.pushDebugGroup("SubMesh[\(i)]")
+
+            let offset = MemoryLayout<Material>.stride * submesh.material// *
+            renderEncoder.setVertexBuffer(materialsBuffer, offset: offset, index: .materials)
 
             // Draw the submesh
             drawSubmesh(geometry, submesh, renderEncoder, instanced.instanceCount, instanced.baseInstance)

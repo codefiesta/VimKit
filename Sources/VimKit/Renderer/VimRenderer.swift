@@ -65,9 +65,9 @@ open class VimRenderer: NSObject {
     /// The compute pipeline state.
     open var computePipelineState: MTLComputePipelineState?
     /// The indirect command buffer to use to issue visibility results.
-    open var indirectCommandBuffer: MTLIndirectCommandBuffer?
+    open var icb: MTLIndirectCommandBuffer?
     /// Argument buffer containing the indirect command buffer encoded in the kernel
-    open var indirectArgumentBuffer: MTLBuffer?
+    open var icbBuffer: MTLBuffer?
 
     // Uniforms Buffer
     public let alignedUniformsSize = ((MemoryLayout<UniformsArray>.size + 255) / 256) * 256

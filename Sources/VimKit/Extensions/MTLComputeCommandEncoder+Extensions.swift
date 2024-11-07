@@ -18,4 +18,8 @@ extension MTLComputeCommandEncoder {
     func setBuffer(_ buffer: (any MTLBuffer)?, offset: Int, index: KernelBufferIndex) {
         setBuffer(buffer, offset: offset, index: index.rawValue)
     }
+    
+    func setBytes(_ bytes: UnsafeRawPointer, length: Int, index: KernelBufferIndex) {
+        setBytes(bytes, length: length, index: index.rawValue)
+    }
 }

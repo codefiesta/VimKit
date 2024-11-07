@@ -126,7 +126,6 @@ kernel void encodeIndirectCommands(uint index [[thread_position_in_grid]],
                                    constant Submesh *submeshes [[buffer(KernelBufferIndexSubmeshes)]],
                                    constant Material *materials [[buffer(KernelBufferIndexMaterials)]],
                                    constant float4 *colors [[buffer(KernelBufferIndexColors)]],
-                                   device Identifiers &identifiers [[buffer(KernelBufferIndexIdentifiers)]],
                                    constant RenderOptions &options [[buffer(KernelBufferIndexRenderOptions)]],
                                    constant uint64_t *visibilityResults [[buffer(KernelBufferIndexVisibilityResults)]],
                                    device ICBContainer *icbContainer [[buffer(KernelBufferIndexCommandBufferContainer)]]) {
@@ -134,7 +133,7 @@ kernel void encodeIndirectCommands(uint index [[thread_position_in_grid]],
     
     // Check the visibility result
     uint64_t visibilityResult = visibilityResults[index];
-    bool visible = visibilityResult != 0;
+    bool visible = true;//visibilityResult != 0;
 
     // If visible, set the buffers and add draw commands
     if (visible) {
@@ -147,14 +146,20 @@ kernel void encodeIndirectCommands(uint index [[thread_position_in_grid]],
         render_command cmd(icbContainer->commandBuffer, index);
         
         // Encode the buffers
-        cmd.set_vertex_buffer(&uniformsArray, KernelBufferIndexUniforms);
+        cmd.set_vertex_buffer(&uniformsArray, VertexBufferIndexUniforms);
         cmd.set_vertex_buffer(positions, VertexBufferIndexPositions);
         cmd.set_vertex_buffer(normals, VertexBufferIndexNormals);
         cmd.set_vertex_buffer(instances, VertexBufferIndexInstances);
-        cmd.set_vertex_buffer(meshes, VertexBufferIndexMeshes);
-        cmd.set_vertex_buffer(submeshes, VertexBufferIndexSubmeshes);
-        cmd.set_vertex_buffer(materials, VertexBufferIndexMaterials);
         cmd.set_vertex_buffer(colors, VertexBufferIndexColors);
+        cmd.set_vertex_buffer(&options, KernelBufferIndexRenderOptions);
+        
+//        renderEncoder.setVertexBuffer(uniformBuffer, offset: uniformBufferOffset, index: .uniforms)
+//        renderEncoder.setVertexBuffer(positionsBuffer, offset: 0, index: .positions)
+//        renderEncoder.setVertexBuffer(normalsBuffer, offset: 0, index: .normals)
+//        renderEncoder.setVertexBuffer(instancesBuffer, offset: 0, index: .instances)
+//        renderEncoder.setVertexBuffer(submeshesBuffer, offset: 0, index: .submeshes)
+//        renderEncoder.setVertexBuffer(colorsBuffer, offset: 0, index: .colors)
+
         
         // TODO: Encode the Fragment Buffers
 
@@ -164,18 +169,32 @@ kernel void encodeIndirectCommands(uint index [[thread_position_in_grid]],
             const BoundedRange indexRange = submesh.indices;
             const uint indexCount = (uint)indexRange.upperBound - (uint)indexRange.lowerBound;
             
-            const size_t submeshIndex = indexRange.lowerBound + i;
-            identifiers.mesh = instancedMesh.mesh;
-            identifiers.submesh = submeshIndex;
-            cmd.set_vertex_buffer(&identifiers, VertexBufferIndexIdentifiers);
+            if (submesh.material != (size_t)-1) {
+                
+                // Set the material offset
+                uint offset = submesh.material * sizeof(Material);
+                cmd.set_vertex_buffer(materials, offset, VertexBufferIndexMaterials);
 
-            // Execute the draw call
-            cmd.draw_indexed_primitives(primitive_type::triangle,
-                                        indexCount,
-                                        indexBuffer,
-                                        instancedMesh.instanceCount,
-                                        0,
-                                        instancedMesh.baseInstance);
+                //Int(indices.lowerBound) * MemoryLayout<UInt32>.size
+                uint indexBufferOffset = indexRange.lowerBound;// * sizeof(uint32_t);
+                // Execute the draw call
+                cmd.draw_indexed_primitives(primitive_type::triangle,
+                                            indexCount,
+                                            indexBuffer + indexBufferOffset,
+                                            instancedMesh.instanceCount,
+                                            0,
+                                            instancedMesh.baseInstance);
+                
+//                renderEncoder.drawIndexedPrimitives(type: .triangle,
+//                                                    indexCount: submesh.indices.count,
+//                                                    indexType: .uint32,
+//                                                    indexBuffer: indexBuffer,
+//                                                    indexBufferOffset: submesh.indexBufferOffset,
+//                                                    instanceCount: instanceCount,
+//                                                    baseVertex: 0,
+//                                                    baseInstance: baseInstance
+
+            }
         }
     }
 

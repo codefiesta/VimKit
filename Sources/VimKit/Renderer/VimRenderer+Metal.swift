@@ -86,6 +86,8 @@ extension VimRenderer {
         descriptor.commandTypes = [.drawIndexed]
         descriptor.inheritBuffers = false
         descriptor.inheritPipelineState = true
+        descriptor.maxVertexBufferBindCount = 24
+        descriptor.maxFragmentBufferBindCount = 24
 
         guard let function = library.makeFunction(name: functionNameEncodeIndirectCommands),
               let cps = try? device.makeComputePipelineState(function: function) else {
@@ -96,17 +98,15 @@ extension VimRenderer {
         let maxCommandCount = 1024 * 64
         let icb = device.makeIndirectCommandBuffer(descriptor: descriptor,
                                                    maxCommandCount: maxCommandCount,
-                                                   options: [.storageModePrivate])
+                                                   options: [])
         icb?.label = labelICB
-        self.indirectCommandBuffer = icb
+        self.icb = icb
         self.computePipelineState = cps
 
-        let argumentEncoder = function.makeArgumentEncoder(.commandBufferContainer)
-        indirectArgumentBuffer = device.makeBuffer(length: argumentEncoder.encodedLength,
-                                                   options: [.storageModeShared])
-        argumentEncoder.setArgumentBuffer(indirectArgumentBuffer, offset: 0)
-        argumentEncoder.setIndirectCommandBuffer(indirectCommandBuffer, index: .commandBuffer)
-
+        let icbEncoder = function.makeArgumentEncoder(.commandBufferContainer)
+        icbBuffer = device.makeBuffer(length: icbEncoder.encodedLength, options: [])
+        icbEncoder.setArgumentBuffer(icbBuffer, offset: 0)
+        icbEncoder.setIndirectCommandBuffer(icb, index: .commandBuffer)
     }
 
     /// Builds the depth stencil state

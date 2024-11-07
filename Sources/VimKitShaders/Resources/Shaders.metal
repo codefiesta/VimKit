@@ -24,7 +24,6 @@ constant float4 materialSpecularColor = float4(1.0, 1.0, 1.0, 1.0);
 //   - instance_id: The baseInstance parameter passed to the draw call used to map this instance to it's transform data.
 //   - uniformsArray: The per frame uniforms.
 //   - instances: The instances pointer.
-//   - meshes: The meshes pointer.
 //   - submeshes: The submeshes pointer.
 //   - materials: The materials pointer.
 //   - colors: The colors pointer used to apply custom color profiles to instances.
@@ -36,17 +35,13 @@ vertex VertexOut vertexMain(VertexIn in [[stage_in]],
                             uint instance_id [[instance_id]],
                             constant UniformsArray &uniformsArray [[buffer(VertexBufferIndexUniforms)]],
                             constant Instance *instances [[buffer(VertexBufferIndexInstances)]],
-                            constant Mesh *meshes [[buffer(VertexBufferIndexMeshes)]],
-                            constant Submesh *submeshes [[buffer(VertexBufferIndexSubmeshes)]],
                             constant Material *materials [[buffer(VertexBufferIndexMaterials)]],
                             constant float4 *colors [[buffer(VertexBufferIndexColors)]],
-                            constant Identifiers &identifiers [[buffer(VertexBufferIndexIdentifiers)]],
                             constant RenderOptions &options [[buffer(VertexBufferIndexRenderOptions)]]) {
 
     VertexOut out;
     Instance instance = instances[instance_id];
-    Submesh submesh = submeshes[identifiers.submesh];
-    Material material = materials[submesh.material];
+    Material material = materials[0];
     
     uint instanceIndex = instance.index;
     int colorIndex = instance.colorIndex;
