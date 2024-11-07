@@ -27,7 +27,6 @@ constant float4 materialSpecularColor = float4(1.0, 1.0, 1.0, 1.0);
 //   - submeshes: The submeshes pointer.
 //   - materials: The materials pointer.
 //   - colors: The colors pointer used to apply custom color profiles to instances.
-//   - identifiers: The identifier data the holds the mesh and submesh indices that are currently being rendered.
 //   - options: The frame rendering options.
 vertex VertexOut vertexMain(VertexIn in [[stage_in]],
                             ushort amp_id [[amplification_id]],
