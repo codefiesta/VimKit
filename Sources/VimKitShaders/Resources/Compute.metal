@@ -133,7 +133,7 @@ kernel void encodeIndirectCommands(uint index [[thread_position_in_grid]],
     
     // Check the visibility result
     uint64_t visibilityResult = visibilityResults[index];
-    bool visible = true;//visibilityResult != 0;
+    bool visible = visibilityResult == (size_t)0;
 
     // If visible, set the buffers and add draw commands
     if (visible) {
@@ -153,14 +153,6 @@ kernel void encodeIndirectCommands(uint index [[thread_position_in_grid]],
         cmd.set_vertex_buffer(colors, VertexBufferIndexColors);
         cmd.set_vertex_buffer(&options, KernelBufferIndexRenderOptions);
         
-//        renderEncoder.setVertexBuffer(uniformBuffer, offset: uniformBufferOffset, index: .uniforms)
-//        renderEncoder.setVertexBuffer(positionsBuffer, offset: 0, index: .positions)
-//        renderEncoder.setVertexBuffer(normalsBuffer, offset: 0, index: .normals)
-//        renderEncoder.setVertexBuffer(instancesBuffer, offset: 0, index: .instances)
-//        renderEncoder.setVertexBuffer(submeshesBuffer, offset: 0, index: .submeshes)
-//        renderEncoder.setVertexBuffer(colorsBuffer, offset: 0, index: .colors)
-
-        
         // TODO: Encode the Fragment Buffers
 
         // Loop through the submeshes and execute the draw calls
@@ -168,15 +160,13 @@ kernel void encodeIndirectCommands(uint index [[thread_position_in_grid]],
             const Submesh submesh = submeshes[i];
             const BoundedRange indexRange = submesh.indices;
             const uint indexCount = (uint)indexRange.upperBound - (uint)indexRange.lowerBound;
-            
+            const uint indexBufferOffset = indexRange.lowerBound;
+
             if (submesh.material != (size_t)-1) {
                 
-                // Set the material offset
-                uint offset = submesh.material * sizeof(Material);
-                cmd.set_vertex_buffer(materials, offset, VertexBufferIndexMaterials);
+                // Set the material
+                cmd.set_vertex_buffer(materials + submesh.material, VertexBufferIndexMaterials);
 
-                //Int(indices.lowerBound) * MemoryLayout<UInt32>.size
-                uint indexBufferOffset = indexRange.lowerBound;// * sizeof(uint32_t);
                 // Execute the draw call
                 cmd.draw_indexed_primitives(primitive_type::triangle,
                                             indexCount,
@@ -185,15 +175,6 @@ kernel void encodeIndirectCommands(uint index [[thread_position_in_grid]],
                                             0,
                                             instancedMesh.baseInstance);
                 
-//                renderEncoder.drawIndexedPrimitives(type: .triangle,
-//                                                    indexCount: submesh.indices.count,
-//                                                    indexType: .uint32,
-//                                                    indexBuffer: indexBuffer,
-//                                                    indexBufferOffset: submesh.indexBufferOffset,
-//                                                    instanceCount: instanceCount,
-//                                                    baseVertex: 0,
-//                                                    baseInstance: baseInstance
-
             }
         }
     }
