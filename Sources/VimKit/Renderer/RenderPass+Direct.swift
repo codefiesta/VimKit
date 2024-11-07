@@ -15,6 +15,7 @@ private let labelPipeline = "RenderPassDirectPipeline"
 private let labelRenderEncoder = "RenderEncoder"
 private let labelGeometryDebugGroupName = "Geometry"
 
+/// Provides a direct render pass.
 class RenderPassDirect: RenderPass {
 
     /// The context that provides all of the data we need
@@ -49,6 +50,8 @@ class RenderPassDirect: RenderPass {
     var pipelineState: MTLRenderPipelineState?
     var depthStencilState: MTLDepthStencilState?
     var samplerState: MTLSamplerState?
+    var textures = [MTLTexture?](repeating: nil, count: 2)
+
     var baseColorTexture: MTLTexture?
     var instancePickingTexture: MTLTexture?
 

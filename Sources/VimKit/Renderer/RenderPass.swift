@@ -8,6 +8,9 @@
 import MetalKit
 import VimKitShaders
 
+private let labelInstancePickingTexture = "InstancePickingTexture"
+
+/// A type that holds render pass draw arguments.
 struct DrawArguments {
     /// The command buffer to use.
     let commandBuffer: MTLCommandBuffer
@@ -28,6 +31,8 @@ protocol RenderPass {
     var context: RendererContext { get }
     /// Returns the current metal device.
     var device: MTLDevice { get }
+    /// Returns the textures.
+    var textures: [MTLTexture?] { get set }
 
     /// Performs a draw call with the specified command buffer and render pass descriptor.
     /// - Parameters:
@@ -149,9 +154,26 @@ extension RenderPass {
         return vertexDescriptor
     }
 
-    /// Noop resize function
+    /// Builds the textures when the viewport size changes.
     /// - Parameter viewportSize: the new viewport size
-    func resize(viewportSize: SIMD2<Float>) {
-        // Noop - override in subclasses
+    mutating func makeTextures(viewportSize: SIMD2<Float>) {
+
+        guard viewportSize != .zero else { return }
+
+        let width = Int(viewportSize.x)
+        let height = Int(viewportSize.y)
+
+        // Instance Picking Texture
+        let instancePickingTextureDescriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .r32Sint, width: width, height: height, mipmapped: false)
+        instancePickingTextureDescriptor.usage = .renderTarget
+
+        textures[1] = device.makeTexture(descriptor: instancePickingTextureDescriptor)
+        textures[1]?.label = labelInstancePickingTexture
+    }
+
+    /// Default resize function
+    /// - Parameter viewportSize: the new viewport size
+    mutating func resize(viewportSize: SIMD2<Float>) {
+        makeTextures(viewportSize: viewportSize)
     }
 }
