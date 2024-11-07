@@ -109,14 +109,6 @@ typedef struct {
     bool xRay;
 } RenderOptions;
 
-// A type that holds identifier information about what is currently being rendered.
-typedef struct {
-    // The index of the mesh being drawn
-    size_t mesh;
-    // The index of the submesh being drawn
-    size_t submesh;
-} Identifiers;
-
 // Enum constants for the association of a specific buffer index argument passed into the shader vertex function
 typedef NS_ENUM(EnumBackingType, VertexBufferIndex) {
     VertexBufferIndexPositions = 0,
@@ -127,8 +119,7 @@ typedef NS_ENUM(EnumBackingType, VertexBufferIndex) {
     VertexBufferIndexSubmeshes = 5,
     VertexBufferIndexMaterials = 6,
     VertexBufferIndexColors = 7,
-    VertexBufferIndexIdentifiers = 8,
-    VertexBufferIndexRenderOptions = 9
+    VertexBufferIndexRenderOptions = 8
 };
 
 // Enum constants for the attribute index of an incoming vertex
@@ -150,10 +141,9 @@ typedef NS_ENUM(EnumBackingType, KernelBufferIndex) {
     KernelBufferIndexSubmeshes = 7,
     KernelBufferIndexMaterials = 8,
     KernelBufferIndexColors = 9,
-    KernelBufferIndexIdentifiers = 10,
-    KernelBufferIndexRenderOptions = 11,
-    KernelBufferIndexVisibilityResults = 12,
-    KernelBufferIndexCommandBufferContainer = 13
+    KernelBufferIndexRenderOptions = 10,
+    KernelBufferIndexVisibilityResults = 11,
+    KernelBufferIndexCommandBufferContainer = 12
 };
 
 // Enum constants for argument buffer indices
