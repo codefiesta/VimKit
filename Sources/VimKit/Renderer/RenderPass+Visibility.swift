@@ -46,8 +46,6 @@ class RenderPassVisibility: RenderPass {
     var currentResults: [Int] = .init()
     /// Returns the subset of instanced mesh indexes that have returned true from the occlusion query.
     var currentVisibleResults: [Int] = .init()
-    /// The proxy mesh to draw.
-    var mesh: MTKMesh?
     /// Combine Subscribers which drive rendering events
     var subscribers = Set<AnyCancellable>()
 
@@ -60,7 +58,6 @@ class RenderPassVisibility: RenderPass {
         let vertexDescriptor = makeVertexDescriptor()
         self.pipelineState = makeRenderPipelineState(context, vertexDescriptor, labelPipeline, functionNameVertexVisibilityTest, fragmentFunctionName)
         self.depthStencilState = makeDepthStencilState(isDepthWriteEnabled: options.visualizeVisibilityResults)
-        self.mesh = makeMesh()
         self.visibilityResultBuffer = [MTLBuffer?](repeating: nil, count: bufferCount)
 
         // Visibility Buffers
@@ -88,7 +85,7 @@ class RenderPassVisibility: RenderPass {
         encode(descriptor: descriptor, renderEncoder: renderEncoder)
 
         // Make the draw calls
-        drawProxyGeometry(renderEncoder: renderEncoder)
+        drawGeometry(renderEncoder: renderEncoder)
     }
 
     /// Encodes the buffer data into the render encoder.
@@ -101,9 +98,9 @@ class RenderPassVisibility: RenderPass {
               let positionsBuffer = geometry.positionsBuffer,
               let normalsBuffer = geometry.normalsBuffer,
               let instancesBuffer = geometry.instancesBuffer,
-              let submeshesBuffer = geometry.submeshesBuffer,
               let materialsBuffer = geometry.materialsBuffer else { return }
 
+        /// Configure the pipeline state object and depth state to disable writing to the color and depth attachments.
         renderEncoder.setRenderPipelineState(pipelineState)
         renderEncoder.setFrontFacing(.counterClockwise)
         renderEncoder.setCullMode(options.cullMode)
@@ -115,25 +112,21 @@ class RenderPassVisibility: RenderPass {
         renderEncoder.setVertexBuffer(positionsBuffer, offset: 0, index: .positions)
         renderEncoder.setVertexBuffer(normalsBuffer, offset: 0, index: .normals)
         renderEncoder.setVertexBuffer(instancesBuffer, offset: 0, index: .instances)
-        renderEncoder.setVertexBuffer(submeshesBuffer, offset: 0, index: .submeshes)
         renderEncoder.setVertexBuffer(materialsBuffer, offset: 0, index: .materials)
     }
 
-    /// Draws simplified proxy geometry for each instanced mesh.
+    /// Draws simplified geometry for each instanced mesh.
     /// - Parameters:
     ///   - renderEncoder: the render encoder to use
-    private func drawProxyGeometry(renderEncoder: MTLRenderCommandEncoder) {
+    private func drawGeometry(renderEncoder: MTLRenderCommandEncoder) {
 
         // Don't perform the tests if the visibility result is disabled
         guard options.visibilityResults, let pipelineState, let depthStencilState else { return }
 
-        /// Configure the pipeline state object and depth state to disable writing to the color and depth attachments.
-        renderEncoder.setRenderPipelineState(pipelineState)
-        renderEncoder.setDepthStencilState(depthStencilState)
         renderEncoder.pushDebugGroup(labelRenderEncoderDebugGroupName)
 
         for i in currentResults {
-            drawProxyGeometry(renderEncoder: renderEncoder, index: i)
+            drawGeometry(renderEncoder: renderEncoder, index: i)
         }
         renderEncoder.popDebugGroup()
     }
@@ -142,44 +135,61 @@ class RenderPassVisibility: RenderPass {
     /// - Parameters:
     ///   - renderEncoder: the render encoder to use
     ///   - index: the index of the instanced mesh to test visibility results for
-    private func drawProxyGeometry(renderEncoder: MTLRenderCommandEncoder, index: Int) {
+    private func drawGeometry(renderEncoder: MTLRenderCommandEncoder, index: Int) {
 
-        guard let geometry, let mesh else { return }
+        guard let geometry, let materialsBuffer = geometry.materialsBuffer else { return }
 
         let instanced = geometry.instancedMeshes[index]
-        let instanceCount = instanced.instanceCount
-        let baseInstance = instanced.baseInstance
+        let mesh = geometry.meshes[instanced.mesh]
+        let submeshes = geometry.submeshes[mesh.submeshes]
 
         // Set the visibility result mode for the instanced mesh
         renderEncoder.setVisibilityResultMode(.boolean, offset: index * MemoryLayout<Int>.size)
-        renderEncoder.setVertexBuffer(mesh.vertexBuffers.first?.buffer, offset: 0, index: .positions)
 
-        // Draw the mesh
-        for submesh in mesh.submeshes {
-            renderEncoder.drawIndexedPrimitives(
-                type: submesh.primitiveType,
-                indexCount: submesh.indexCount,
-                indexType: submesh.indexType,
-                indexBuffer: submesh.indexBuffer.buffer,
-                indexBufferOffset: submesh.indexBuffer.offset,
-                instanceCount: instanceCount,
-                baseVertex: 0,
-                baseInstance: baseInstance
-            )
+        for (i, submesh) in submeshes.enumerated() {
+            renderEncoder.pushDebugGroup("SubMesh[\(i)]")
+
+            let offset = submesh.material * MemoryLayout<Material>.stride
+            renderEncoder.setVertexBuffer(materialsBuffer, offset: offset, index: .materials)
+
+            // Draw the submesh
+            drawSubmesh(geometry, submesh, renderEncoder, instanced.instanceCount, instanced.baseInstance)
+            renderEncoder.popDebugGroup()
         }
+    }
+
+    /// Draws the submesh using indexed primitives.
+    /// - Parameters:
+    ///   - geometry: the geometry
+    ///   - submesh: the submesh
+    ///   - renderEncoder: the render encoder to use
+    ///   - instanceCount: the number of instances to draw.
+    ///   - baseInstance: the offset for instance_id
+    private func drawSubmesh(_ geometry: Geometry,
+                             _ submesh: Submesh,
+                             _ renderEncoder: MTLRenderCommandEncoder,
+                             _ instanceCount: Int = 1,
+                             _ baseInstance: Int = 0) {
+
+        guard let indexBuffer = geometry.indexBuffer else { return }
+
+        // TODO: This needs to be reworked to draw an LOD - we can't just use the bounding box
+        // because the bounding box can extend over areas that it doesn't actually occupy and
+        // mess up visibility results.
+        renderEncoder.drawIndexedPrimitives(type: .triangle,
+                                            indexCount: submesh.indices.count,
+                                            indexType: .uint32,
+                                            indexBuffer: indexBuffer,
+                                            indexBufferOffset: submesh.indexBufferOffset,
+                                            instanceCount: instanceCount,
+                                            baseVertex: 0,
+                                            baseInstance: baseInstance
+        )
     }
 
     /// Avoid a data race condition by updating the visibility buffer's read index when the command buffer finishes.
     private func didDraw() {
         visibilityBufferReadIndex = (visibilityBufferReadIndex + 1) % bufferCount
-    }
-
-    /// Makes the proxy mesh.
-    /// - Returns: the proxy mesh to use for visibility testing.
-    private func makeMesh() -> MTKMesh? {
-        let allocator = MTKMeshBufferAllocator(device: device)
-        let proxyMesh = MDLMesh(boxWithExtent: .one, segments: .one, inwardNormals: false, geometryType: .triangles, allocator: allocator)
-        return try? MTKMesh(mesh: proxyMesh, device: device)
     }
 
     /// Builds the visibility results buffers array.

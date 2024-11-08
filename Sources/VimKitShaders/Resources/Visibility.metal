@@ -18,8 +18,6 @@ using namespace metal;
 //   - instance_id: The baseInstance parameter passed to the draw call used to map this instance to it's transform data.
 //   - uniformsArray: The per frame uniforms.
 //   - instances: The instances pointer.
-//   - meshes: The meshes pointer.
-//   - submeshes: The submeshes pointer.
 //   - materials: The materials pointer.
 //   - identifiers: The identifier data the holds the mesh and submesh indices that are currently being rendered.
 vertex VertexOut vertexVisibilityTest(VertexIn in [[stage_in]],
@@ -28,46 +26,22 @@ vertex VertexOut vertexVisibilityTest(VertexIn in [[stage_in]],
                                       uint instance_id [[instance_id]],
                                       constant UniformsArray &uniformsArray [[buffer(VertexBufferIndexUniforms)]],
                                       constant Instance *instances [[buffer(VertexBufferIndexInstances)]],
-                                      constant Mesh *meshes [[buffer(VertexBufferIndexMeshes)]],
-                                      constant Submesh *submeshes [[buffer(VertexBufferIndexSubmeshes)]],
                                       constant Material *materials [[buffer(VertexBufferIndexMaterials)]]) {
 
     VertexOut out;
     const Instance instance = instances[instance_id];
-    
-    const Mesh mesh = meshes[instance.mesh];
-    const BoundedRange submeshRange = mesh.submeshes;
-    
-    float4 color = float4(0, 0, 0, 0);
-    
-    // Loop through the submeshes to find the lowest alpha value
-    for (int i = (int)submeshRange.lowerBound; i < (int)submeshRange.upperBound; i++) {
-        const Submesh submesh = submeshes[i];
-        if (submesh.material != (size_t)-1) {
-            const Material material = materials[submesh.material];
-            color = material.rgba;
-        }
-    }
-    
+    const Material material = materials[0];
     const Uniforms uniforms = uniformsArray.uniforms[amp_id];
-
-    // Position and scale the model matrix to the bounding box center + extents
-    float4x4 modelMatrix = instance.matrix;
-    float3 center = (instance.maxBounds + instance.minBounds) * 0.5;
-    float3 extents = instance.maxBounds - instance.minBounds;
-    modelMatrix.columns[0] = float4(extents.x, 0.0, 0.0, 0.0);
-    modelMatrix.columns[1] = float4(0.0, extents.y, 0.0, 0.0);
-    modelMatrix.columns[2] = float4(0.0, 0.0, extents.z, 0.0);
-    modelMatrix.columns[3] = float4(center, 1.0);
     
-    const float4x4 viewMatrix = uniforms.viewMatrix;
-    const float4x4 projectionMatrix = uniforms.projectionMatrix;
-    const float4x4 modelViewProjectionMatrix = projectionMatrix * viewMatrix * modelMatrix;
+    float4x4 modelMatrix = instance.matrix;
+    float4x4 viewMatrix = uniforms.viewMatrix;
+    float4x4 projectionMatrix = uniforms.projectionMatrix;
+    float4x4 modelViewProjectionMatrix = projectionMatrix * viewMatrix * modelMatrix;
 
     // Position
     out.position = modelViewProjectionMatrix * in.position;
     // Color
-    out.color = color;
+    out.color = material.rgba;
     
     return out;
 }
