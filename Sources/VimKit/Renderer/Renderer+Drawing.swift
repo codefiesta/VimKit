@@ -47,13 +47,7 @@ public extension Renderer {
         updatFrameState()
 
         // Build the draw descriptor
-        let descriptor: DrawDescriptor = .init(
-            commandBuffer: commandBuffer,
-            renderPassDescriptor: renderPassDescriptor,
-            uniformsBuffer: uniformsBuffer,
-            uniformsBufferOffset: uniformsBufferOffset,
-            visibilityResultBuffer: visibilityResultBuffer,
-            visibilityResults: Array(geometry.instancedMeshes.indices))
+        let descriptor = makeDrawDescriptor(commandBuffer: commandBuffer, renderPassDescriptor: renderPassDescriptor)
 
         // Perform setup on all of the render passes.
         for renderPass in renderPasses {
@@ -76,108 +70,18 @@ public extension Renderer {
         commandBuffer.commit()
     }
 
-    /// Performs any draws before the scene draw.
-    /// - Parameter renderEncoder: the render encoder
-    func willDrawScene(renderEncoder: MTLRenderCommandEncoder) {
-//        guard let geometry,
-//              let pipelineState,
-//              let positionsBuffer = geometry.positionsBuffer,
-//              let normalsBuffer = geometry.normalsBuffer,
-//              let instancesBuffer = geometry.instancesBuffer,
-//              let submeshesBuffer = geometry.submeshesBuffer,
-//              let colorsBuffer = geometry.colorsBuffer else { return }
-//
-//        renderEncoder.setRenderPipelineState(pipelineState)
-//        renderEncoder.setFrontFacing(.counterClockwise)
-//        renderEncoder.setCullMode(options.cullMode)
-//        renderEncoder.setDepthStencilState(depthStencilState)
-//        renderEncoder.setTriangleFillMode(fillMode)
-//
-//        // Setup the per frame buffers to pass to the GPU
-//        renderEncoder.setVertexBuffer(uniformsBuffer, offset: uniformsBufferOffset, index: .uniforms)
-//        renderEncoder.setVertexBuffer(positionsBuffer, offset: 0, index: .positions)
-//        renderEncoder.setVertexBuffer(normalsBuffer, offset: 0, index: .normals)
-//        renderEncoder.setVertexBuffer(instancesBuffer, offset: 0, index: .instances)
-//        renderEncoder.setVertexBuffer(submeshesBuffer, offset: 0, index: .submeshes)
-//        renderEncoder.setVertexBuffer(colorsBuffer, offset: 0, index: .colors)
-//        renderEncoder.setFragmentTexture(baseColorTexture, index: 0)
-//        renderEncoder.setFragmentSamplerState(samplerState, index: 0)
-//
-//        // Set the per frame render options
-//        var options = RenderOptions(xRay: xRayMode)
-//        renderEncoder.setVertexBytes(&options, length: MemoryLayout<RenderOptions>.size, index: .renderOptions)
-    }
-
-    /// Performs indirect drawing by using the indirect command buffer to encode the drawing commands on the GPU.
+    /// Builds a draw descriptor for use in the per-frame render passes.
     /// - Parameters:
-    ///   - renderEncoder: the render encoder
     ///   - commandBuffer: the command buffer
-    private func drawIndirect(commandBuffer: MTLCommandBuffer) {
-//        guard let geometry,
-//              let computePipelineState,
-//              let icb,
-//              let icbBuffer,
-//              let positionsBuffer = geometry.positionsBuffer,
-//              let normalsBuffer = geometry.normalsBuffer,
-//              let indexBuffer = geometry.indexBuffer,
-//              let instancesBuffer = geometry.instancesBuffer,
-//              let instancedMeshesBuffer = geometry.instancedMeshesBuffer,
-//              let meshesBuffer = geometry.meshesBuffer,
-//              let submeshesBuffer = geometry.submeshesBuffer,
-//              let materialsBuffer = geometry.materialsBuffer,
-//              let colorsBuffer = geometry.colorsBuffer,
-//              let visibilityResults = visibility?.currentVisibilityResultBuffer,
-//              let computeEncoder = commandBuffer.makeComputeCommandEncoder() else { return }
-//
-//        // 1) Encode
-//        computeEncoder.setComputePipelineState(computePipelineState)
-//        computeEncoder.setBuffer(uniformsBuffer, offset: uniformsBufferOffset, index: .uniforms)
-//        computeEncoder.setBuffer(positionsBuffer, offset: 0, index: .positions)
-//        computeEncoder.setBuffer(normalsBuffer, offset: 0, index: .normals)
-//        computeEncoder.setBuffer(indexBuffer, offset: 0, index: .indexBuffer)
-//        computeEncoder.setBuffer(instancesBuffer, offset: 0, index: .instances)
-//        computeEncoder.setBuffer(instancedMeshesBuffer, offset: 0, index: .instancedMeshes)
-//        computeEncoder.setBuffer(meshesBuffer, offset: 0, index: .meshes)
-//        computeEncoder.setBuffer(submeshesBuffer, offset: 0, index: .submeshes)
-//        computeEncoder.setBuffer(materialsBuffer, offset: 0, index: .materials)
-//        computeEncoder.setBuffer(colorsBuffer, offset: 0, index: .colors)
-//        computeEncoder.setBuffer(visibilityResults, offset: 0, index: .visibilityResults)
-//        computeEncoder.setBuffer(icbBuffer, offset: 0, index: .commandBufferContainer)
-//
-//        var options = RenderOptions(xRay: xRayMode)
-//        computeEncoder.setBytes(&options, length: MemoryLayout<RenderOptions>.size, index: .renderOptions)
-//
-//        // 2) Use Resources
-//        computeEncoder.useResource(icb, usage: .write)
-//        computeEncoder.useResource(uniformsBuffer, usage: .read)
-//        computeEncoder.useResource(visibilityResults, usage: .read)
-//        computeEncoder.useResource(materialsBuffer, usage: .read)
-//        computeEncoder.useResource(instancesBuffer, usage: .read)
-//        computeEncoder.useResource(instancedMeshesBuffer, usage: .read)
-//        computeEncoder.useResource(meshesBuffer, usage: .read)
-//        computeEncoder.useResource(submeshesBuffer, usage: .read)
-//        computeEncoder.useResource(meshesBuffer, usage: .read)
-//        computeEncoder.useResource(indexBuffer, usage: .write)
-//
-//        // 3) Dispatch the threads
-//        let drawCount = geometry.instancedMeshes.count
-//        let gridSize: MTLSize = .init(width: drawCount, height: 1, depth: 1)
-//        let threadExecutionWidth = computePipelineState.threadExecutionWidth
-//        let threadgroupSize: MTLSize = .init(width: threadExecutionWidth, height: 1, depth: 1)
-//        computeEncoder.dispatchThreads(gridSize, threadsPerThreadgroup: threadgroupSize)
-//
-//        // 4) End Encoding
-//        computeEncoder.endEncoding()
-//
-//        let range = 0..<drawCount
-//
-//        guard let renderPassDescriptor, let renderEncoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPassDescriptor) else { return }
-//        renderEncoder.label = renderEncoderLabel
-//
-//        willDrawScene(renderEncoder: renderEncoder)
-//        renderEncoder.executeCommandsInBuffer(icb, range: range)
-//        didDrawScene(renderEncoder: renderEncoder)
-//
-//        renderEncoder.endEncoding()
+    ///   - renderPassDescriptor: the render pass descriptor
+    /// - Returns: a new draw descriptor
+    func makeDrawDescriptor(commandBuffer: MTLCommandBuffer, renderPassDescriptor: MTLRenderPassDescriptor) -> DrawDescriptor {
+        .init(
+            commandBuffer: commandBuffer,
+            renderPassDescriptor: renderPassDescriptor,
+            uniformsBuffer: uniformsBuffer,
+            uniformsBufferOffset: uniformsBufferOffset,
+            visibilityResultBuffer: visibilityResultBuffer,
+            visibilityResults: Array(geometry!.instancedMeshes.indices))
     }
 }
