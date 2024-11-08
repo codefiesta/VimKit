@@ -373,7 +373,8 @@ public class Geometry: ObservableObject, @unchecked Sendable {
             let end = i < submeshIndexOffsets.endIndex - 1 ? Int(nextOffset): Int(submeshIndexOffsets.last!)
             let range: Range<Int> = start..<end
 
-            let material = submeshMaterials[i]
+            // Account for a submesh with an empty material
+            let material = submeshMaterials[i] == .empty ? Int32(defaultMaterial): submeshMaterials[i]
             let submesh = Submesh(material, range)
             submeshes.append(submesh)
         }

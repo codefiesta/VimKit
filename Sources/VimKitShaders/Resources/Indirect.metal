@@ -74,7 +74,7 @@ kernel void encodeIndirectCommands(uint index [[thread_position_in_grid]],
             const uint indexCount = (uint)indexRange.upperBound - (uint)indexRange.lowerBound;
             const uint indexBufferOffset = indexRange.lowerBound;
 
-            if (submesh.material != (size_t)-1) {
+            if (submesh.material >= 0) {
                 // Offet the material
                 cmd.set_vertex_buffer(materials + submesh.material, VertexBufferIndexMaterials);
             }
