@@ -8,10 +8,8 @@
 import MetalKit
 import VimKitShaders
 
-private let labelInstancePickingTexture = "InstancePickingTexture"
-
 /// A type that holds render pass draw arguments.
-struct DrawArguments {
+public struct DrawDescriptor {
     /// The command buffer to use.
     let commandBuffer: MTLCommandBuffer
     /// The render pass descriptor to use.
@@ -20,31 +18,88 @@ struct DrawArguments {
     let uniformsBuffer: MTLBuffer?
     /// The uniforms buffer offset
     let uniformsBufferOffset: Int
+    /// The current  visibility write buffer which samples passing the depth and stencil tests are counted.
+    let visibilityResultBuffer: MTLBuffer?
     /// Provides a subset of instanced mesh indexes that have returned true from the occlusion query.
     let visibilityResults: [Int]
 }
 
 @MainActor
-protocol RenderPass {
+public protocol RenderPass {
 
     /// The rendering context.
     var context: RendererContext { get }
+    /// Returns the camera.
+    var camera: Vim.Camera { get }
     /// Returns the current metal device.
     var device: MTLDevice { get }
-    /// Returns the textures.
-    var textures: [MTLTexture?] { get set }
+    /// Returns the geometry to render.
+    var geometry: Geometry? { get }
+    /// Returns the rendering options.
+    var options: Vim.Options { get }
+    /// Configuration option for wireframing the model.
+    var fillMode: MTLTriangleFillMode { get }
+    /// Configuration option for rendering in xray mode.
+    var xRayMode: Bool { get }
+    /// Returns true if the device supports indirect command buffers.
+    var supportsIndirectCommandBuffers: Bool { get }
+
+    /// Performs all encoding and setup options before drawing. Most render passes won't need to do anything here,
+    /// but some render passes (such as indirect) need to setup compute encoders before drawing.
+    /// - Parameters:
+    ///   - descriptor: the draw descriptor to use
+    func willDraw(descriptor: DrawDescriptor)
 
     /// Performs a draw call with the specified command buffer and render pass descriptor.
     /// - Parameters:
-    ///   - arguments: the draw arguments to use
-    func draw(arguments: DrawArguments)
+    ///   - descriptor: the draw descriptor to use
+    ///   - renderEncoder: the render encoder to use
+    func draw(descriptor: DrawDescriptor, renderEncoder: MTLRenderCommandEncoder)
 
     /// Performs resize operations (resizing textures).
     /// - Parameter viewportSize: the new viewport size.
     mutating func resize(viewportSize: SIMD2<Float>)
+
+    /// Update the render pass per-frame rendering state (if needed).
+    mutating func updateFrameState()
 }
 
 extension RenderPass {
+
+    /// Returns the camera.
+    var camera: Vim.Camera {
+        context.vim.camera
+    }
+
+    /// The metal device.
+    var device: MTLDevice {
+        context.destinationProvider.device!
+    }
+
+    /// Returns the geometry to render.
+    var geometry: Geometry? {
+        context.vim.geometry
+    }
+
+    /// Returns the rendering options.
+    var options: Vim.Options {
+        context.vim.options
+    }
+
+    /// Configuration option for wireframing the model.
+    var fillMode: MTLTriangleFillMode {
+        options.wireFrame == true ? .lines : .fill
+    }
+
+    /// Configuration option for rendering in xray mode.
+    var xRayMode: Bool {
+        options.xRay
+    }
+
+    /// Boolean flag indicating if indirect command buffers are supported or not.
+    var supportsIndirectCommandBuffers: Bool {
+        device.supportsFamily(.apple4)
+    }
 
     /// Makes the metal library.
     /// - Returns: a metal library
@@ -69,14 +124,19 @@ extension RenderPass {
     ///   - label: the pipeline state label
     ///   - vertexFunctionName: the vertex function name
     ///   - fragmentFunctionName: the fragment function name
+    ///   - supportIndirectCommandBuffers: flag indicating if icbs are supported
     /// - Returns: a new render pipeline state or nil
     func makeRenderPipelineState(_ context: RendererContext,
-                            _ vertexDescriptor: MTLVertexDescriptor,
-                            _ label: String?,
-                            _ vertexFunctionName: String?,
-                            _ fragmentFunctionName: String?) -> MTLRenderPipelineState? {
+                                 _ vertexDescriptor: MTLVertexDescriptor,
+                                 _ label: String?,
+                                 _ vertexFunctionName: String?,
+                                 _ fragmentFunctionName: String?,
+                                 _ supportIndirectCommandBuffers: Bool = true) -> MTLRenderPipelineState? {
 
-        guard let library = makeLibrary() else { return nil }
+        guard let library = makeLibrary() else {
+            debugPrint("💩")
+            return nil
+        }
 
         let vertexFunction = makeFunction(library, vertexFunctionName)
         let fragmentFunction = makeFunction(library, fragmentFunctionName)
@@ -105,19 +165,22 @@ extension RenderPass {
         pipelineDescriptor.vertexDescriptor = vertexDescriptor
         pipelineDescriptor.maxVertexAmplificationCount = context.destinationProvider.viewCount
         pipelineDescriptor.vertexBuffers[.positions].mutability = .mutable
-        pipelineDescriptor.supportIndirectCommandBuffers = true
+        pipelineDescriptor.supportIndirectCommandBuffers = supportIndirectCommandBuffers
 
-        guard let pipelineState = try? device.makeRenderPipelineState(descriptor: pipelineDescriptor) else { return nil }
+        guard let pipelineState = try? device.makeRenderPipelineState(descriptor: pipelineDescriptor) else {
+            debugPrint("💩")
+            return nil
+        }
         return pipelineState
 
     }
 
     /// Makes the default depth stencil state.
     /// - Returns: the default depth stencil state
-    func makeDepthStencilState() -> MTLDepthStencilState? {
+    func makeDepthStencilState(_ depthCompare: MTLCompareFunction = .less, _ isDepthWriteEnabled: Bool = true) -> MTLDepthStencilState? {
         let depthStencilDescriptor = MTLDepthStencilDescriptor()
-        depthStencilDescriptor.depthCompareFunction = .less
-        depthStencilDescriptor.isDepthWriteEnabled = true
+        depthStencilDescriptor.depthCompareFunction = depthCompare
+        depthStencilDescriptor.isDepthWriteEnabled = isDepthWriteEnabled
         return device.makeDepthStencilState(descriptor: depthStencilDescriptor)
     }
 
@@ -154,26 +217,17 @@ extension RenderPass {
         return vertexDescriptor
     }
 
-    /// Builds the textures when the viewport size changes.
-    /// - Parameter viewportSize: the new viewport size
-    mutating func makeTextures(viewportSize: SIMD2<Float>) {
-
-        guard viewportSize != .zero else { return }
-
-        let width = Int(viewportSize.x)
-        let height = Int(viewportSize.y)
-
-        // Instance Picking Texture
-        let instancePickingTextureDescriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .r32Sint, width: width, height: height, mipmapped: false)
-        instancePickingTextureDescriptor.usage = .renderTarget
-
-        textures[1] = device.makeTexture(descriptor: instancePickingTextureDescriptor)
-        textures[1]?.label = labelInstancePickingTexture
-    }
-
     /// Default resize function
     /// - Parameter viewportSize: the new viewport size
-    mutating func resize(viewportSize: SIMD2<Float>) {
-        makeTextures(viewportSize: viewportSize)
-    }
+    mutating func resize(viewportSize: SIMD2<Float>) { }
+
+    /// Noop update frame state call
+    mutating func updateFrameState() { }
+
+    /// Noop `willDraw` operation. Most render passes won't need to do anything here,
+    /// but some render passes (such as indirect) need to setup compute encoders before drawing.
+    /// - Parameters:
+    ///   - descriptor: the draw descriptor to use
+    func willDraw(descriptor: DrawDescriptor) { }
+
 }

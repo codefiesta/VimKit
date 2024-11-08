@@ -184,9 +184,9 @@ extension CompositorRenderer {
             )
         }
 
-        uniformBufferAddress[0].uniforms.0 = uniforms(0)
+        uniformsBufferAddress[0].uniforms.0 = uniforms(0)
         if drawable.views.count > 1 {
-            uniformBufferAddress[1].uniforms.1 = uniforms(1)
+            uniformsBufferAddress[1].uniforms.1 = uniforms(1)
         }
     }
 }

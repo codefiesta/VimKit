@@ -134,8 +134,8 @@ extension Renderer {
 
             guard let pipelineState else { return }
             renderEncoder.pushDebugGroup(skycubeGroupName)
-            renderEncoder.setRenderPipelineState(pipelineState)
-            renderEncoder.setDepthStencilState(depthStencilState)
+//            renderEncoder.setRenderPipelineState(pipelineState)
+//            renderEncoder.setDepthStencilState(depthStencilState)
 
             // Set the buffers to pass to the GPU
             renderEncoder.setVertexBuffer(uniformBuffer, offset: uniformBufferOffset, index: .uniforms)

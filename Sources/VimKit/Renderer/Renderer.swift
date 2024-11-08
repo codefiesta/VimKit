@@ -54,6 +54,15 @@ open class Renderer: NSObject {
         device.supportsFamily(.apple4)
     }
 
+    open var visibilityResultBuffer: MTLBuffer? {
+        guard let visibility = renderPasses.last as? RenderPassVisibility else {
+            return nil
+        }
+        return visibility.currentVisibilityResultBuffer
+    }
+
+    open var renderPasses = [RenderPass]()
+
     open var commandQueue: MTLCommandQueue!
     open var pipelineState: MTLRenderPipelineState?
     open var depthStencilState: MTLDepthStencilState?
@@ -71,10 +80,10 @@ open class Renderer: NSObject {
 
     // Uniforms Buffer
     public let alignedUniformsSize = ((MemoryLayout<UniformsArray>.size + 255) / 256) * 256
-    open var uniformBuffer: MTLBuffer!
-    open var uniformBufferIndex: Int = 0
-    open var uniformBufferOffset: Int = 0
-    open var uniformBufferAddress: UnsafeMutablePointer<UniformsArray>!
+    open var uniformsBuffer: MTLBuffer!
+    open var uniformsBufferIndex: Int = 0
+    open var uniformsBufferOffset: Int = 0
+    open var uniformsBufferAddress: UnsafeMutablePointer<UniformsArray>!
 
     /// Combine Subscribers which drive rendering events
     open var subscribers = Set<AnyCancellable>()
@@ -92,29 +101,23 @@ open class Renderer: NSObject {
         }
     }
 
-    var shapes: Shapes?
-    var skycube: Skycube?
-    var visibility: Visibility?
-
-    /// The max time to render a frame.
-    /// TODO: Calculate from frame rate.
-    open var frameTimeLimit: TimeInterval = 0.3
-
     /// Common initializer.
     /// - Parameter context: the rendering context
     public init(_ context: RendererContext) {
         self.context = context
         super.init()
+        self.commandQueue = device.makeCommandQueue()
 
-        shapes = .init(context)
-        skycube = .init(context)
-        visibility = .init(context, bufferCount: maxBuffersInFlight + 1)
+        // Make the render passes
+        let renderPasses: [RenderPass?] = [
+            supportsIndirectCommandBuffers ? RenderPassIndirect(context) : RenderPassDirect(context),
+            RenderPassSkycube(context),
+            RenderPassVisibility(context)
+        ]
+        self.renderPasses = renderPasses.compactMap{ $0 }
 
-        // Load the metal resources
-        loadMetal()
-
-        // Uniforms
-        uniformBuffer = device.makeBuffer(length: alignedUniformsSize * maxBuffersInFlight, options: [.storageModeShared])
+        // Make the uniforms buffer
+        uniformsBuffer = device.makeBuffer(length: alignedUniformsSize * maxBuffersInFlight, options: [.storageModeShared])
     }
 }
 
@@ -126,14 +129,18 @@ extension Renderer {
     public func updatFrameState() {
         updateDynamicBufferState()
         updateUniforms()
-        visibility?.updateFrameState()
+
+        // Update the frame state for the render passes
+        for (i, _) in renderPasses.enumerated() {
+            renderPasses[i].updateFrameState()
+        }
     }
 
     /// Update the state of our revolving uniform buffers before rendering
     private func updateDynamicBufferState() {
-        uniformBufferIndex = (uniformBufferIndex + 1) % maxBuffersInFlight
-        uniformBufferOffset = alignedUniformsSize * uniformBufferIndex
-        uniformBufferAddress = uniformBuffer.contents().advanced(by: uniformBufferOffset).assumingMemoryBound(to: UniformsArray.self)
+        uniformsBufferIndex = (uniformsBufferIndex + 1) % maxBuffersInFlight
+        uniformsBufferOffset = alignedUniformsSize * uniformsBufferIndex
+        uniformsBufferAddress = uniformsBuffer.contents().advanced(by: uniformsBufferOffset).assumingMemoryBound(to: UniformsArray.self)
     }
 
     /// Updates the per-frame uniforms from the camera
@@ -145,7 +152,7 @@ extension Renderer {
             projectionMatrix: camera.projectionMatrix,
             sceneTransform: camera.sceneTransform
         )
-        uniformBufferAddress[0].uniforms.0 = uniforms
+        uniformsBufferAddress[0].uniforms.0 = uniforms
     }
 }
 

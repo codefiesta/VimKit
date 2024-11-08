@@ -12,7 +12,7 @@ private let functionNameVertex = "vertexMain"
 private let functionNameFragment = "fragmentMain"
 private let labelInstancePickingTexture = "InstancePickingTexture"
 private let labelPipeline = "RenderPassDirectPipeline"
-private let labelRenderEncoder = "RenderEncoder"
+private let labelRenderEncoder = "RenderEncoderDirect"
 private let labelGeometryDebugGroupName = "Geometry"
 
 /// Provides a direct render pass.
@@ -21,46 +21,16 @@ class RenderPassDirect: RenderPass {
     /// The context that provides all of the data we need
     let context: RendererContext
 
-    /// The metal device.
-    var device: MTLDevice {
-        context.destinationProvider.device!
-    }
-
-    /// The geometry.
-    var geometry: Geometry? {
-        context.vim.geometry
-    }
-
-    /// Returns the rendering options.
-    open var options: Vim.Options {
-        context.vim.options
-    }
-
-    /// Configuration option for wireframing the model.
-    open var fillMode: MTLTriangleFillMode {
-        options.wireFrame == true ? .lines : .fill
-    }
-
-    /// Configuration option for rendering in xray mode.
-    open var xRayMode: Bool {
-        options.xRay
-    }
-
-    var renderPassDescriptor: MTLRenderPassDescriptor?
     var pipelineState: MTLRenderPipelineState?
     var depthStencilState: MTLDepthStencilState?
     var samplerState: MTLSamplerState?
-    var textures = [MTLTexture?](repeating: nil, count: 2)
-
-    var baseColorTexture: MTLTexture?
-    var instancePickingTexture: MTLTexture?
 
     /// The max time to render a frame.
     var frameTimeLimit: TimeInterval = 0.3
 
     /// Initializes the render pass with the provided rendering context.
     /// - Parameter context: the rendering context.
-    init?(_ context: RendererContext) {
+    init(_ context: RendererContext) {
         self.context = context
         let vertexDescriptor = makeVertexDescriptor()
         self.pipelineState = makeRenderPipelineState(context, vertexDescriptor, labelPipeline, functionNameVertex, functionNameFragment)
@@ -70,25 +40,22 @@ class RenderPassDirect: RenderPass {
 
     /// Performs a draw call with the specified command buffer and render pass descriptor.
     /// - Parameters:
-    ///   - arguments: the draw arguments to use
-    func draw(arguments: DrawArguments) {
-
-        guard let renderPassDescriptor = arguments.renderPassDescriptor,
-              let renderEncoder = arguments.commandBuffer.makeRenderCommandEncoder(descriptor: renderPassDescriptor) else { return }
-        renderEncoder.label = labelRenderEncoder
+    ///   - descriptor: the draw descriptor to use
+    ///   - renderEncoder: the render encoder to use
+    func draw(descriptor: DrawDescriptor, renderEncoder: MTLRenderCommandEncoder) {
 
         // Encode the buffers
-        willDraw(renderEncoder: renderEncoder, arguments: arguments)
+        encode(descriptor: descriptor, renderEncoder: renderEncoder)
 
-        // Draw the visible geometry
-        drawGeometry(renderEncoder: renderEncoder, arguments: arguments)
+        // Make the draw calls
+        drawGeometry(descriptor: descriptor, renderEncoder: renderEncoder)
     }
 
-    /// Performs all encoding and setup options before drawing.
+    /// Encodes the buffer data into the render encoder.
     /// - Parameters:
+    ///   - descriptor: the draw descriptor to use
     ///   - renderEncoder: the render encoder to use
-    ///   - arguments: the draw arguments
-    private func willDraw(renderEncoder: MTLRenderCommandEncoder, arguments: DrawArguments) {
+    private func encode(descriptor: DrawDescriptor, renderEncoder: MTLRenderCommandEncoder) {
         guard let geometry,
               let pipelineState,
               let positionsBuffer = geometry.positionsBuffer,
@@ -104,25 +71,25 @@ class RenderPassDirect: RenderPass {
         renderEncoder.setTriangleFillMode(fillMode)
 
         // Setup the per frame buffers to pass to the GPU
-        renderEncoder.setVertexBuffer(arguments.uniformsBuffer, offset: arguments.uniformsBufferOffset, index: .uniforms)
+        renderEncoder.setVertexBuffer(descriptor.uniformsBuffer, offset: descriptor.uniformsBufferOffset, index: .uniforms)
         renderEncoder.setVertexBuffer(positionsBuffer, offset: 0, index: .positions)
         renderEncoder.setVertexBuffer(normalsBuffer, offset: 0, index: .normals)
         renderEncoder.setVertexBuffer(instancesBuffer, offset: 0, index: .instances)
         renderEncoder.setVertexBuffer(submeshesBuffer, offset: 0, index: .submeshes)
         renderEncoder.setVertexBuffer(colorsBuffer, offset: 0, index: .colors)
-        renderEncoder.setFragmentTexture(baseColorTexture, index: 0)
         renderEncoder.setFragmentSamplerState(samplerState, index: 0)
 
         // Set the per frame render options
         var options = RenderOptions(xRay: xRayMode)
         renderEncoder.setVertexBytes(&options, length: MemoryLayout<RenderOptions>.size, index: .renderOptions)
+
     }
 
     /// Draws all visible geometry.
     /// - Parameters:
+    ///   - descriptor: the draw descriptor to use
     ///   - renderEncoder: the render encoder to use
-    ///   - arguments: the draw arguments
-    func drawGeometry(renderEncoder: MTLRenderCommandEncoder, arguments: DrawArguments) {
+    private func drawGeometry(descriptor: DrawDescriptor, renderEncoder: MTLRenderCommandEncoder) {
 
         guard let geometry else { return }
 
@@ -131,7 +98,7 @@ class RenderPassDirect: RenderPass {
         let start = Date.now
 
         // Draw the instanced meshes
-        for i in arguments.visibilityResults {
+        for i in descriptor.visibilityResults {
             guard abs(start.timeIntervalSinceNow) < frameTimeLimit else { break }
             let instanced = geometry.instancedMeshes[i]
             drawInstanced(instanced, renderEncoder: renderEncoder)
@@ -153,7 +120,7 @@ class RenderPassDirect: RenderPass {
 
             renderEncoder.pushDebugGroup("SubMesh[\(i)]")
 
-            let offset = MemoryLayout<Material>.stride * submesh.material// *
+            let offset = MemoryLayout<Material>.stride * submesh.material
             renderEncoder.setVertexBuffer(materialsBuffer, offset: offset, index: .materials)
 
             // Draw the submesh
