@@ -552,6 +552,15 @@ public class Geometry: ObservableObject, @unchecked Sendable {
         assert(materialsBuffer != nil, "💩 Misuse [materials]")
         return materialsBuffer!.toUnsafeMutableBufferPointer()
     }()
+
+    /// Provides the default material for submeshes that have no material specified.
+    /// Even though the spec says all submeshes have a material, this is not true.
+    public lazy var defaultMaterial: Int = {
+        let firstIndex = materials.firstIndex { material in
+            material.rgba == .one
+        }
+        return firstIndex ?? .zero
+    }()
 }
 
 // MARK: Helpers + Utilities

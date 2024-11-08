@@ -116,11 +116,9 @@ class RenderPassDirect: RenderPass {
         let mesh = geometry.meshes[instanced.mesh]
         let submeshes = geometry.submeshes[mesh.submeshes]
         for (i, submesh) in submeshes.enumerated() {
-            guard submesh.material != .empty else { continue }
-
             renderEncoder.pushDebugGroup("SubMesh[\(i)]")
 
-            let offset = submesh.material * MemoryLayout<Material>.stride
+            let offset = submesh.material != .empty ? submesh.material * MemoryLayout<Material>.stride : geometry.defaultMaterial * MemoryLayout<Material>.stride
             renderEncoder.setVertexBuffer(materialsBuffer, offset: offset, index: .materials)
 
             // Draw the submesh
