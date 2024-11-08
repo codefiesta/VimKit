@@ -12,6 +12,7 @@ import Spatial
 import VimKitShaders
 
 private let maxBuffersInFlight = 3
+private let maxStatEntries = 100
 
 @MainActor
 open class Renderer: NSObject {
@@ -100,6 +101,13 @@ open class Renderer: NSObject {
         }
     }
 
+    /// Provides the clock used for latency stats.
+    private var clock: Clock = .init()
+    /// The current index of the rotating stat entries.
+    private var statsIndex: Int = 0
+    /// The rendering stat entries.
+    private var stats = [Stat](repeating: .init(), count: maxStatEntries)
+
     /// Common initializer.
     /// - Parameter context: the rendering context
     public init(_ context: RendererContext) {
@@ -133,6 +141,8 @@ extension Renderer {
         for (i, _) in renderPasses.enumerated() {
             renderPasses[i].updateFrameState()
         }
+
+        updateStats()
     }
 
     /// Update the state of our revolving uniform buffers before rendering
@@ -188,5 +198,64 @@ extension Renderer {
 
         // Select the instance so the event gets published.
         context.vim.select(id: id, point: point3D)
+    }
+}
+
+// MARK: Stats
+
+private extension Renderer {
+
+    /// Provides a clock to time frame rendering times and calculate stats.
+    struct Clock {
+
+        /// The time the clock was started.
+        private var start: TimeInterval = .now
+
+        /// Resets the clock
+        mutating func reset() {
+            start = .now
+        }
+
+        /// Returns the elapsed time between now and the start time.
+        func elapsedTime() -> TimeInterval {
+            .now - start
+        }
+    }
+
+    /// Provides a container struct that allows us to average frame render times.
+    struct Stat {
+        /// The number of frames.
+        var count: Int = .zero
+        /// The total accumulation of latency time.
+        var latency: Double = .zero
+        /// The max latency time.
+        var maxLatency: Double = .zero
+    }
+
+    /// Gathers and publishes rendering stats.
+    func updateStats() {
+        let elapsed = clock.elapsedTime()
+
+        stats[statsIndex].latency += elapsed
+        stats[statsIndex].count += 1
+        stats[statsIndex].maxLatency = max(stats[statsIndex].maxLatency, elapsed)
+
+        if elapsed > 1.0 {
+
+            // Publish the statsout
+            if stats[statsIndex].count > .zero {
+                context.vim.stats.averageLatency = stats[statsIndex].latency / Double(stats[statsIndex].count)
+            } else {
+                context.vim.stats.averageLatency = .zero
+            }
+            context.vim.stats.maxLatency = stats[statsIndex].maxLatency
+
+            // Reset the stats at this index and move to the next buffer
+            clock.reset()
+            stats[statsIndex].count = .zero
+            stats[statsIndex].latency = .zero
+            stats[statsIndex].maxLatency = .zero
+            statsIndex = (statsIndex + 1) % 100
+        }
     }
 }

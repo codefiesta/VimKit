@@ -40,6 +40,8 @@ vertex VertexOut vertexVisibilityTest(VertexIn in [[stage_in]],
 
     // Position
     out.position = modelViewProjectionMatrix * in.position;
+    out.glossiness = material.glossiness;
+    out.smoothness = material.smoothness;
     // Color
     out.color = material.rgba;
     

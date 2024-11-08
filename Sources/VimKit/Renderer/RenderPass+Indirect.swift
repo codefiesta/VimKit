@@ -89,7 +89,7 @@ class RenderPassIndirect: RenderPass {
         computeEncoder.setBytes(&options, length: MemoryLayout<RenderOptions>.size, index: .renderOptions)
 
         // 2) Use Resources
-        computeEncoder.useResource(icb, usage: .write)
+        computeEncoder.useResource(icb, usage: .read)
         computeEncoder.useResource(uniformsBuffer, usage: .read)
         computeEncoder.useResource(visibilityResultBuffer, usage: .read)
         computeEncoder.useResource(materialsBuffer, usage: .read)
@@ -98,7 +98,7 @@ class RenderPassIndirect: RenderPass {
         computeEncoder.useResource(meshesBuffer, usage: .read)
         computeEncoder.useResource(submeshesBuffer, usage: .read)
         computeEncoder.useResource(meshesBuffer, usage: .read)
-        computeEncoder.useResource(indexBuffer, usage: .write)
+        computeEncoder.useResource(indexBuffer, usage: .read)
 
         // 3) Dispatch the threads
         let drawCount = geometry.instancedMeshes.count
@@ -142,9 +142,9 @@ class RenderPassIndirect: RenderPass {
     ///   - descriptor: the draw descriptor to use
     ///   - renderEncoder: the render encoder to use
     private func drawIndirect(descriptor: DrawDescriptor, renderEncoder: MTLRenderCommandEncoder) {
-        guard let geometry,
-              let icb else { return }
+        guard let geometry, let icb else { return }
 
+        // Build the range of commands to execute
         let range = 0..<geometry.instancedMeshes.count
 
         // Execute the commands in range

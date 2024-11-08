@@ -76,6 +76,10 @@ public class Vim: NSObject, ObservableObject, @unchecked Sendable {
     @Published
     public var options: Options
 
+    /// The rendering statistics.
+    @Published
+    public var stats: Statistics
+
     /// The source url of the file.
     public var url: URL? = nil
 
@@ -105,6 +109,7 @@ public class Vim: NSObject, ObservableObject, @unchecked Sendable {
     override public init() {
         self.camera = .init()
         self.options = .init()
+        self.stats = .init()
     }
 
     /// Loads the vim file from the remote source file url.

@@ -6,8 +6,13 @@
 //
 
 import Foundation
+import QuartzCore
 
 extension TimeInterval {
+
+    static var now: TimeInterval {
+        CACurrentMediaTime()
+    }
 
     func stringFromTimeInterval() -> String {
         let time = Int(self)

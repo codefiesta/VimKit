@@ -215,10 +215,10 @@ class RenderPassVisibility: RenderPass {
         var visibleResults = Set<Int>()
         guard let geometry, let bvh = geometry.bvh else { return }
 
-        if minFrustumCullingThreshold <= geometry.instancedMeshes.endIndex {
+        if minFrustumCullingThreshold <= geometry.instancedMeshes.count {
             allResults = bvh.intersectionResults(camera: camera)
         } else {
-            currentResults = Set(geometry.instancedMeshes.indices).sorted()
+            currentResults = Array(0..<geometry.instancedMeshes.count)
             currentVisibleResults = currentResults
             return
         }
