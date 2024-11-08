@@ -54,20 +54,27 @@ open class Renderer: NSObject {
         device.supportsFamily(.apple4)
     }
 
-    open var visibilityResultBuffer: MTLBuffer? {
+    /// Returns the visibility results buffer.
+    var visibilityResultBuffer: MTLBuffer? {
         guard let visibility = renderPasses.last as? RenderPassVisibility else {
             return nil
         }
         return visibility.currentVisibilityResultBuffer
     }
 
+    /// Returns the subset of instanced mesh indexes that have returned true from the occlusion query.
+    var currentVisibleResults: [Int] {
+        guard let visibility = renderPasses.last as? RenderPassVisibility else {
+            return .init()
+        }
+        return visibility.currentVisibleResults
+    }
+
+    /// The array of render passes used to draw.
     open var renderPasses = [RenderPass]()
 
+    /// The renderer command queue
     open var commandQueue: MTLCommandQueue!
-//    open var pipelineState: MTLRenderPipelineState?
-//    open var depthStencilState: MTLDepthStencilState?
-//    open var samplerState: MTLSamplerState?
-//    open var baseColorTexture: MTLTexture?
     open var instancePickingTexture: MTLTexture?
 
     // Uniforms Buffer
@@ -102,8 +109,7 @@ open class Renderer: NSObject {
 
         // Make the render passes
         let renderPasses: [RenderPass?] = [
-            //supportsIndirectCommandBuffers ? RenderPassIndirect(context) : RenderPassDirect(context),
-            RenderPassDirect(context),
+            supportsIndirectCommandBuffers ? RenderPassIndirect(context) : RenderPassDirect(context),
             RenderPassSkycube(context),
             RenderPassVisibility(context)
         ]

@@ -82,6 +82,6 @@ public extension Renderer {
             uniformsBuffer: uniformsBuffer,
             uniformsBufferOffset: uniformsBufferOffset,
             visibilityResultBuffer: visibilityResultBuffer,
-            visibilityResults: Array(geometry!.instancedMeshes.indices))
+            visibilityResults: currentVisibleResults)
     }
 }
