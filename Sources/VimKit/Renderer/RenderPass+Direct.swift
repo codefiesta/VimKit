@@ -120,11 +120,7 @@ class RenderPassDirect: RenderPass {
 
             renderEncoder.pushDebugGroup("SubMesh[\(i)]")
 
-//            renderEncoder.setVertexBuffer(materialsBuffer, offset: 0, index: .materials)
-            
-
             let offset = submesh.material * MemoryLayout<Material>.stride
-            debugPrint("✅", geometry.materials.count, submesh.material, MemoryLayout<Material>.stride, offset)
             renderEncoder.setVertexBuffer(materialsBuffer, offset: offset, index: .materials)
 
             // Draw the submesh
