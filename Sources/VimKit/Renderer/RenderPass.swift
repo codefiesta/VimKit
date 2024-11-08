@@ -177,7 +177,10 @@ extension RenderPass {
 
     /// Makes the default depth stencil state.
     /// - Returns: the default depth stencil state
-    func makeDepthStencilState(_ depthCompare: MTLCompareFunction = .less, _ isDepthWriteEnabled: Bool = true) -> MTLDepthStencilState? {
+    /// - Parameters:
+    ///   - depthCompare: the depth compare function
+    ///   - isDepthWriteEnabled: flag enabling/disabling depth writing
+    func makeDepthStencilState(_ depthCompare: MTLCompareFunction = .less, isDepthWriteEnabled: Bool = true) -> MTLDepthStencilState? {
         let depthStencilDescriptor = MTLDepthStencilDescriptor()
         depthStencilDescriptor.depthCompareFunction = depthCompare
         depthStencilDescriptor.isDepthWriteEnabled = isDepthWriteEnabled

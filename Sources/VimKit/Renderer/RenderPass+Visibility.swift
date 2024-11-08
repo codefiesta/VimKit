@@ -59,7 +59,7 @@ class RenderPassVisibility: RenderPass {
         let fragmentFunctionName = options.visualizeVisibilityResults ? functionNameFragment : nil
         let vertexDescriptor = makeVertexDescriptor()
         self.pipelineState = makeRenderPipelineState(context, vertexDescriptor, labelPipeline, functionNameVertexVisibilityTest, fragmentFunctionName)
-        self.depthStencilState = makeDepthStencilState(.less, options.visualizeVisibilityResults)
+        self.depthStencilState = makeDepthStencilState(isDepthWriteEnabled: options.visualizeVisibilityResults)
         self.mesh = makeMesh()
         self.visibilityResultBuffer = [MTLBuffer?](repeating: nil, count: bufferCount)
 
