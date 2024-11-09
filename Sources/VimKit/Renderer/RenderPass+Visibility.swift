@@ -121,7 +121,7 @@ class RenderPassVisibility: RenderPass {
     private func drawGeometry(renderEncoder: MTLRenderCommandEncoder) {
 
         // Don't perform the tests if the visibility result is disabled
-        guard options.visibilityResults, let pipelineState, let depthStencilState else { return }
+        guard options.visibilityResults else { return }
 
         renderEncoder.pushDebugGroup(labelRenderEncoderDebugGroupName)
 

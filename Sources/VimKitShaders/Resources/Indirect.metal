@@ -24,9 +24,9 @@ using namespace metal;
 //   - materials: The materials pointer.
 //   - colors: The colors pointer.
 //   - options: The frame rendering options.
-//   - options: The frame rendering options.
-//   - visibilityResults: The object visibility results.
 //   - icbContainer: The pointer to the indirect command buffer container.
+//   - rasterRateMapData: The raster data map.
+//   - depthTexture: The depth texture.
 kernel void encodeIndirectCommands(uint index [[thread_position_in_grid]],
                                    constant float *positions [[buffer(KernelBufferIndexPositions)]],
                                    constant float *normals [[buffer(KernelBufferIndexNormals)]],
@@ -39,12 +39,12 @@ kernel void encodeIndirectCommands(uint index [[thread_position_in_grid]],
                                    constant Material *materials [[buffer(KernelBufferIndexMaterials)]],
                                    constant float4 *colors [[buffer(KernelBufferIndexColors)]],
                                    constant RenderOptions &options [[buffer(KernelBufferIndexRenderOptions)]],
-                                   constant uint64_t *visibilityResults [[buffer(KernelBufferIndexVisibilityResults)]],
-                                   device ICBContainer *icbContainer [[buffer(KernelBufferIndexCommandBufferContainer)]]) {
+                                   device ICBContainer *icbContainer [[buffer(KernelBufferIndexCommandBufferContainer)]],
+                                   constant rasterization_rate_map_data *rasterRateMapData [[buffer(KernelBufferIndexRasterizationRateMapData)]],
+                                   texture2d<float> depthPyramidTexture [[texture(0)]]) {
     
-    // Check the visibility result
-    uint64_t visibilityResult = visibilityResults[index];
-    bool visible = visibilityResult == (size_t)0;
+    // TODO: Check depth
+    bool visible = true;
 
     // If visible, set the buffers and add draw commands
     if (visible) {
@@ -93,3 +93,22 @@ kernel void encodeIndirectCommands(uint index [[thread_position_in_grid]],
     // If not visible, no draw command will be sent
 }
 
+// Extracts the six frustum planes determined by the provided matrix.
+// - Parameters:
+//   - matrix: the camera projectionMatrix * viewMatrix
+//   - planes: the planes pointer to write to
+/**
+static void extractFrustumPlanes(constant float4x4 &matrix, thread float4 *planes) {
+
+    float4x4 mt = transpose(matrix);
+    planes[0] = mt[3] + mt[0]; // left
+    planes[1] = mt[3] - mt[0]; // right
+    planes[2] = mt[3] - mt[1]; // top
+    planes[3] = mt[3] + mt[1]; // bottom
+    planes[4] = mt[2];         // near
+    planes[5] = mt[3] - mt[2]; // far
+    for (int i = 0; i < 6; ++i) {
+        planes[i] /= length(planes[i].xyz);
+    }
+}
+*/

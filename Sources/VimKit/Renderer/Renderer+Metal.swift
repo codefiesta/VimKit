@@ -33,6 +33,20 @@ extension Renderer {
         return renderPassDescriptor
     }
 
+    /// Handles view resize.
+    func resize() {
+        // Update the camera
+        camera.viewportSize = viewportSize
+
+        // Rebuild the textures.
+        buildTextures()
+
+        // Inform the render passes that the view has been resized
+        for (i, _) in renderPasses.enumerated() {
+            renderPasses[i].resize(viewportSize: viewportSize)
+        }
+    }
+
     /// Builds the textures when the viewport size changes.
     func buildTextures() {
 

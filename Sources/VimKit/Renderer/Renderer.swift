@@ -95,8 +95,7 @@ open class Renderer: NSObject {
     open var viewportSize: SIMD2<Float> = .zero {
         didSet {
             if oldValue != viewportSize {
-                camera.viewportSize = viewportSize
-                buildTextures()
+                resize()
             }
         }
     }
