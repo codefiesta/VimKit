@@ -63,6 +63,20 @@ typedef struct {
     Uniforms uniforms[2];
 } UniformsArray;
 
+// Per Frame Uniforms
+typedef struct {
+    // Provides an array of cameras for rendering stereoscopic views
+    Uniforms cameras[2];
+    // Screen resolution and inverse for texture sampling.
+    simd_float2 screenSize;
+    simd_float2 screenSizeInverse;
+    // Physical resolution and inverse for adjusting between screen and physical space.
+    simd_float2 physicalSize;
+    simd_float2 physicalSizeInverse;
+    // Flag indicating if this frame is being rendered in xray mode.
+    bool xRay;
+} FrameUniforms;
+
 // Enum constants for possible instance states
 typedef NS_ENUM(EnumBackingType, InstanceState) {
     InstanceStateDefault = 0,
@@ -149,7 +163,8 @@ typedef NS_ENUM(EnumBackingType, KernelBufferIndex) {
 
 // Enum constants for argument buffer indices
 typedef NS_ENUM(EnumBackingType, ArgumentBufferIndex) {
-    ArgumentBufferIndexCommandBuffer = 0
+    ArgumentBufferIndexCommandBuffer = 0,
+    ArgumentBufferIndexCommandBufferDepthOnly = 1
 };
 
 //***********************************************************************
@@ -200,10 +215,11 @@ typedef struct {
     int32_t index [[color(1)]];
 } FragmentOut;
 
-// The argument buffer that contains the indirect command buffer.
+// Struct that contains everything required for encoding commands on the GPU.
 typedef struct {
-    // The icb
+    // The default command buffer
     command_buffer commandBuffer [[id(ArgumentBufferIndexCommandBuffer)]];
+    command_buffer commandBufferDepthOnly [[id(ArgumentBufferIndexCommandBufferDepthOnly)]];
 } ICBContainer;
 
 #endif

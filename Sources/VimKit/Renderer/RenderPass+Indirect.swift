@@ -13,7 +13,11 @@ private let functionNameVertexDepthOnly = "vertexDepthOnly"
 private let functionNameFragment = "fragmentMain"
 private let functionNameEncodeIndirectCommands = "encodeIndirectCommands"
 private let functionNameDepthPyramid = "depthPyramid"
-private let labelICB = "VimIndirectCommandBuffer"
+private let labelICB = "IndirectCommandBuffer"
+private let labelICBAlphaMask = "IndirectCommandBufferAlphaMask"
+private let labelICBTransparent = "IndirectCommandBufferTransparent"
+private let labelICBDepthOnly = "IndirectCommandBufferDepthOnly"
+private let labelICBDepthOnlyAlphaMask = "IndirectCommandBufferDepthOnlyAlphaMask"
 private let labelPipeline = "IndirectRendererPipeline"
 private let labelPipelineNoDepth = "IndirectRendererPipelineNoDepth"
 private let labelRenderEncoder = "RenderEncoderIndirect"
@@ -22,9 +26,27 @@ private let labelRasterizationRateMapData = "RenderRasterizationMapData"
 private let labelDepthPyramidGeneration = "DepthPyramidGeneration"
 private let maxCommandCount = 1024 * 64
 private let maxBufferBindCount = 24
+private let executionRangeCount = 3
 
 /// Provides an indirect render pass using indirect command buffers.
 class RenderPassIndirect: RenderPass {
+
+    /// A container that holds all of the
+    struct ICB {
+        /// The default indirect command buffers
+        var commandBuffer: MTLIndirectCommandBuffer
+        var commandBufferAlphaMask: MTLIndirectCommandBuffer
+        var commandBufferTransparent: MTLIndirectCommandBuffer
+        /// The indirect command buffers used for depth only
+        var commandBufferDepthOnly: MTLIndirectCommandBuffer
+        var commandBufferDepthOnlyAlphaMask: MTLIndirectCommandBuffer
+        /// A metal buffer storing the icb execution range
+        var executionRange: MTLBuffer
+        /// The icb encodeer arguments buffers consisting of MTLArgumentEncoders
+        var argumentEncoder: MTLBuffer
+        var argumentEncoderAlphaMask: MTLBuffer
+        var argumentEncoderTransparent: MTLBuffer
+    }
 
     /// The context that provides all of the data we need
     let context: RendererContext
@@ -32,12 +54,11 @@ class RenderPassIndirect: RenderPass {
     /// The viewport size
     private var screenSize: MTLSize = .zero
 
-    /// The compute pipeline state.
-    private var computePipelineState: MTLComputePipelineState?
-    /// The indirect command buffer to use to issue visibility results.
-    private var icb: MTLIndirectCommandBuffer?
-    /// Argument buffer containing the indirect command buffer encoded in the kernel
-    private var icbBuffer: MTLBuffer?
+    /// The indirect command structure holding the .
+    private var icb: ICB?
+//    private var commandBuffer: MTLIndirectCommandBuffer?
+//    /// Argument buffer containing the indirect command buffer encoded in the kernel
+//    private var icbBuffer: MTLBuffer?
 
     /// Depth testing
     private var depthPyramid: DepthPyramid?
@@ -46,6 +67,9 @@ class RenderPassIndirect: RenderPass {
     private var depthTexture: MTLTexture?
     private var depthPyramidTexture: MTLTexture?
 
+    /// The compute pipeline state.
+    private var computePipelineState: MTLComputePipelineState?
+    /// The render pipeline stae.
     private var pipelineState: MTLRenderPipelineState?
     private var pipelineStateDepthOnly: MTLRenderPipelineState?
     private var depthStencilState: MTLDepthStencilState?
@@ -109,7 +133,6 @@ class RenderPassIndirect: RenderPass {
         guard let geometry,
               let computePipelineState,
               let icb,
-              let icbBuffer,
               let uniformsBuffer = descriptor.uniformsBuffer,
               let positionsBuffer = geometry.positionsBuffer,
               let normalsBuffer = geometry.normalsBuffer,
@@ -135,12 +158,12 @@ class RenderPassIndirect: RenderPass {
         computeEncoder.setBuffer(submeshesBuffer, offset: 0, index: .submeshes)
         computeEncoder.setBuffer(materialsBuffer, offset: 0, index: .materials)
         computeEncoder.setBuffer(colorsBuffer, offset: 0, index: .colors)
-        computeEncoder.setBuffer(icbBuffer, offset: 0, index: .commandBufferContainer)
+        computeEncoder.setBuffer(icb.argumentEncoder, offset: 0, index: .commandBufferContainer)
         computeEncoder.setBytes(&options, length: MemoryLayout<RenderOptions>.size, index: .renderOptions)
         computeEncoder.setTexture(depthPyramidTexture, index: 0)
 
         // 2) Use Resources
-        computeEncoder.useResource(icb, usage: .read)
+        computeEncoder.useResource(icb.commandBuffer, usage: .read)
         computeEncoder.useResource(uniformsBuffer, usage: .read)
         computeEncoder.useResource(materialsBuffer, usage: .read)
         computeEncoder.useResource(instancesBuffer, usage: .read)
@@ -186,7 +209,7 @@ class RenderPassIndirect: RenderPass {
         let range = 0..<geometry.instancedMeshes.count
 
         // Execute the commands in range
-        renderEncoder.executeCommandsInBuffer(icb, range: range)
+        renderEncoder.executeCommandsInBuffer(icb.commandBuffer, range: range)
     }
 
     private func drawCulling(descriptor: DrawDescriptor, renderEncoder: MTLRenderCommandEncoder) {
@@ -212,10 +235,8 @@ class RenderPassIndirect: RenderPass {
             indexBuffer: indexBuffer, indexBufferOffset: 0
         )
 
-//        [renderEncoder setVertexBytes:&viewProjMatrix length:sizeof(viewProjMatrix) atIndex:AAPLBufferIndexCameraParams];
-//        [renderEncoder setVertexBuffer:_scene.occluderVertexBuffer offset:0 atIndex:AAPLBufferIndexVertexMeshPositions];
-//        [renderEncoder setFragmentBytes:&red length:sizeof(red) atIndex:AAPLBufferIndexFragmentMaterial];
-//
+        guard let blitEncoder = descriptor.commandBuffer.makeBlitCommandEncoder() else { return }
+        //blitEncoder.resetCommandsInBuffer(<#T##buffer: any MTLIndirectCommandBuffer##any MTLIndirectCommandBuffer#>, range: <#T##Range<Int>#>)
     }
 
     /// Default resize function
@@ -234,7 +255,7 @@ class RenderPassIndirect: RenderPass {
         let vertexFunction = makeFunction(library, functionNameVertexDepthOnly)
 
         let pipelineDescriptor = MTLRenderPipelineDescriptor()
-        pipelineDescriptor.sampleCount = 1
+        //pipelineDescriptor.sampleCount = 1
         pipelineDescriptor.vertexFunction = vertexFunction
         pipelineDescriptor.colorAttachments[0].pixelFormat = .invalid
         pipelineDescriptor.colorAttachments[0].isBlendingEnabled = false
@@ -253,6 +274,12 @@ class RenderPassIndirect: RenderPass {
             return
         }
 
+        // Make the compute pipeline state
+        guard let function = library.makeFunction(name: functionNameEncodeIndirectCommands),
+              let computePipelineState = try? device.makeComputePipelineState(function: function) else { return }
+        self.computePipelineState = computePipelineState
+
+        // Make the indirect command buffer descriptor
         let descriptor = MTLIndirectCommandBufferDescriptor()
         descriptor.commandTypes = [.drawIndexed]
         descriptor.inheritBuffers = false
@@ -260,21 +287,51 @@ class RenderPassIndirect: RenderPass {
         descriptor.maxVertexBufferBindCount = maxBufferBindCount
         descriptor.maxFragmentBufferBindCount = maxBufferBindCount
 
-        // Create icb using private storage mode since only the GPU will read+write to/from buffer
-        guard let function = library.makeFunction(name: functionNameEncodeIndirectCommands),
-              let computePipelineState = try? device.makeComputePipelineState(function: function),
-              let icb = device.makeIndirectCommandBuffer(descriptor: descriptor,
-                                                         maxCommandCount: maxCommandCount,
-                                                         options: []) else { return }
+        // Make the indirect command buffers and label them
+        guard let commandBuffer = device.makeIndirectCommandBuffer(descriptor: descriptor, maxCommandCount: maxCommandCount),
+              let commandBufferAlphaMask = device.makeIndirectCommandBuffer(descriptor: descriptor, maxCommandCount: maxCommandCount),
+              let commandBufferTransparent = device.makeIndirectCommandBuffer(descriptor: descriptor, maxCommandCount: maxCommandCount),
+              let commandBufferDepthOnly = device.makeIndirectCommandBuffer(descriptor: descriptor, maxCommandCount: maxCommandCount),
+              let commandBufferDepthOnlyAlphaMask = device.makeIndirectCommandBuffer(descriptor: descriptor, maxCommandCount: maxCommandCount) else { return }
 
-        icb.label = labelICB
-        self.icb = icb
-        self.computePipelineState = computePipelineState
+        commandBuffer.label = labelICB
+        commandBufferAlphaMask.label = labelICBAlphaMask
+        commandBufferTransparent.label = labelICBTransparent
+        commandBufferDepthOnly.label = labelICBDepthOnly
+        commandBufferDepthOnlyAlphaMask.label = labelICBDepthOnlyAlphaMask
 
-        let icbEncoder = function.makeArgumentEncoder(.commandBufferContainer)
-        icbBuffer = device.makeBuffer(length: icbEncoder.encodedLength, options: [])
-        icbEncoder.setArgumentBuffer(icbBuffer, offset: 0)
-        icbEncoder.setIndirectCommandBuffer(icb, index: .commandBuffer)
+        // Make the execution range buffer
+        guard let executionRange = device.makeBuffer(length: MemoryLayout<MTLIndirectCommandBufferExecutionRange>.size * executionRangeCount,
+                                                     options: [.storageModeShared]) else { return }
+
+        // Make the argument encoders
+        let icbArgumentEncoder = function.makeArgumentEncoder(.commandBufferContainer)
+        guard let argumentEncoder = device.makeBuffer(length: icbArgumentEncoder.encodedLength),
+              let argumentEncoderAlphaMask = device.makeBuffer(length: icbArgumentEncoder.encodedLength),
+              let argumentEncoderTransparent = device.makeBuffer(length: icbArgumentEncoder.encodedLength) else { return }
+
+
+        var argumentBuffers: [MTLBuffer] = [argumentEncoder, argumentEncoderAlphaMask, argumentEncoderTransparent]
+        var commandBuffers: [MTLIndirectCommandBuffer?] = [commandBuffer, commandBufferAlphaMask, commandBufferTransparent]
+        var commandBuffersDepthOnly: [MTLIndirectCommandBuffer?] = [commandBufferDepthOnly, commandBufferDepthOnlyAlphaMask, nil]
+
+        // Encode the buffers
+        for (i, argumentBuffer) in argumentBuffers.enumerated() {
+            icbArgumentEncoder.setArgumentBuffer(argumentBuffer, offset: 0)
+            icbArgumentEncoder.setIndirectCommandBuffer(commandBuffers[i], index: .commandBuffer)
+            icbArgumentEncoder.setIndirectCommandBuffer(commandBuffersDepthOnly[i], index: .commandBufferDepthOnly)
+        }
+
+        // Set the struct to hold onto the icb data
+        icb = .init(commandBuffer: commandBuffer,
+                    commandBufferAlphaMask: commandBufferAlphaMask,
+                    commandBufferTransparent: commandBufferTransparent,
+                    commandBufferDepthOnly: commandBufferDepthOnly,
+                    commandBufferDepthOnlyAlphaMask: commandBufferDepthOnlyAlphaMask,
+                    executionRange: executionRange,
+                    argumentEncoder: argumentEncoder,
+                    argumentEncoderAlphaMask: argumentEncoderAlphaMask,
+                    argumentEncoderTransparent: argumentEncoderTransparent)
     }
 
     private func makeTextures() {
