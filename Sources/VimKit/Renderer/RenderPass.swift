@@ -11,9 +11,9 @@ import VimKitShaders
 /// A type that holds render pass draw arguments.
 public struct DrawDescriptor {
     /// The command buffer to use.
-    let commandBuffer: MTLCommandBuffer
+    var commandBuffer: MTLCommandBuffer
     /// The render pass descriptor to use.
-    let renderPassDescriptor: MTLRenderPassDescriptor?
+    var renderPassDescriptor: MTLRenderPassDescriptor?
     /// The uniforms buffer to use.
     let uniformsBuffer: MTLBuffer?
     /// The uniforms buffer offset

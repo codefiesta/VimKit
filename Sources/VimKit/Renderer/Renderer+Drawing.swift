@@ -12,6 +12,8 @@ import VimKitShaders
 private let renderEncoderLabel = "VimRenderEncoder"
 ///  The render encoder debug group.
 private let renderEncoderDebugGroupName = "VimDrawGroup"
+private let labelOnScreenCommandBuffer = "OnScreenCommandBuffer"
+private let labelOffScreenCommandBuffer = "OffScreenCommandBuffer"
 ///  The minimum amount of instanced meshes to implement frustum culling.
 private let minFrustumCullingThreshold = 1024
 
@@ -39,20 +41,42 @@ public extension Renderer {
     private func renderNewFrame() {
 
         guard let geometry, geometry.state == .ready else { return }
-        guard let drawable = context.destinationProvider.currentDrawable,
-              let renderPassDescriptor = makeRenderPassDescriptor(visibilityResultBuffer),
-              let commandBuffer = commandQueue.makeCommandBuffer() else { return }
+        guard let onScreenCommandBuffer = commandQueue.makeCommandBuffer(),
+              let offScreenCommandBuffer = commandQueue.makeCommandBuffer() else { return }
+        onScreenCommandBuffer.label = labelOnScreenCommandBuffer
+        offScreenCommandBuffer.label = labelOffScreenCommandBuffer
 
         // Update the per-frame state
         updatFrameState()
 
+        // Perform the offscreen work
+        var commandBuffer = offScreenCommandBuffer
+
+        commandBuffer.addCompletedHandler { @Sendable (_ commandBuffer) in
+            let gpuTime = commandBuffer.gpuEndTime - commandBuffer.gpuStartTime
+            let kernelTime = commandBuffer.kernelEndTime - commandBuffer.kernelStartTime
+            self.didRenderFrame(gpuTime: gpuTime, kernelTime: kernelTime)
+        }
+
+
         // Build the draw descriptor
-        let descriptor = makeDrawDescriptor(commandBuffer: commandBuffer, renderPassDescriptor: renderPassDescriptor)
+        var descriptor = makeDrawDescriptor(commandBuffer: commandBuffer)
 
         // Perform setup on all of the render passes.
         for renderPass in renderPasses {
             renderPass.willDraw(descriptor: descriptor)
         }
+
+        // Kick off offscreen work and switch command buffers
+        commandBuffer.commit()
+        commandBuffer = onScreenCommandBuffer
+        descriptor.commandBuffer = commandBuffer
+
+        // Delay getting the renderPassDescriptor until absolutely needed. This avoids holding
+        // onto the drawable and blocking the display pipeline any longer than necessary
+        guard let drawable = context.destinationProvider.currentDrawable,
+              let renderPassDescriptor = makeRenderPassDescriptor() else { return }
+        descriptor.renderPassDescriptor = renderPassDescriptor
 
         // Make the render encoder
         guard let renderEncoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPassDescriptor) else { return }
@@ -75,7 +99,7 @@ public extension Renderer {
     ///   - commandBuffer: the command buffer
     ///   - renderPassDescriptor: the render pass descriptor
     /// - Returns: a new draw descriptor
-    func makeDrawDescriptor(commandBuffer: MTLCommandBuffer, renderPassDescriptor: MTLRenderPassDescriptor) -> DrawDescriptor {
+    func makeDrawDescriptor(commandBuffer: MTLCommandBuffer, renderPassDescriptor: MTLRenderPassDescriptor? = nil) -> DrawDescriptor {
         .init(
             commandBuffer: commandBuffer,
             renderPassDescriptor: renderPassDescriptor,
@@ -83,5 +107,13 @@ public extension Renderer {
             uniformsBufferOffset: uniformsBufferOffset,
             visibilityResultBuffer: visibilityResultBuffer,
             visibilityResults: currentVisibleResults)
+    }
+
+    /// Gathers and publishes rendering stats.
+    nonisolated func didRenderFrame(gpuTime: TimeInterval, kernelTime: TimeInterval) {
+        let time = gpuTime + kernelTime
+        Task { @MainActor in
+            self.updateStats(gpuTime: gpuTime, kernelTime: kernelTime)
+        }
     }
 }

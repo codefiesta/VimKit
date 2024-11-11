@@ -78,6 +78,9 @@ open class Renderer: NSObject {
     open var commandQueue: MTLCommandQueue!
     open var instancePickingTexture: MTLTexture?
 
+    // Semaphore
+    public let inFlightSemaphore = DispatchSemaphore(value: maxBuffersInFlight)
+
     // Uniforms Buffer
     public let alignedUniformsSize = ((MemoryLayout<UniformsArray>.size + 255) / 256) * 256
     open var uniformsBuffer: MTLBuffer!
@@ -140,8 +143,6 @@ extension Renderer {
         for (i, _) in renderPasses.enumerated() {
             renderPasses[i].updateFrameState()
         }
-
-        updateStats()
     }
 
     /// Update the state of our revolving uniform buffers before rendering
@@ -202,10 +203,10 @@ extension Renderer {
 
 // MARK: Stats
 
-private extension Renderer {
+extension Renderer {
 
     /// Provides a clock to time frame rendering times and calculate stats.
-    struct Clock {
+    private struct Clock {
 
         /// The time the clock was started.
         private var start: TimeInterval = .now
@@ -222,7 +223,7 @@ private extension Renderer {
     }
 
     /// Provides a container struct that allows us to average frame render times.
-    struct Stat {
+    private struct Stat: Sendable {
         /// The number of frames.
         var count: Int = .zero
         /// The total accumulation of latency time.
@@ -232,7 +233,10 @@ private extension Renderer {
     }
 
     /// Gathers and publishes rendering stats.
-    func updateStats() {
+    /// - Parameters:
+    ///   - gpuTime: The time in seconds it took the GPU to finish executing the command buffer
+    ///   - kernelTime: The time in seconds it took the CPU to finish scheduling the command buffer.
+    func updateStats(gpuTime: TimeInterval, kernelTime: TimeInterval) {
         let elapsed = clock.elapsedTime()
 
         stats[statsIndex].latency += elapsed

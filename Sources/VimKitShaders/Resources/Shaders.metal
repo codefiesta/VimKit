@@ -144,3 +144,20 @@ fragment FragmentOut fragmentMain(VertexOut in [[stage_in]],
     
     return out;
 }
+
+// Provides a simple vertex shader for transforming the array of provided vertices.
+vertex VertexOut vertexDepthOnly(VertexIn in [[stage_in]],
+                                 ushort amp_id [[amplification_id]],
+                                 uint vertex_id [[vertex_id]],
+                                 const device float3 * positions [[buffer(VertexBufferIndexPositions)]],
+                                 constant UniformsArray &uniformsArray [[buffer(VertexBufferIndexUniforms)]]) {
+    VertexOut out;
+    
+    Uniforms uniforms = uniformsArray.uniforms[amp_id];
+    float4x4 viewMatrix = uniforms.viewMatrix;
+    float4x4 projectionMatrix = uniforms.projectionMatrix;
+
+    // Position
+    out.position = viewMatrix * float4(positions[vertex_id], 1.0f);
+    return out;
+}

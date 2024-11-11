@@ -9,11 +9,13 @@ import MetalKit
 import VimKitShaders
 
 private let functionNameVertex = "vertexMain"
+private let functionNameVertexDepthOnly = "vertexDepthOnly"
 private let functionNameFragment = "fragmentMain"
 private let functionNameEncodeIndirectCommands = "encodeIndirectCommands"
 private let functionNameDepthPyramid = "depthPyramid"
 private let labelICB = "VimIndirectCommandBuffer"
-private let labelPipeline = "VimRendererPipeline"
+private let labelPipeline = "IndirectRendererPipeline"
+private let labelPipelineNoDepth = "IndirectRendererPipelineNoDepth"
 private let labelRenderEncoder = "RenderEncoderIndirect"
 private let labelRasterizationRateMap = "RenderRasterizationMap"
 private let labelRasterizationRateMapData = "RenderRasterizationMapData"
@@ -41,9 +43,11 @@ class RenderPassIndirect: RenderPass {
     private var depthPyramid: DepthPyramid?
     private var rasterizationRateMap: MTLRasterizationRateMap?
     private var rasterizationRateMapData: MTLBuffer?
+    private var depthTexture: MTLTexture?
     private var depthPyramidTexture: MTLTexture?
 
     private var pipelineState: MTLRenderPipelineState?
+    private var pipelineStateDepthOnly: MTLRenderPipelineState?
     private var depthStencilState: MTLDepthStencilState?
     private var samplerState: MTLSamplerState?
 
@@ -55,6 +59,7 @@ class RenderPassIndirect: RenderPass {
 
         let vertexDescriptor = makeVertexDescriptor()
         self.pipelineState = makeRenderPipelineState(context, vertexDescriptor, labelPipeline, functionNameVertex, functionNameFragment)
+        self.pipelineStateDepthOnly = makeDepthOnlyPipelineState(library)
         self.depthStencilState = makeDepthStencilState()
         self.samplerState = makeSamplerState()
         self.depthPyramid = DepthPyramid(device, library)
@@ -67,6 +72,40 @@ class RenderPassIndirect: RenderPass {
     ///   - descriptor: the draw descriptor
     func willDraw(descriptor: DrawDescriptor) {
 
+        guard let computeEncoder = descriptor.commandBuffer.makeComputeCommandEncoder() else { return }
+
+        // Encode the buffers onto the comute encoder
+        encode(descriptor: descriptor, computeEncoder: computeEncoder)
+
+        // Make the offscreen render pass descriptor
+        guard let renderPassDescriptor = makeRenderPassDescriptor(),
+              let renderEncoder = descriptor.commandBuffer.makeRenderCommandEncoder(descriptor: renderPassDescriptor) else { return }
+
+        // Draw the geometry occluder
+        drawCulling(descriptor: descriptor, renderEncoder: renderEncoder)
+
+        // End encoding
+        renderEncoder.endEncoding()
+    }
+
+    /// Performs a draw call with the specified command buffer and render pass descriptor.
+    /// - Parameters:
+    ///   - descriptor: the draw descriptor to use
+    ///   - renderEncoder: the render encoder to use
+    func draw(descriptor: DrawDescriptor, renderEncoder: MTLRenderCommandEncoder) {
+
+        // Encode the buffers
+        encode(descriptor: descriptor, renderEncoder: renderEncoder)
+
+        // Make the draw calls
+        drawIndirect(descriptor: descriptor, renderEncoder: renderEncoder)
+    }
+
+    /// Encodes the buffer data into the compute encoder.
+    /// - Parameters:
+    ///   - descriptor: the draw descriptor to use
+    ///   - renderEncoder: the compute encoder to use
+    private func encode(descriptor: DrawDescriptor, computeEncoder: MTLComputeCommandEncoder) {
         guard let geometry,
               let computePipelineState,
               let icb,
@@ -80,8 +119,7 @@ class RenderPassIndirect: RenderPass {
               let meshesBuffer = geometry.meshesBuffer,
               let submeshesBuffer = geometry.submeshesBuffer,
               let materialsBuffer = geometry.materialsBuffer,
-              let colorsBuffer = geometry.colorsBuffer,
-              let computeEncoder = descriptor.commandBuffer.makeComputeCommandEncoder() else { return }
+              let colorsBuffer = geometry.colorsBuffer else { return }
 
         var options = RenderOptions(xRay: xRayMode)
 
@@ -123,19 +161,6 @@ class RenderPassIndirect: RenderPass {
         computeEncoder.endEncoding()
     }
 
-    /// Performs a draw call with the specified command buffer and render pass descriptor.
-    /// - Parameters:
-    ///   - descriptor: the draw descriptor to use
-    ///   - renderEncoder: the render encoder to use
-    func draw(descriptor: DrawDescriptor, renderEncoder: MTLRenderCommandEncoder) {
-
-        // Encode the buffers
-        encode(descriptor: descriptor, renderEncoder: renderEncoder)
-
-        // Make the draw calls
-        drawIndirect(descriptor: descriptor, renderEncoder: renderEncoder)
-    }
-
     /// Encodes the buffer data into the render encoder.
     /// - Parameters:
     ///   - descriptor: the draw descriptor to use
@@ -162,6 +187,61 @@ class RenderPassIndirect: RenderPass {
 
         // Execute the commands in range
         renderEncoder.executeCommandsInBuffer(icb, range: range)
+    }
+
+    private func drawCulling(descriptor: DrawDescriptor, renderEncoder: MTLRenderCommandEncoder) {
+
+        guard let geometry,
+              let pipelineStateDepthOnly,
+              let positionsBuffer = geometry.positionsBuffer,
+              let indexBuffer = geometry.indexBuffer else { return }
+
+        renderEncoder.setRenderPipelineState(pipelineStateDepthOnly)
+        renderEncoder.setDepthStencilState(depthStencilState)
+        renderEncoder.setTriangleFillMode(fillMode)
+
+        // Setup the per frame buffers to pass to the GPU
+        renderEncoder.setVertexBuffer(descriptor.uniformsBuffer, offset: descriptor.uniformsBufferOffset, index: .uniforms)
+        renderEncoder.setVertexBuffer(positionsBuffer, offset: 0, index: .positions)
+
+
+        renderEncoder.drawIndexedPrimitives(
+            type: .triangle,
+            indexCount: geometry.indices.count,
+            indexType: .uint32,
+            indexBuffer: indexBuffer, indexBufferOffset: 0
+        )
+
+//        [renderEncoder setVertexBytes:&viewProjMatrix length:sizeof(viewProjMatrix) atIndex:AAPLBufferIndexCameraParams];
+//        [renderEncoder setVertexBuffer:_scene.occluderVertexBuffer offset:0 atIndex:AAPLBufferIndexVertexMeshPositions];
+//        [renderEncoder setFragmentBytes:&red length:sizeof(red) atIndex:AAPLBufferIndexFragmentMaterial];
+//
+    }
+
+    /// Default resize function
+    /// - Parameter viewportSize: the new viewport size
+    func resize(viewportSize: SIMD2<Float>) {
+        screenSize = MTLSize(width: Int(viewportSize.x), height: Int(viewportSize.y), depth: .zero)
+        makeTextures()
+        makeRasterizationMap()
+    }
+
+    /// Makes a depth only pipeline state
+    /// - Parameter library: the library to use
+    /// - Returns: the depth only pipeline state
+    private func makeDepthOnlyPipelineState(_ library: MTLLibrary) -> MTLRenderPipelineState? {
+
+        let vertexFunction = makeFunction(library, functionNameVertexDepthOnly)
+
+        let pipelineDescriptor = MTLRenderPipelineDescriptor()
+        pipelineDescriptor.sampleCount = 1
+        pipelineDescriptor.vertexFunction = vertexFunction
+        pipelineDescriptor.colorAttachments[0].pixelFormat = .invalid
+        pipelineDescriptor.colorAttachments[0].isBlendingEnabled = false
+        pipelineDescriptor.depthAttachmentPixelFormat = .depth32Float
+        pipelineDescriptor.label = labelPipelineNoDepth
+
+        return try? device.makeRenderPipelineState(descriptor: pipelineDescriptor)
     }
 
     /// Makes the compute pipeline state.
@@ -197,6 +277,36 @@ class RenderPassIndirect: RenderPass {
         icbEncoder.setIndirectCommandBuffer(icb, index: .commandBuffer)
     }
 
+    private func makeTextures() {
+        guard screenSize != .zero else { return }
+
+        let width = Int(screenSize.width)
+        let height = Int(screenSize.height)
+
+        // Depth Texture
+        let depthTextureDescriptor = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: .depth32Float,
+            width: width,
+            height: height,
+            mipmapped: false)
+        depthTextureDescriptor.storageMode = .private
+        depthTextureDescriptor.usage = [.renderTarget, .shaderRead]
+
+        depthTexture = device.makeTexture(descriptor: depthTextureDescriptor)
+        depthTexture?.label = "DepthTexture"
+
+        // Depth Pyramid Texture
+        let depthPyramidTextureDescriptor = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: .depth32Float,
+            width: width / 2,
+            height: height / 2,
+            mipmapped: true)
+        depthPyramidTextureDescriptor.storageMode = .private
+        depthPyramidTextureDescriptor.usage = [.shaderRead, .shaderWrite, .pixelFormatView]
+        depthPyramidTexture = device.makeTexture(descriptor: depthPyramidTextureDescriptor)
+        depthPyramidTexture?.label = "DepthPyramidTexture"
+    }
+
     private func makeRasterizationMap() {
 
         guard screenSize != .zero else { return }
@@ -218,11 +328,18 @@ class RenderPassIndirect: RenderPass {
         rasterizationRateMap.copyParameterData(buffer: rasterizationRateMapData, offset: 0)
     }
 
-    /// Default resize function
-    /// - Parameter viewportSize: the new viewport size
-    func resize(viewportSize: SIMD2<Float>) {
-        screenSize = MTLSize(width: Int(viewportSize.x), height: Int(viewportSize.y), depth: .zero)
-        makeRasterizationMap()
+    /// Builds an offscreen render pass descriptor.
+    private func makeRenderPassDescriptor() -> MTLRenderPassDescriptor? {
+
+        let renderPassDescriptor = MTLRenderPassDescriptor()
+
+        // Depth attachment
+        renderPassDescriptor.depthAttachment.texture = depthTexture
+        renderPassDescriptor.depthAttachment.clearDepth = 1.0
+        renderPassDescriptor.depthAttachment.loadAction = .clear
+        renderPassDescriptor.depthAttachment.storeAction = .store
+        renderPassDescriptor.rasterizationRateMap = rasterizationRateMap
+        return renderPassDescriptor
     }
 }
 

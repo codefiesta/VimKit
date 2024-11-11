@@ -39,6 +39,6 @@ extension MTLSize {
     ///   - rhs: the right size to check
     /// - Returns: true if the size are not equal
     public static func != (lhs: MTLSize, rhs: MTLSize) -> Bool {
-        lhs.width != rhs.width && lhs.height != rhs.height && lhs.depth != rhs.depth
+        lhs.width != rhs.width || lhs.height != rhs.height || lhs.depth != rhs.depth
     }
 }
