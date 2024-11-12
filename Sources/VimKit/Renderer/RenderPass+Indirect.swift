@@ -211,6 +211,7 @@ class RenderPassIndirect: RenderPass {
     private func drawCulling(descriptor: DrawDescriptor, renderEncoder: MTLRenderCommandEncoder) {
 
         guard let geometry,
+              let icb,
               let pipelineStateDepthOnly,
               let positionsBuffer = geometry.positionsBuffer,
               let indexBuffer = geometry.indexBuffer else { return }
@@ -232,7 +233,26 @@ class RenderPassIndirect: RenderPass {
         )
 
         guard let blitEncoder = descriptor.commandBuffer.makeBlitCommandEncoder() else { return }
-        //blitEncoder.resetCommandsInBuffer(<#T##buffer: any MTLIndirectCommandBuffer##any MTLIndirectCommandBuffer#>, range: <#T##Range<Int>#>)
+        blitEncoder.resetCommandsInBuffer(icb.commandBuffer, range: 0..<geometry.instancedMeshes.count)
+        blitEncoder.endEncoding()
+
+//        for (NSUInteger viewIndex = 0; viewIndex < viewCount; ++viewIndex)
+//        {
+//            if(mainPass)
+//            {
+//                [blitEncoder resetCommandsInBuffer:commandData[viewIndex].commandBuffer withRange:NSMakeRange(0, mesh.opaqueChunkCount)];
+//                [blitEncoder resetCommandsInBuffer:commandData[viewIndex].commandBuffer_alphaMask withRange:NSMakeRange(0, mesh.alphaMaskedChunkCount)];
+//                [blitEncoder resetCommandsInBuffer:commandData[viewIndex].commandBuffer_transparent withRange:NSMakeRange(0, mesh.transparentChunkCount)];
+//            }
+//
+//            if(depthOnly)
+//            {
+//                [blitEncoder resetCommandsInBuffer:commandData[viewIndex].commandBuffer_depthOnly withRange:NSMakeRange(0, mesh.opaqueChunkCount)];
+//                [blitEncoder resetCommandsInBuffer:commandData[viewIndex].commandBuffer_depthOnly_alphaMask withRange:NSMakeRange(0, mesh.alphaMaskedChunkCount)];
+//            }
+//        }
+//        [blitEncoder endEncoding];
+
     }
 
     /// Default resize function

@@ -373,6 +373,10 @@ public class Geometry: ObservableObject, @unchecked Sendable {
             let end = i < submeshIndexOffsets.endIndex - 1 ? Int(nextOffset): Int(submeshIndexOffsets.last!)
             let range: Range<Int> = start..<end
 
+            if start == end {
+                debugPrint("✅")
+            }
+
             // Account for a submesh with an empty material
             let material = submeshMaterials[i] == .empty ? Int32(defaultMaterial): submeshMaterials[i]
             let submesh = Submesh(material, range)
@@ -515,6 +519,20 @@ public class Geometry: ObservableObject, @unchecked Sendable {
         return instancedMeshesBuffer!.toUnsafeMutableBufferPointer()
     }()
 
+    public lazy var opaqueInstancedMeshesCount: Int = {
+        instancedMeshes.filter{ $0.transparent == false }.count
+    }()
+
+    public lazy var transparentInstancedMeshesCount: Int = {
+        instancedMeshes.filter{ $0.transparent == true }.count
+    }()
+
+    public lazy var transparentInstancedMeshesOffset: Int = {
+        instancedMeshes.firstIndex { instancedMesh in
+            instancedMesh.transparent == true
+        } ?? .zero
+    }()
+
     // MARK: Materials
 
     /// Makes the materials buffer.
@@ -557,10 +575,9 @@ public class Geometry: ObservableObject, @unchecked Sendable {
     /// Provides the default material for submeshes that have no material specified.
     /// Even though the spec says all submeshes have a material, this is not true.
     public lazy var defaultMaterial: Int = {
-        let firstIndex = materials.firstIndex { material in
+        materials.firstIndex { material in
             material.rgba == .one
-        }
-        return firstIndex ?? .zero
+        } ?? .zero
     }()
 }
 
@@ -723,7 +740,6 @@ extension Geometry {
         }
         return MDLAxisAlignedBoundingBox(maxBounds: maxBounds, minBounds: minBounds)
     }
-
 
     /// Helper method to retrieve the vertex at the specified index.
     /// - Parameter index: the indices index

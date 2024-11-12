@@ -9,13 +9,129 @@
 #include "../include/ShaderTypes.h"
 using namespace metal;
 
+// Checks if the instance is inside the view frustum.
+// - Parameters:
+//   - frames: The frames buffer.
+//   - instance: The instance to check if inside the view frustum.
+// - Returns: true if the instance is inside the view frustum, otherwise false
+static bool isInsideViewFrustum(constant Frame *frames,
+                                constant Instance &instance) {
+    
+    
+    if (instance.state == InstanceStateHidden) { return false; }
+
+    const Frame frame = frames[0];
+    const Camera camera = frame.cameras[0]; // TODO: Stereoscopic views??
+
+    const float3 minBounds = instance.minBounds;
+    const float3 maxBounds = instance.maxBounds;
+
+    // Make the array of corners
+    const float4 corners[8] = {
+        float4(minBounds, 1.0),
+        float4(minBounds.x, minBounds.y, maxBounds.z, 1.0),
+        float4(minBounds.x, maxBounds.y, minBounds.z, 1.0),
+        float4(minBounds.x, maxBounds.y, maxBounds.z, 1.0),
+        float4(maxBounds.x, minBounds.y, minBounds.z, 1.0),
+        float4(maxBounds.x, minBounds.y, maxBounds.z, 1.0),
+        float4(maxBounds.x, maxBounds.y, minBounds.z, 1.0),
+        float4(maxBounds, 1.0)
+    };
+
+    // Loop through the frustum planes and check the box corners
+    for (int i = 0; i < 6; i++) {
+
+        const float4 plane = camera.frustumPlanes[i];
+        
+        if (dot(plane, corners[0]) < 0 &&
+            dot(plane, corners[1]) < 0 &&
+            dot(plane, corners[2]) < 0 &&
+            dot(plane, corners[3]) < 0 &&
+            dot(plane, corners[4]) < 0 &&
+            dot(plane, corners[5]) < 0 &&
+            dot(plane, corners[6]) < 0 &&
+            dot(plane, corners[7]) < 0) {
+            // Not visible - all corners returned negative
+            return false;
+        }
+        
+    }
+    return true;
+}
+
+// Checks if the instanced mesh is visible inside the view frustum and passes the depth test.
+// - Parameters:
+//   - frames: The frames buffer.
+//   - instancedMesh: The instanced mesh to chek.
+//   - instances: The instances pointer.
+//   - meshes: The meshes pointer.
+//   - submeshes: The submeshes pointer.
+//   - rasterRateMapData: The rasterization rate map data.
+//   - depthPyramidTexture: The depth pyramid texture.
+// - Returns: true if the instanced mesh is inside the view frustum and passes the depth test
+static bool isVisible(constant Frame *frames,
+                      constant InstancedMesh &instancedMesh,
+                      constant Instance *instances,
+                      constant Mesh *meshes,
+                      constant Submesh *submeshes,
+                      constant rasterization_rate_map_data *rasterRateMapData,
+                      texture2d<float> depthPyramidTexture) {
+    
+    // Depth buffer culling.
+    const uint2 textureSize = uint2(depthPyramidTexture.get_width(), depthPyramidTexture.get_height());
+
+    const int lowerBound = (int) instancedMesh.baseInstance;
+    const int upperBound = lowerBound + (int) instancedMesh.instanceCount;
+    constexpr sampler depthSampler(filter::nearest, mip_filter::nearest, address::clamp_to_edge);
+
+    // If any of the instances appear, simply draw the entire instanced mesh
+    for (int i = lowerBound; i < upperBound; i++) {
+        
+        if (!isInsideViewFrustum(frames, instances[i])) { continue; }
+        
+        const Instance instance = instances[i];
+        const float2 extents = float2(textureSize) * (instance.maxBounds.xy - instance.minBounds.xy);
+        const uint lod = ceil(log2(max(extents.x, extents.y)));
+        
+        const uint2 lodSizeInLod0Pixels = textureSize & (0xFFFFFFFF << lod);
+        const float2 lodScale = float2(textureSize) / float2(lodSizeInLod0Pixels);
+        const float2 sampleLocationMin = instance.minBounds.xy * lodScale;
+        const float2 sampleLocationMax = instance.maxBounds.xy * lodScale;
+
+        const float d0 = depthPyramidTexture.sample(depthSampler,
+                                                    float2(sampleLocationMin.x, sampleLocationMin.y),
+                                                    level(lod)).x;
+
+        const float d1 = depthPyramidTexture.sample(depthSampler,
+                                                    float2(sampleLocationMin.x, sampleLocationMax.y),
+                                                    level(lod)).x;
+        
+        const float d2 = depthPyramidTexture.sample(depthSampler,
+                                                    float2(sampleLocationMax.x, sampleLocationMin.y),
+                                                    level(lod)).x;
+
+        const float d3 = depthPyramidTexture.sample(depthSampler,
+                                                    float2(sampleLocationMax.x, sampleLocationMax.y),
+                                                    level(lod)).x;
+
+        const float compareValue = instance.minBounds.z;
+        float maxDepth = max(max(d0, d1), max(d2, d3));
+        
+        if (compareValue >= maxDepth) {
+            return true;
+        }
+    }
+    
+    return false;
+}
+
 // Encodes the buffers and adds draw commands via indirect command buffer.
 // - Parameters:
 //   - index: The thread position in the grid being executed.
 //   - positions: The pointer to the positions.
 //   - normals: The pointer to the normals.
 //   - indexBuffer: The pointer to the index buffer.
-//   - frames: The pointer to the frames buffer.
+//   - frames: The frames buffer.
 //   - instances: The instances pointer.
 //   - instancedMeshes: The instanced meshes pointer.
 //   - meshes: The meshes pointer.
@@ -41,16 +157,22 @@ kernel void encodeIndirectCommands(uint index [[thread_position_in_grid]],
                                    constant rasterization_rate_map_data *rasterRateMapData [[buffer(KernelBufferIndexRasterizationRateMapData)]],
                                    texture2d<float> depthPyramidTexture [[texture(0)]]) {
     
-    // TODO: Check depth
-    bool visible = true;
-
+    // Perform depth testing to check if the instanced mesh should be occluded or not
+    bool visible = isVisible(frames,
+                             instancedMeshes[index],
+                             instances,
+                             meshes,
+                             submeshes,
+                             rasterRateMapData,
+                             depthPyramidTexture);
+    
     // If visible, set the buffers and add draw commands
     if (visible) {
-
+        
         const InstancedMesh instancedMesh = instancedMeshes[index];
         const Mesh mesh = meshes[instancedMesh.mesh];
         const BoundedRange submeshRange = mesh.submeshes;
-        
+
         // Get indirect render commnd from the indirect command buffer
         render_command cmd(icbContainer->commandBuffer, index);
         
@@ -89,23 +211,3 @@ kernel void encodeIndirectCommands(uint index [[thread_position_in_grid]],
 
     // If not visible, no draw command will be sent
 }
-
-// Extracts the six frustum planes determined by the provided matrix.
-// - Parameters:
-//   - matrix: the camera projectionMatrix * viewMatrix
-//   - planes: the planes pointer to write to
-/**
-static void extractFrustumPlanes(constant float4x4 &matrix, thread float4 *planes) {
-
-    float4x4 mt = transpose(matrix);
-    planes[0] = mt[3] + mt[0]; // left
-    planes[1] = mt[3] - mt[0]; // right
-    planes[2] = mt[3] - mt[1]; // top
-    planes[3] = mt[3] + mt[1]; // bottom
-    planes[4] = mt[2];         // near
-    planes[5] = mt[3] - mt[2]; // far
-    for (int i = 0; i < 6; ++i) {
-        planes[i] /= length(planes[i].xyz);
-    }
-}
-*/

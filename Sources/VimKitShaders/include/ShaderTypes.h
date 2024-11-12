@@ -55,18 +55,15 @@ typedef struct {
     simd_float4x4 viewMatrix;
     simd_float4x4 projectionMatrix;
     simd_float4x4 sceneTransform;
+    simd_float4 frustumPlanes[6];
 } Camera;
 
 // A struct that holds per frame data
 typedef struct {
     // Provides an array of cameras for rendering stereoscopic views
     Camera cameras[2];
-    // Screen resolution and inverse for texture sampling.
-    simd_float2 screenSize;
-    simd_float2 screenSizeInverse;
-    // Physical resolution and inverse for adjusting between screen and physical space.
-    simd_float2 physicalSize;
-    simd_float2 physicalSizeInverse;
+    // The screen viewport size
+    simd_float2 viewportSize;
     // Flag indicating if this frame is being rendered in xray mode.
     bool xRay;
 } Frame;

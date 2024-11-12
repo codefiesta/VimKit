@@ -118,7 +118,7 @@ open class Renderer: NSObject {
         let renderPasses: [RenderPass?] = [
             supportsIndirectCommandBuffers ? RenderPassIndirect(context) : RenderPassDirect(context),
             RenderPassSkycube(context),
-            RenderPassVisibility(context)
+            supportsIndirectCommandBuffers ? nil : RenderPassVisibility(context)
         ]
         self.renderPasses = renderPasses.compactMap{ $0 }
 
@@ -155,18 +155,32 @@ extension Renderer {
     /// Updates the per-frame uniforms from the camera
     private func updateUniforms() {
 
-        let camera: Camera = .init(
+        // Frame Camera Data
+        framesBufferAddress[0].cameras.0 = camera(0)
+        framesBufferAddress[0].viewportSize = viewportSize
+        framesBufferAddress[0].xRay = xRayMode
+    }
+
+    /// Makes the camera for the specified view index.
+    /// - Parameter index: the view index
+    /// - Returns: the camera at the specifed index
+    public func camera(_ index: Int) -> Camera {
+
+        // Splat out the frustum planes
+        let frustumPlanes = (camera.frustum.planes[0],
+                             camera.frustum.planes[1],
+                             camera.frustum.planes[2],
+                             camera.frustum.planes[3],
+                             camera.frustum.planes[4],
+                             camera.frustum.planes[5])
+
+        return .init(
             position: camera.position,
             viewMatrix: camera.viewMatrix,
             projectionMatrix: camera.projectionMatrix,
-            sceneTransform: camera.sceneTransform
+            sceneTransform: camera.sceneTransform,
+            frustumPlanes: frustumPlanes
         )
-
-        // Frame Camera Data
-        framesBufferAddress[0].cameras.0 = camera
-        framesBufferAddress[0].screenSize = viewportSize
-        framesBufferAddress[0].screenSizeInverse = .one / viewportSize
-        framesBufferAddress[0].xRay = xRayMode
     }
 }
 
