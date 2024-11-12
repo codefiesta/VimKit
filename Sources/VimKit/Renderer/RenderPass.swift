@@ -14,10 +14,10 @@ public struct DrawDescriptor {
     var commandBuffer: MTLCommandBuffer
     /// The render pass descriptor to use.
     var renderPassDescriptor: MTLRenderPassDescriptor?
-    /// The uniforms buffer to use.
-    let uniformsBuffer: MTLBuffer?
+    /// The frames buffer to use.
+    let framesBuffer: MTLBuffer?
     /// The uniforms buffer offset
-    let uniformsBufferOffset: Int
+    let framesBufferOffset: Int
     /// The current  visibility write buffer which samples passing the depth and stencil tests are counted.
     let visibilityResultBuffer: MTLBuffer?
     /// Provides a subset of instanced mesh indexes that have returned true from the occlusion query.

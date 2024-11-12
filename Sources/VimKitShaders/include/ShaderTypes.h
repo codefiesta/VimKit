@@ -49,24 +49,18 @@ typedef struct {
     BoundedRange submeshes;
 } Mesh;
 
-// Per Frame Uniforms
+// A struct that holds per frame camera data
 typedef struct {
-    // Camera uniforms
-    simd_float3 cameraPosition;
+    simd_float3 position;
     simd_float4x4 viewMatrix;
     simd_float4x4 projectionMatrix;
     simd_float4x4 sceneTransform;
-} Uniforms;
+} Camera;
 
-// Provides an array of uniforms for rendering stereoscopic views
-typedef struct {
-    Uniforms uniforms[2];
-} UniformsArray;
-
-// Per Frame Uniforms
+// A struct that holds per frame data
 typedef struct {
     // Provides an array of cameras for rendering stereoscopic views
-    Uniforms cameras[2];
+    Camera cameras[2];
     // Screen resolution and inverse for texture sampling.
     simd_float2 screenSize;
     simd_float2 screenSizeInverse;
@@ -75,7 +69,7 @@ typedef struct {
     simd_float2 physicalSizeInverse;
     // Flag indicating if this frame is being rendered in xray mode.
     bool xRay;
-} FrameUniforms;
+} Frame;
 
 // Enum constants for possible instance states
 typedef NS_ENUM(EnumBackingType, InstanceState) {
@@ -118,22 +112,16 @@ typedef struct {
     size_t baseInstance;
 } InstancedMesh;
 
-typedef struct {
-    // Flag indicating if this frame is being rendered in xray mode.
-    bool xRay;
-} RenderOptions;
-
 // Enum constants for the association of a specific buffer index argument passed into the shader vertex function
 typedef NS_ENUM(EnumBackingType, VertexBufferIndex) {
     VertexBufferIndexPositions = 0,
     VertexBufferIndexNormals = 1,
-    VertexBufferIndexUniforms = 2,
+    VertexBufferIndexFrames = 2,
     VertexBufferIndexInstances = 3,
     VertexBufferIndexMeshes = 4,
     VertexBufferIndexSubmeshes = 5,
     VertexBufferIndexMaterials = 6,
     VertexBufferIndexColors = 7,
-    VertexBufferIndexRenderOptions = 8
 };
 
 // Enum constants for the attribute index of an incoming vertex
@@ -148,17 +136,16 @@ typedef NS_ENUM(EnumBackingType, KernelBufferIndex) {
     KernelBufferIndexPositions = 0,
     KernelBufferIndexNormals = 1,
     KernelBufferIndexIndexBuffer = 2,
-    KernelBufferIndexUniforms = 3,
+    KernelBufferIndexFrames = 3,
     KernelBufferIndexInstances = 4,
     KernelBufferIndexInstancedMeshes = 5,
     KernelBufferIndexMeshes = 6,
     KernelBufferIndexSubmeshes = 7,
     KernelBufferIndexMaterials = 8,
     KernelBufferIndexColors = 9,
-    KernelBufferIndexRenderOptions = 10,
-    KernelBufferIndexCommandBufferContainer = 11,
-    KernelBufferIndexRasterizationRateMapData = 12,
-    KernelBufferIndexDepthPyramidSize = 13
+    KernelBufferIndexCommandBufferContainer = 10,
+    KernelBufferIndexRasterizationRateMapData = 11,
+    KernelBufferIndexDepthPyramidSize = 12
 };
 
 // Enum constants for argument buffer indices

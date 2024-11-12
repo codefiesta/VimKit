@@ -24,6 +24,8 @@ private let labelRenderEncoder = "RenderEncoderIndirect"
 private let labelRasterizationRateMap = "RenderRasterizationMap"
 private let labelRasterizationRateMapData = "RenderRasterizationMapData"
 private let labelDepthPyramidGeneration = "DepthPyramidGeneration"
+private let labelTextureDepth = "DepthTexture"
+private let labelTextureDepthPyramid = "DepthPyramidTexture"
 private let maxCommandCount = 1024 * 64
 private let maxBufferBindCount = 24
 private let executionRangeCount = 3
@@ -56,9 +58,6 @@ class RenderPassIndirect: RenderPass {
 
     /// The indirect command structure holding the .
     private var icb: ICB?
-//    private var commandBuffer: MTLIndirectCommandBuffer?
-//    /// Argument buffer containing the indirect command buffer encoded in the kernel
-//    private var icbBuffer: MTLBuffer?
 
     /// Depth testing
     private var depthPyramid: DepthPyramid?
@@ -133,7 +132,7 @@ class RenderPassIndirect: RenderPass {
         guard let geometry,
               let computePipelineState,
               let icb,
-              let uniformsBuffer = descriptor.uniformsBuffer,
+              let framesBuffer = descriptor.framesBuffer,
               let positionsBuffer = geometry.positionsBuffer,
               let normalsBuffer = geometry.normalsBuffer,
               let indexBuffer = geometry.indexBuffer,
@@ -144,11 +143,9 @@ class RenderPassIndirect: RenderPass {
               let materialsBuffer = geometry.materialsBuffer,
               let colorsBuffer = geometry.colorsBuffer else { return }
 
-        var options = RenderOptions(xRay: xRayMode)
-
         // 1) Encode
         computeEncoder.setComputePipelineState(computePipelineState)
-        computeEncoder.setBuffer(uniformsBuffer, offset: descriptor.uniformsBufferOffset, index: .uniforms)
+        computeEncoder.setBuffer(framesBuffer, offset: descriptor.framesBufferOffset, index: .frames)
         computeEncoder.setBuffer(positionsBuffer, offset: 0, index: .positions)
         computeEncoder.setBuffer(normalsBuffer, offset: 0, index: .normals)
         computeEncoder.setBuffer(indexBuffer, offset: 0, index: .indexBuffer)
@@ -159,12 +156,11 @@ class RenderPassIndirect: RenderPass {
         computeEncoder.setBuffer(materialsBuffer, offset: 0, index: .materials)
         computeEncoder.setBuffer(colorsBuffer, offset: 0, index: .colors)
         computeEncoder.setBuffer(icb.argumentEncoder, offset: 0, index: .commandBufferContainer)
-        computeEncoder.setBytes(&options, length: MemoryLayout<RenderOptions>.size, index: .renderOptions)
         computeEncoder.setTexture(depthPyramidTexture, index: 0)
 
         // 2) Use Resources
         computeEncoder.useResource(icb.commandBuffer, usage: .read)
-        computeEncoder.useResource(uniformsBuffer, usage: .read)
+        computeEncoder.useResource(framesBuffer, usage: .read)
         computeEncoder.useResource(materialsBuffer, usage: .read)
         computeEncoder.useResource(instancesBuffer, usage: .read)
         computeEncoder.useResource(instancedMeshesBuffer, usage: .read)
@@ -224,7 +220,7 @@ class RenderPassIndirect: RenderPass {
         renderEncoder.setTriangleFillMode(fillMode)
 
         // Setup the per frame buffers to pass to the GPU
-        renderEncoder.setVertexBuffer(descriptor.uniformsBuffer, offset: descriptor.uniformsBufferOffset, index: .uniforms)
+        renderEncoder.setVertexBuffer(descriptor.framesBuffer, offset: descriptor.framesBufferOffset, index: .frames)
         renderEncoder.setVertexBuffer(positionsBuffer, offset: 0, index: .positions)
 
 
@@ -255,7 +251,6 @@ class RenderPassIndirect: RenderPass {
         let vertexFunction = makeFunction(library, functionNameVertexDepthOnly)
 
         let pipelineDescriptor = MTLRenderPipelineDescriptor()
-        //pipelineDescriptor.sampleCount = 1
         pipelineDescriptor.vertexFunction = vertexFunction
         pipelineDescriptor.colorAttachments[0].pixelFormat = .invalid
         pipelineDescriptor.colorAttachments[0].isBlendingEnabled = false
@@ -334,6 +329,7 @@ class RenderPassIndirect: RenderPass {
                     argumentEncoderTransparent: argumentEncoderTransparent)
     }
 
+    /// Rebuilds the depth textures
     private func makeTextures() {
         guard screenSize != .zero else { return }
 
@@ -350,7 +346,7 @@ class RenderPassIndirect: RenderPass {
         depthTextureDescriptor.usage = [.renderTarget, .shaderRead]
 
         depthTexture = device.makeTexture(descriptor: depthTextureDescriptor)
-        depthTexture?.label = "DepthTexture"
+        depthTexture?.label = labelTextureDepth
 
         // Depth Pyramid Texture
         let depthPyramidTextureDescriptor = MTLTextureDescriptor.texture2DDescriptor(
@@ -361,7 +357,7 @@ class RenderPassIndirect: RenderPass {
         depthPyramidTextureDescriptor.storageMode = .private
         depthPyramidTextureDescriptor.usage = [.shaderRead, .shaderWrite, .pixelFormatView]
         depthPyramidTexture = device.makeTexture(descriptor: depthPyramidTextureDescriptor)
-        depthPyramidTexture?.label = "DepthPyramidTexture"
+        depthPyramidTexture?.label = labelTextureDepthPyramid
     }
 
     private func makeRasterizationMap() {

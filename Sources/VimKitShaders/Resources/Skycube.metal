@@ -14,19 +14,20 @@ using namespace metal;
 // - Parameters:
 //   - in: The vertex position data.
 //   - amp_id: The index into the uniforms array used for stereoscopic views in visionOS.
-//   - uniformsArray: The per frame uniforms.
+//   - frames: The frames buffer.
 vertex VertexOut vertexSkycube(VertexIn in [[stage_in]],
                                ushort amp_id [[amplification_id]],
-                               constant UniformsArray &uniformsArray [[ buffer(VertexBufferIndexUniforms) ]]) {
+                               constant Frame *frames [[buffer(VertexBufferIndexFrames)]]) {
     
-    Uniforms uniforms = uniformsArray.uniforms[amp_id];
-    float4x4 projectionMatrix = uniforms.projectionMatrix;
+    const Frame frame = frames[0];
+    const Camera camera = frame.cameras[amp_id];
+    float4x4 projectionMatrix = camera.projectionMatrix;
 
-    float4x4 viewMatrix = uniforms.viewMatrix;
+    float4x4 viewMatrix = camera.viewMatrix;
     viewMatrix[3] = float4(0, 0, 0, 1);
 
     // Use the sceneTransform as the model matrix as most scenes are z-up
-    float4x4 modelViewProjectionMatrix = projectionMatrix * viewMatrix * uniforms.sceneTransform;
+    float4x4 modelViewProjectionMatrix = projectionMatrix * viewMatrix * camera.sceneTransform;
     
     VertexOut out;
     float4 position = (modelViewProjectionMatrix * in.position).xyww;

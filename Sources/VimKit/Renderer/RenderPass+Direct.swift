@@ -71,17 +71,13 @@ class RenderPassDirect: RenderPass {
         renderEncoder.setTriangleFillMode(fillMode)
 
         // Setup the per frame buffers to pass to the GPU
-        renderEncoder.setVertexBuffer(descriptor.uniformsBuffer, offset: descriptor.uniformsBufferOffset, index: .uniforms)
+        renderEncoder.setVertexBuffer(descriptor.framesBuffer, offset: descriptor.framesBufferOffset, index: .frames)
         renderEncoder.setVertexBuffer(positionsBuffer, offset: 0, index: .positions)
         renderEncoder.setVertexBuffer(normalsBuffer, offset: 0, index: .normals)
         renderEncoder.setVertexBuffer(instancesBuffer, offset: 0, index: .instances)
         renderEncoder.setVertexBuffer(submeshesBuffer, offset: 0, index: .submeshes)
         renderEncoder.setVertexBuffer(colorsBuffer, offset: 0, index: .colors)
         renderEncoder.setFragmentSamplerState(samplerState, index: 0)
-
-        // Set the per frame render options
-        var options = RenderOptions(xRay: xRayMode)
-        renderEncoder.setVertexBytes(&options, length: MemoryLayout<RenderOptions>.size, index: .renderOptions)
 
     }
 

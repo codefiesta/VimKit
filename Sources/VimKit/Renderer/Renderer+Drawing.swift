@@ -103,15 +103,14 @@ public extension Renderer {
         .init(
             commandBuffer: commandBuffer,
             renderPassDescriptor: renderPassDescriptor,
-            uniformsBuffer: uniformsBuffer,
-            uniformsBufferOffset: uniformsBufferOffset,
+            framesBuffer: framesBuffer,
+            framesBufferOffset: framesBufferOffset,
             visibilityResultBuffer: visibilityResultBuffer,
             visibilityResults: currentVisibleResults)
     }
 
     /// Gathers and publishes rendering stats.
     nonisolated func didRenderFrame(gpuTime: TimeInterval, kernelTime: TimeInterval) {
-        let time = gpuTime + kernelTime
         Task { @MainActor in
             self.updateStats(gpuTime: gpuTime, kernelTime: kernelTime)
         }

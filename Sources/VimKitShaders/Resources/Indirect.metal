@@ -15,8 +15,7 @@ using namespace metal;
 //   - positions: The pointer to the positions.
 //   - normals: The pointer to the normals.
 //   - indexBuffer: The pointer to the index buffer.
-//   - indexBuffer: The pointer to the index buffer.
-//   - uniformsArray: The per frame uniforms.
+//   - frames: The pointer to the frames buffer.
 //   - instances: The instances pointer.
 //   - instancedMeshes: The instanced meshes pointer.
 //   - meshes: The meshes pointer.
@@ -26,19 +25,18 @@ using namespace metal;
 //   - options: The frame rendering options.
 //   - icbContainer: The pointer to the indirect command buffer container.
 //   - rasterRateMapData: The raster data map.
-//   - depthTexture: The depth texture.
+//   - depthPyramidTexture: The depth texture.
 kernel void encodeIndirectCommands(uint index [[thread_position_in_grid]],
                                    constant float *positions [[buffer(KernelBufferIndexPositions)]],
                                    constant float *normals [[buffer(KernelBufferIndexNormals)]],
                                    constant uint32_t *indexBuffer [[buffer(KernelBufferIndexIndexBuffer)]],
-                                   constant UniformsArray &uniformsArray [[buffer(KernelBufferIndexUniforms)]],
+                                   constant Frame *frames [[buffer(KernelBufferIndexFrames)]],
                                    constant Instance *instances [[buffer(KernelBufferIndexInstances)]],
                                    constant InstancedMesh *instancedMeshes [[buffer(KernelBufferIndexInstancedMeshes)]],
                                    constant Mesh *meshes [[buffer(KernelBufferIndexMeshes)]],
                                    constant Submesh *submeshes [[buffer(KernelBufferIndexSubmeshes)]],
                                    constant Material *materials [[buffer(KernelBufferIndexMaterials)]],
                                    constant float4 *colors [[buffer(KernelBufferIndexColors)]],
-                                   constant RenderOptions &options [[buffer(KernelBufferIndexRenderOptions)]],
                                    device ICBContainer *icbContainer [[buffer(KernelBufferIndexCommandBufferContainer)]],
                                    constant rasterization_rate_map_data *rasterRateMapData [[buffer(KernelBufferIndexRasterizationRateMapData)]],
                                    texture2d<float> depthPyramidTexture [[texture(0)]]) {
@@ -57,13 +55,12 @@ kernel void encodeIndirectCommands(uint index [[thread_position_in_grid]],
         render_command cmd(icbContainer->commandBuffer, index);
         
         // Encode the buffers
-        cmd.set_vertex_buffer(&uniformsArray, VertexBufferIndexUniforms);
+        cmd.set_vertex_buffer(frames, VertexBufferIndexFrames);
         cmd.set_vertex_buffer(positions, VertexBufferIndexPositions);
         cmd.set_vertex_buffer(normals, VertexBufferIndexNormals);
         cmd.set_vertex_buffer(instances, VertexBufferIndexInstances);
         cmd.set_vertex_buffer(materials, VertexBufferIndexMaterials);
         cmd.set_vertex_buffer(colors, VertexBufferIndexColors);
-        cmd.set_vertex_buffer(&options, VertexBufferIndexRenderOptions);
         
         // TODO: Encode the Fragment Buffers
 

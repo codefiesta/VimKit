@@ -11,7 +11,8 @@ import MetalKit
 import Spatial
 import VimKitShaders
 
-private let maxBuffersInFlight = 3
+private let alignedFramesSize = ((MemoryLayout<Frame>.size + 255) / 256) * 256
+private let maxFramesInFlight = 3
 private let maxStatEntries = 100
 
 @MainActor
@@ -78,15 +79,11 @@ open class Renderer: NSObject {
     open var commandQueue: MTLCommandQueue!
     open var instancePickingTexture: MTLTexture?
 
-    // Semaphore
-    public let inFlightSemaphore = DispatchSemaphore(value: maxBuffersInFlight)
-
-    // Uniforms Buffer
-    public let alignedUniformsSize = ((MemoryLayout<UniformsArray>.size + 255) / 256) * 256
-    open var uniformsBuffer: MTLBuffer!
-    open var uniformsBufferIndex: Int = 0
-    open var uniformsBufferOffset: Int = 0
-    open var uniformsBufferAddress: UnsafeMutablePointer<UniformsArray>!
+    // Frames Buffer
+    open var framesBuffer: MTLBuffer!
+    open var framesBufferIndex: Int = 0
+    open var framesBufferOffset: Int = 0
+    open var framesBufferAddress: UnsafeMutablePointer<Frame>!
 
     /// Combine Subscribers which drive rendering events
     open var subscribers = Set<AnyCancellable>()
@@ -125,8 +122,9 @@ open class Renderer: NSObject {
         ]
         self.renderPasses = renderPasses.compactMap{ $0 }
 
-        // Make the uniforms buffer
-        uniformsBuffer = device.makeBuffer(length: alignedUniformsSize * maxBuffersInFlight, options: [.storageModeShared])
+        // Make the frames buffer
+        framesBuffer = device.makeBuffer(length: alignedFramesSize * maxFramesInFlight,
+                                         options: [.storageModeShared])
     }
 }
 
@@ -147,21 +145,31 @@ extension Renderer {
 
     /// Update the state of our revolving uniform buffers before rendering
     private func updateDynamicBufferState() {
-        uniformsBufferIndex = (uniformsBufferIndex + 1) % maxBuffersInFlight
-        uniformsBufferOffset = alignedUniformsSize * uniformsBufferIndex
-        uniformsBufferAddress = uniformsBuffer.contents().advanced(by: uniformsBufferOffset).assumingMemoryBound(to: UniformsArray.self)
+        framesBufferIndex = (framesBufferIndex + 1) % maxFramesInFlight
+        framesBufferOffset = alignedFramesSize * framesBufferIndex
+        framesBufferAddress = framesBuffer.contents()
+            .advanced(by: framesBufferOffset)
+            .assumingMemoryBound(to: Frame.self)
     }
 
     /// Updates the per-frame uniforms from the camera
     private func updateUniforms() {
 
-        let uniforms = Uniforms(
-            cameraPosition: camera.position,
-            viewMatrix: camera.viewMatrix,
-            projectionMatrix: camera.projectionMatrix,
-            sceneTransform: camera.sceneTransform
-        )
-        uniformsBufferAddress[0].uniforms.0 = uniforms
+        // Frame Camera Data
+        framesBufferAddress[0].cameras.0.position = camera.position
+        framesBufferAddress[0].cameras.0.viewMatrix = camera.viewMatrix
+        framesBufferAddress[0].cameras.0.projectionMatrix = camera.projectionMatrix
+        framesBufferAddress[0].cameras.0.sceneTransform = camera.sceneTransform
+
+        framesBufferAddress[0].screenSize = viewportSize
+        framesBufferAddress[0].screenSizeInverse = .one / viewportSize
+        framesBufferAddress[0].physicalSize = viewportSize
+        framesBufferAddress[0].physicalSizeInverse = .one / viewportSize
+        framesBufferAddress[0].xRay = xRayMode
+
+//        frameData->physicalSize = float2{(float)_physicalWidth, (float)_physicalHeight};
+//        frameData->invPhysicalSize = 1.0f / frameData->physicalSize;
+
     }
 }
 
