@@ -14,6 +14,7 @@ using namespace metal;
 //   - frames: The frames buffer.
 //   - instance: The instance to check if inside the view frustum.
 // - Returns: true if the instance is inside the view frustum, otherwise false
+__attribute__((always_inline))
 static bool isInsideViewFrustum(constant Frame *frames,
                                 constant Instance &instance) {
     
@@ -54,7 +55,6 @@ static bool isInsideViewFrustum(constant Frame *frames,
             // Not visible - all corners returned negative
             return false;
         }
-        
     }
     return true;
 }
@@ -69,6 +69,7 @@ static bool isInsideViewFrustum(constant Frame *frames,
 //   - rasterRateMapData: The rasterization rate map data.
 //   - depthPyramidTexture: The depth pyramid texture.
 // - Returns: true if the instanced mesh is inside the view frustum and passes the depth test
+__attribute__((always_inline))
 static bool isVisible(constant Frame *frames,
                       constant InstancedMesh &instancedMesh,
                       constant Instance *instances,
@@ -125,6 +126,52 @@ static bool isVisible(constant Frame *frames,
     return false;
 }
 
+// Encodes and draws the indexed primitives using the specified render command.
+// - Parameters:
+//   - renderCommand: The render command to use
+//   - positions: The pointer to the positions.
+//   - normals: The pointer to the normals.
+//   - indexBuffer: The pointer to the index buffer.
+//   - frames: The frames buffer.
+//   - instances: The instances pointer.
+//   - materials: The materials pointer.
+//   - colors: The colors pointer.
+//   - indexCount: The count of indexed vertices to draw.
+//   - instanceCount: The count of instances to draw
+//   - baseInstance: The starting index of the instances pointer.
+__attribute__((always_inline))
+static void encodeAndDraw(thread render_command &renderCommand,
+                          constant float *positions [[buffer(KernelBufferIndexPositions)]],
+                          constant float *normals [[buffer(KernelBufferIndexNormals)]],
+                          constant uint32_t *indexBuffer [[buffer(KernelBufferIndexIndexBuffer)]],
+                          constant Frame *frames [[buffer(KernelBufferIndexFrames)]],
+                          constant Instance *instances [[buffer(KernelBufferIndexInstances)]],
+                          constant Material *materials [[buffer(KernelBufferIndexMaterials)]],
+                          constant float4 *colors [[buffer(KernelBufferIndexColors)]],
+                          uint indexCount,
+                          uint instanceCount,
+                          uint baseInstance) {
+    
+    // Encode the buffers
+    renderCommand.set_vertex_buffer(frames, VertexBufferIndexFrames);
+    renderCommand.set_vertex_buffer(positions, VertexBufferIndexPositions);
+    renderCommand.set_vertex_buffer(normals, VertexBufferIndexNormals);
+    renderCommand.set_vertex_buffer(instances, VertexBufferIndexInstances);
+    renderCommand.set_vertex_buffer(materials, VertexBufferIndexMaterials);
+    renderCommand.set_vertex_buffer(colors, VertexBufferIndexColors);
+    renderCommand.set_vertex_buffer(materials, VertexBufferIndexMaterials);
+    
+    // TODO: Encode the Fragment Buffers
+
+    // Execute the draw call
+    renderCommand.draw_indexed_primitives(primitive_type::triangle,
+                                indexCount,
+                                indexBuffer,
+                                instanceCount,
+                                0,
+                                baseInstance);
+}
+
 // Encodes the buffers and adds draw commands via indirect command buffer.
 // - Parameters:
 //   - index: The thread position in the grid being executed.
@@ -138,7 +185,6 @@ static bool isVisible(constant Frame *frames,
 //   - submeshes: The submeshes pointer.
 //   - materials: The materials pointer.
 //   - colors: The colors pointer.
-//   - options: The frame rendering options.
 //   - icbContainer: The pointer to the indirect command buffer container.
 //   - rasterRateMapData: The raster data map.
 //   - depthPyramidTexture: The depth texture.
@@ -158,55 +204,52 @@ kernel void encodeIndirectCommands(uint index [[thread_position_in_grid]],
                                    texture2d<float> depthPyramidTexture [[texture(0)]]) {
     
     // Perform depth testing to check if the instanced mesh should be occluded or not
-    bool visible = isVisible(frames,
-                             instancedMeshes[index],
-                             instances,
-                             meshes,
-                             submeshes,
-                             rasterRateMapData,
-                             depthPyramidTexture);
+//    bool visible = isVisible(frames,
+//                             instancedMeshes[index],
+//                             instances,
+//                             meshes,
+//                             submeshes,
+//                             rasterRateMapData,
+//                             depthPyramidTexture);
+    
+    bool visible = true;
     
     // If visible, set the buffers and add draw commands
     if (visible) {
         
         const InstancedMesh instancedMesh = instancedMeshes[index];
+        const uint instanceCount = instancedMesh.instanceCount;
+        const uint baseInstance = instancedMesh.baseInstance;
         const Mesh mesh = meshes[instancedMesh.mesh];
         const BoundedRange submeshRange = mesh.submeshes;
-
+        const int lowerBound = (int) submeshRange.lowerBound;
+        const int upperBound = (int) submeshRange.upperBound;
+        
         // Get indirect render commnd from the indirect command buffer
-        render_command cmd(icbContainer->commandBuffer, index);
+        render_command renderCommand(icbContainer->commandBuffer, index);
         
-        // Encode the buffers
-        cmd.set_vertex_buffer(frames, VertexBufferIndexFrames);
-        cmd.set_vertex_buffer(positions, VertexBufferIndexPositions);
-        cmd.set_vertex_buffer(normals, VertexBufferIndexNormals);
-        cmd.set_vertex_buffer(instances, VertexBufferIndexInstances);
-        cmd.set_vertex_buffer(materials, VertexBufferIndexMaterials);
-        cmd.set_vertex_buffer(colors, VertexBufferIndexColors);
-        
-        // TODO: Encode the Fragment Buffers
-
         // Loop through the submeshes and execute the draw calls
-        for (int i = (int)submeshRange.lowerBound; i < (int)submeshRange.upperBound; i++) {
-            const Submesh submesh = submeshes[i];
+//        for (int i = lowerBound; i < upperBound; i++) {
+
+            const Submesh submesh = submeshes[lowerBound];
             const BoundedRange indexRange = submesh.indices;
+            const uint materialIndex = (uint) submesh.material;
             const uint indexCount = (uint)indexRange.upperBound - (uint)indexRange.lowerBound;
             const uint indexBufferOffset = indexRange.lowerBound;
 
-            if (submesh.material >= 0) {
-                // Offet the material
-                cmd.set_vertex_buffer(materials + submesh.material, VertexBufferIndexMaterials);
-            }
-            
             // Execute the draw call
-            cmd.draw_indexed_primitives(primitive_type::triangle,
-                                        indexCount,
-                                        indexBuffer + indexBufferOffset,
-                                        instancedMesh.instanceCount,
-                                        0,
-                                        instancedMesh.baseInstance);
-
-        }
+            encodeAndDraw(renderCommand,
+                          positions,
+                          normals,
+                          &indexBuffer[indexBufferOffset],
+                          frames,
+                          instances,
+                          &materials[materialIndex],
+                          colors,
+                          indexCount,
+                          instanceCount,
+                          baseInstance);
+//        }
     }
 
     // If not visible, no draw command will be sent
