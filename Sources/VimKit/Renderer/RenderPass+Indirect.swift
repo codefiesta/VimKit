@@ -57,7 +57,7 @@ class RenderPassIndirect: RenderPass {
     private var screenSize: MTLSize = .zero
 
     /// The indirect command structure holding the .
-    private var icb: ICB?
+    var icb: ICB?
 
     /// Depth testing
     private var depthPyramid: DepthPyramid?
@@ -170,9 +170,8 @@ class RenderPassIndirect: RenderPass {
         computeEncoder.useResource(indexBuffer, usage: .read)
 
         // 3) Dispatch the threads
-        let drawCount = geometry.instancedMeshes.count
-        let gridSize: MTLSize = .init(width: drawCount, height: 1, depth: 1)
-        let threadExecutionWidth = computePipelineState.threadExecutionWidth
+        let gridSize = geometry.gridSize
+        let threadExecutionWidth = computePipelineState.maxTotalThreadsPerThreadgroup
         let threadgroupSize: MTLSize = .init(width: threadExecutionWidth, height: 1, depth: 1)
         computeEncoder.dispatchThreads(gridSize, threadsPerThreadgroup: threadgroupSize)
 

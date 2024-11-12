@@ -58,7 +58,6 @@ public extension Renderer {
             self.didRenderFrame(gpuTime: gpuTime, kernelTime: kernelTime)
         }
 
-
         // Build the draw descriptor
         var descriptor = makeDrawDescriptor(commandBuffer: commandBuffer)
 
@@ -67,7 +66,7 @@ public extension Renderer {
             renderPass.willDraw(descriptor: descriptor)
         }
 
-        // Kick off offscreen work and switch command buffers
+        // Commit the offscreen work and switch command buffers
         commandBuffer.commit()
         commandBuffer = onScreenCommandBuffer
         descriptor.commandBuffer = commandBuffer
@@ -86,8 +85,13 @@ public extension Renderer {
             renderPass.draw(descriptor: descriptor, renderEncoder: renderEncoder)
         }
 
-        // End encoding
+        // End render encoding
         renderEncoder.endEncoding()
+
+        // Perform post draw calls on the render passes
+        for renderPass in renderPasses {
+            renderPass.didDraw(descriptor: descriptor)
+        }
 
         // Schedule the presentation and commit
         commandBuffer.present(drawable)

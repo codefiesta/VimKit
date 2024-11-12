@@ -519,6 +519,20 @@ public class Geometry: ObservableObject, @unchecked Sendable {
         return instancedMeshesBuffer!.toUnsafeMutableBufferPointer()
     }()
 
+//    private lazy var maxSubmeshes: Int = {
+//        var maxIndices = 1
+//        for submesh in submeshes {
+//            maxIndices = max(maxIndices, submesh.indices.count)
+//        }
+//        return maxIndices
+//    }()
+
+    public lazy var gridSize: MTLSize = {
+        let width = instancedMeshes.count
+        let height = submeshes.count
+        return .init(width: width, height: height, depth: 1)
+    }()
+
     public lazy var opaqueInstancedMeshesCount: Int = {
         instancedMeshes.filter{ $0.transparent == false }.count
     }()

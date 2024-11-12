@@ -188,7 +188,7 @@ static void encodeAndDraw(thread render_command &renderCommand,
 //   - icbContainer: The pointer to the indirect command buffer container.
 //   - rasterRateMapData: The raster data map.
 //   - depthPyramidTexture: The depth texture.
-kernel void encodeIndirectCommands(uint index [[thread_position_in_grid]],
+kernel void encodeIndirectCommands(uint2 index [[thread_position_in_grid]],
                                    constant float *positions [[buffer(KernelBufferIndexPositions)]],
                                    constant float *normals [[buffer(KernelBufferIndexNormals)]],
                                    constant uint32_t *indexBuffer [[buffer(KernelBufferIndexIndexBuffer)]],
@@ -213,25 +213,43 @@ kernel void encodeIndirectCommands(uint index [[thread_position_in_grid]],
 //                             depthPyramidTexture);
     
     bool visible = true;
+
+    const uint x = index.x;
+    const uint y = index.y;
+    
+    const InstancedMesh instancedMesh = instancedMeshes[x];
+    const uint instanceCount = instancedMesh.instanceCount;
+    const uint baseInstance = instancedMesh.baseInstance;
+    const Mesh mesh = meshes[instancedMesh.mesh];
+
+    const BoundedRange submeshRange = mesh.submeshes;
+    const uint lowerBound = (uint) submeshRange.lowerBound;
+    const uint upperBound = (uint) submeshRange.upperBound;
+    const uint submeshCount = upperBound - lowerBound;
+    // Check to make sure we are in bounds of the current submesh
+//    if (y < lowerBound || y >= upperBound) {
+//        visible = false;
+//    }
+
+    if (y >= submeshCount) {
+        return;
+    }
+    
+    const uint submeshIndex = lowerBound + y;
+    
+    threadgroup_barrier(mem_flags::mem_threadgroup);
     
     // If visible, set the buffers and add draw commands
     if (visible) {
         
-        const InstancedMesh instancedMesh = instancedMeshes[index];
-        const uint instanceCount = instancedMesh.instanceCount;
-        const uint baseInstance = instancedMesh.baseInstance;
-        const Mesh mesh = meshes[instancedMesh.mesh];
-        const BoundedRange submeshRange = mesh.submeshes;
-        const int lowerBound = (int) submeshRange.lowerBound;
-        const int upperBound = (int) submeshRange.upperBound;
         
         // Get indirect render commnd from the indirect command buffer
-        render_command renderCommand(icbContainer->commandBuffer, index);
+        render_command renderCommand(icbContainer->commandBuffer, x);
         
         // Loop through the submeshes and execute the draw calls
 //        for (int i = lowerBound; i < upperBound; i++) {
 
-            const Submesh submesh = submeshes[lowerBound];
+            const Submesh submesh = submeshes[submeshIndex];
             const BoundedRange indexRange = submesh.indices;
             const uint materialIndex = (uint) submesh.material;
             const uint indexCount = (uint)indexRange.upperBound - (uint)indexRange.lowerBound;

@@ -56,6 +56,11 @@ public protocol RenderPass {
     ///   - renderEncoder: the render encoder to use
     func draw(descriptor: DrawDescriptor, renderEncoder: MTLRenderCommandEncoder)
 
+    /// Performs post draw commands.
+    /// - Parameters:
+    ///   - descriptor: the draw descriptor to use
+    func didDraw(descriptor: DrawDescriptor)
+
     /// Performs resize operations (resizing textures).
     /// - Parameter viewportSize: the new viewport size.
     mutating func resize(viewportSize: SIMD2<Float>)
@@ -233,4 +238,8 @@ extension RenderPass {
     ///   - descriptor: the draw descriptor to use
     func willDraw(descriptor: DrawDescriptor) { }
 
+    /// Noop `didDraw` call.
+    /// - Parameters:
+    ///   - descriptor: the draw descriptor to use
+    func didDraw(descriptor: DrawDescriptor) { }
 }
