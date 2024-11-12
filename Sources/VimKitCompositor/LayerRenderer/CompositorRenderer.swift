@@ -172,21 +172,24 @@ extension CompositorRenderer {
     func updateUniforms(_ drawable: LayerRenderer.Drawable) {
 
         // Build the uniforms for the specified view index
-        func uniforms(_ index: Int) -> Uniforms {
+        func cameras(_ index: Int) -> Camera {
 
             // Update our camera from the drawable view
             camera.update(drawable, index: index)
-            return Uniforms(
-                cameraPosition: camera.position,
+
+            return Camera(
+                position: camera.position,
                 viewMatrix: camera.viewMatrix,
                 projectionMatrix: camera.projectionMatrix,
                 sceneTransform: camera.sceneTransform
             )
         }
 
-        framesBufferAddress[0].uniforms.0 = uniforms(0)
+        // Frame Camera Data
+        framesBufferAddress[0].cameras.0 = cameras(0)
+
         if drawable.views.count > 1 {
-            framesBufferAddress[1].uniforms.1 = uniforms(1)
+            framesBufferAddress[0].cameras.1 = cameras(1)
         }
     }
 }

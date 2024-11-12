@@ -155,21 +155,18 @@ extension Renderer {
     /// Updates the per-frame uniforms from the camera
     private func updateUniforms() {
 
-        // Frame Camera Data
-        framesBufferAddress[0].cameras.0.position = camera.position
-        framesBufferAddress[0].cameras.0.viewMatrix = camera.viewMatrix
-        framesBufferAddress[0].cameras.0.projectionMatrix = camera.projectionMatrix
-        framesBufferAddress[0].cameras.0.sceneTransform = camera.sceneTransform
+        let camera: Camera = .init(
+            position: camera.position,
+            viewMatrix: camera.viewMatrix,
+            projectionMatrix: camera.projectionMatrix,
+            sceneTransform: camera.sceneTransform
+        )
 
+        // Frame Camera Data
+        framesBufferAddress[0].cameras.0 = camera
         framesBufferAddress[0].screenSize = viewportSize
         framesBufferAddress[0].screenSizeInverse = .one / viewportSize
-        framesBufferAddress[0].physicalSize = viewportSize
-        framesBufferAddress[0].physicalSizeInverse = .one / viewportSize
         framesBufferAddress[0].xRay = xRayMode
-
-//        frameData->physicalSize = float2{(float)_physicalWidth, (float)_physicalHeight};
-//        frameData->invPhysicalSize = 1.0f / frameData->physicalSize;
-
     }
 }
 
