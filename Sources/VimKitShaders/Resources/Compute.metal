@@ -4,6 +4,7 @@
 //
 //  Created by Kevin McKee
 //
+
 #include <metal_stdlib>
 #include "../include/ShaderTypes.h"
 using namespace metal;

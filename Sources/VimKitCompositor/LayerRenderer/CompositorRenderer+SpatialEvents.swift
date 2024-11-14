@@ -1,5 +1,5 @@
 //
-//  VimCompositorRenderer+SpatialEvents.swift
+//  CompositorRenderer+SpatialEvents.swift
 //
 //
 //  Created by Kevin McKee
@@ -9,7 +9,7 @@
 import SwiftUI
 import VimKit
 
-public extension VimCompositorRenderer {
+public extension CompositorRenderer {
 
     /// Handle spatial events.
     ///

@@ -1,5 +1,5 @@
 //
-//  File.swift
+//  CompositorRenderer+Drawing.swift
 //  
 //
 //  Created by Kevin McKee
@@ -12,7 +12,7 @@ import VimKit
 
 private let renderEncoderLabel = "VimCompositorRenderEncoder"
 
-extension VimCompositorRenderer {
+extension CompositorRenderer {
 
     /// The draw call.
     /// - Parameters:
@@ -23,6 +23,21 @@ extension VimCompositorRenderer {
               commandBuffer: MTLCommandBuffer,
               renderPassDescriptor: MTLRenderPassDescriptor) {
 
+        // Update the per-frame state
+        updatFrameState()
+
+        // Update the per-frame uniforms
+        updateUniforms(drawable)
+
+        // Build the draw descriptor
+        let descriptor = makeDrawDescriptor(commandBuffer: commandBuffer, renderPassDescriptor: renderPassDescriptor)
+
+        // Perform setup on all of the render passes.
+        for renderPass in renderPasses {
+            renderPass.willDraw(descriptor: descriptor)
+        }
+
+        // Make the render encoder
         guard let renderEncoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPassDescriptor) else { return }
         renderEncoder.label = renderEncoderLabel
 
@@ -36,22 +51,12 @@ extension VimCompositorRenderer {
             renderEncoder.setVertexAmplificationCount(viewports.count, viewMappings: &viewMappings)
         }
 
-        // Update the per-frame state
-        updatFrameState()
+        // Make the draw call on the render passes
+        for renderPass in renderPasses {
+            renderPass.draw(descriptor: descriptor, renderEncoder: renderEncoder)
+        }
 
-        // Update the per-frame uniforms
-        updateUniforms(drawable)
-
-        // Perform any pre scene draws
-        willDrawScene(renderEncoder: renderEncoder)
-
-        // Draw the scene
-        drawScene(renderEncoder: renderEncoder)
-
-        // Perform any post scene draws
-        didDrawScene(renderEncoder: renderEncoder)
-
-        renderEncoder.popDebugGroup()
+        // End encoding
         renderEncoder.endEncoding()
     }
 }

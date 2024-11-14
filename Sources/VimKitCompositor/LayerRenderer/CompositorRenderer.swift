@@ -1,5 +1,5 @@
 //
-//  VimCompositorRenderer.swift
+//  CompositorRenderer.swift
 //  VimViewer
 //
 //  Created by Kevin McKee
@@ -21,10 +21,10 @@ import VimKitShaders
 /// -  https://developer.apple.com/videos/play/wwdc2023/10089/
 /// -  https://developer.apple.com/videos/play/wwdc2023/10082
 /// -  https://developer.apple.com/documentation/compositorservices/drawing_fully_immersive_content_using_metal
-public class VimCompositorRenderer: VimRenderer {
+public class CompositorRenderer: Renderer {
 
     // The context that provides all of the data we need
-    let context: VimCompositorContext
+    let context: CompositorContext
     // Used for timing
     let clock: LayerRenderer.Clock
 
@@ -32,7 +32,7 @@ public class VimCompositorRenderer: VimRenderer {
     ///
     /// - Parameters:
     ///   - context: The compositor context
-    public init(_ context: VimCompositorContext) {
+    public init(_ context: CompositorContext) {
         self.context = context
         self.clock = LayerRenderer.Clock()
         super.init(context)
@@ -163,7 +163,7 @@ public class VimCompositorRenderer: VimRenderer {
 
 // MARK: Per Frame Uniforms
 
-extension VimCompositorRenderer {
+extension CompositorRenderer {
 
     /// Updates the per frame uniforms from the camera
     ///
@@ -171,22 +171,15 @@ extension VimCompositorRenderer {
     ///   - drawable: the drawable to use
     func updateUniforms(_ drawable: LayerRenderer.Drawable) {
 
-        // Build the uniforms for the specified view index
-        func uniforms(_ index: Int) -> Uniforms {
+        // Update our camera from the drawable view
+        camera.update(drawable, index: 0)
+        // Frame Camera Data
+        framesBufferAddress[0].cameras.0 = camera(0)
 
-            // Update our camera from the drawable view
-            camera.update(drawable, index: index)
-            return Uniforms(
-                cameraPosition: camera.position,
-                viewMatrix: camera.viewMatrix,
-                projectionMatrix: camera.projectionMatrix,
-                sceneTransform: camera.sceneTransform
-            )
-        }
-
-        uniformBufferAddress[0].uniforms.0 = uniforms(0)
         if drawable.views.count > 1 {
-            uniformBufferAddress[1].uniforms.1 = uniforms(1)
+
+            camera.update(drawable, index: 1)
+            framesBufferAddress[0].cameras.1 = camera(1)
         }
     }
 }

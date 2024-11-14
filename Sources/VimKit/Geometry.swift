@@ -373,7 +373,8 @@ public class Geometry: ObservableObject, @unchecked Sendable {
             let end = i < submeshIndexOffsets.endIndex - 1 ? Int(nextOffset): Int(submeshIndexOffsets.last!)
             let range: Range<Int> = start..<end
 
-            let material = submeshMaterials[i]
+            // Account for a submesh with an empty material
+            let material = submeshMaterials[i] == .empty ? Int32(defaultMaterial): submeshMaterials[i]
             let submesh = Submesh(material, range)
             submeshes.append(submesh)
         }
@@ -514,6 +515,36 @@ public class Geometry: ObservableObject, @unchecked Sendable {
         return instancedMeshesBuffer!.toUnsafeMutableBufferPointer()
     }()
 
+    /// Calculates the max grid height by determining the max number of submeshes a mesh could possibly contain.
+    private lazy var gridWidth: Int = {
+        meshes.map{ $0.submeshes.count }.max() ?? 1
+    }()
+
+    /// Provides a grid size for executing indirect command buffer commands.
+    /// The width is the maximum number of submeshes a mesh could contain.
+    /// The height is the number of instanced meshes.
+    public lazy var gridSize: MTLSize = {
+        .init(width: gridWidth, height: instancedMeshes.count, depth: 1)
+    }()
+
+    /// Provides a count of opaque instanced meshes.
+    public lazy var opaqueInstancedMeshesCount: Int = {
+        instancedMeshes.filter{ $0.transparent == false }.count
+    }()
+
+    /// Provides a count of transparent instanced meshes.
+    public lazy var transparentInstancedMeshesCount: Int = {
+        instancedMeshes.filter{ $0.transparent == true }.count
+    }()
+
+    /// Provides the offset into instanced meshes where the transparent instanced meshes begin.
+    /// This vale can be used as the buffer offset by multiplying with `MemoryLayout<InstancedMesh>.size`.
+    public lazy var transparentInstancedMeshesOffset: Int = {
+        instancedMeshes.firstIndex { instancedMesh in
+            instancedMesh.transparent == true
+        } ?? .zero
+    }()
+
     // MARK: Materials
 
     /// Makes the materials buffer.
@@ -551,6 +582,14 @@ public class Geometry: ObservableObject, @unchecked Sendable {
     public lazy var materials: UnsafeMutableBufferPointer<Material> = {
         assert(materialsBuffer != nil, "💩 Misuse [materials]")
         return materialsBuffer!.toUnsafeMutableBufferPointer()
+    }()
+
+    /// Provides the default material for submeshes that have no material specified.
+    /// Even though the spec says all submeshes have a material, this is not true.
+    public lazy var defaultMaterial: Int = {
+        materials.firstIndex { material in
+            material.rgba == .one
+        } ?? .zero
     }()
 }
 
@@ -631,9 +670,9 @@ extension Geometry {
         computeEncoder.setBytes(&indicesCount, length: MemoryLayout<Int>.size, index: 5)
 
         // Set the thread group size and dispatch
-        let gridSize = MTLSizeMake(1, 1, 1);
+        let gridSize = MTLSizeMake(1, 1, 1)
         let maxThreadsPerGroup = pipelineState.maxTotalThreadsPerThreadgroup
-        let threadgroupSize = MTLSizeMake(maxThreadsPerGroup, 1, 1);
+        let threadgroupSize = MTLSizeMake(maxThreadsPerGroup, 1, 1)
         computeEncoder.dispatchThreadgroups(gridSize, threadsPerThreadgroup: threadgroupSize)
 
         computeEncoder.endEncoding()
@@ -683,9 +722,9 @@ extension Geometry {
         computeEncoder.setBytes(&instanceCount, length: MemoryLayout<Int>.size, index: 5)
 
         // Set the thread group size and dispatch
-        let gridSize: MTLSize = MTLSizeMake(1, 1, 1);
+        let gridSize: MTLSize = MTLSizeMake(1, 1, 1)
         let maxThreadsPerGroup = pipelineState.maxTotalThreadsPerThreadgroup
-        let threadgroupSize = MTLSizeMake(maxThreadsPerGroup, 1, 1);
+        let threadgroupSize = MTLSizeMake(maxThreadsPerGroup, 1, 1)
         computeEncoder.dispatchThreadgroups(gridSize, threadsPerThreadgroup: threadgroupSize)
 
         computeEncoder.endEncoding()
@@ -713,7 +752,6 @@ extension Geometry {
         }
         return MDLAxisAlignedBoundingBox(maxBounds: maxBounds, minBounds: minBounds)
     }
-
 
     /// Helper method to retrieve the vertex at the specified index.
     /// - Parameter index: the indices index
@@ -811,7 +849,7 @@ extension Geometry {
     /// Unhides all hidden instances.
     public func unhide() {
         for (i, value) in instances.enumerated() {
-            if value.state == .hidden {
+            if value.state == .hidden, value.flags == .zero {
                 instances[i].state = .default
             }
         }

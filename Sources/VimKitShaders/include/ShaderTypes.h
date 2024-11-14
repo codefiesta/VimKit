@@ -49,19 +49,24 @@ typedef struct {
     BoundedRange submeshes;
 } Mesh;
 
-// Per Frame Uniforms
+// A struct that holds per frame camera data
 typedef struct {
-    // Camera uniforms
-    simd_float3 cameraPosition;
+    simd_float3 position;
     simd_float4x4 viewMatrix;
     simd_float4x4 projectionMatrix;
     simd_float4x4 sceneTransform;
-} Uniforms;
+    simd_float4 frustumPlanes[6];
+} Camera;
 
-// Provides an array of uniforms for rendering stereoscopic views
+// A struct that holds per frame data
 typedef struct {
-    Uniforms uniforms[2];
-} UniformsArray;
+    // Provides an array of cameras for rendering stereoscopic views
+    Camera cameras[2];
+    // The screen viewport size
+    simd_float2 viewportSize;
+    // Flag indicating if this frame is being rendered in xray mode.
+    bool xRay;
+} Frame;
 
 // Enum constants for possible instance states
 typedef NS_ENUM(EnumBackingType, InstanceState) {
@@ -86,9 +91,11 @@ typedef struct {
     simd_float3 maxBounds;
     // The parent index of the instance (-1 indicates no parent).
     size_t parent;
-    /// The mesh index (-1 indicates no mesh)
+    // The mesh index (-1 indicates no mesh)
     size_t mesh;
-    /// Flag indicating if this instance is transparent or not.
+    // The first bit of each flag designates whether the instance should be initially hidden (1) or not (0) when rendered.
+    int16_t flags;
+    // Flag indicating if this instance is transparent or not.
     bool transparent;
 } Instance;
 
@@ -104,38 +111,46 @@ typedef struct {
     size_t baseInstance;
 } InstancedMesh;
 
-typedef struct {
-    // Flag indicating if this frame is being rendered in xray mode.
-    bool xRay;
-} RenderOptions;
-
-// A type that holds identifier information about what is currently being rendered.
-typedef struct {
-    // The index of the mesh being drawn
-    size_t mesh;
-    // The index of the submesh being drawn
-    size_t submesh;
-} Identifiers;
-
 // Enum constants for the association of a specific buffer index argument passed into the shader vertex function
 typedef NS_ENUM(EnumBackingType, VertexBufferIndex) {
     VertexBufferIndexPositions = 0,
     VertexBufferIndexNormals = 1,
-    VertexBufferIndexUniforms = 2,
+    VertexBufferIndexFrames = 2,
     VertexBufferIndexInstances = 3,
     VertexBufferIndexMeshes = 4,
     VertexBufferIndexSubmeshes = 5,
     VertexBufferIndexMaterials = 6,
     VertexBufferIndexColors = 7,
-    VertexBufferIndexIdentifiers = 8,
-    VertexBufferIndexRenderOptions = 9
 };
 
-// Enum constances for the attribute index of an incoming vertex
+// Enum constants for the attribute index of an incoming vertex
 typedef NS_ENUM(EnumBackingType, VertexAttribute) {
     VertexAttributePosition = 0,
     VertexAttributeNormal = 1,
     VertexAttributeUv = 2
+};
+
+// Enum constants for kernel compute function buffer indices
+typedef NS_ENUM(EnumBackingType, KernelBufferIndex) {
+    KernelBufferIndexPositions = 0,
+    KernelBufferIndexNormals = 1,
+    KernelBufferIndexIndexBuffer = 2,
+    KernelBufferIndexFrames = 3,
+    KernelBufferIndexInstances = 4,
+    KernelBufferIndexInstancedMeshes = 5,
+    KernelBufferIndexMeshes = 6,
+    KernelBufferIndexSubmeshes = 7,
+    KernelBufferIndexMaterials = 8,
+    KernelBufferIndexColors = 9,
+    KernelBufferIndexCommandBufferContainer = 10,
+    KernelBufferIndexRasterizationRateMapData = 11,
+    KernelBufferIndexDepthPyramidSize = 12
+};
+
+// Enum constants for argument buffer indices
+typedef NS_ENUM(EnumBackingType, ArgumentBufferIndex) {
+    ArgumentBufferIndexCommandBuffer = 0,
+    ArgumentBufferIndexCommandBufferDepthOnly = 1
 };
 
 //***********************************************************************
@@ -185,6 +200,13 @@ typedef struct {
     // The colorAttachments[1] that holds the instance index (-1 indicates a non-selectable or invalid instance)
     int32_t index [[color(1)]];
 } FragmentOut;
+
+// Struct that contains everything required for encoding commands on the GPU.
+typedef struct {
+    // The default command buffer
+    command_buffer commandBuffer [[id(ArgumentBufferIndexCommandBuffer)]];
+    command_buffer commandBufferDepthOnly [[id(ArgumentBufferIndexCommandBufferDepthOnly)]];
+} ICBContainer;
 
 #endif
 

@@ -22,40 +22,33 @@ constant float4 materialSpecularColor = float4(1.0, 1.0, 1.0, 1.0);
 //   - in: The vertex position + normal data.
 //   - amp_id: The index into the uniforms array used for stereoscopic views in visionOS.
 //   - instance_id: The baseInstance parameter passed to the draw call used to map this instance to it's transform data.
-//   - uniformsArray: The per frame uniforms.
+//   - frames: The frames buffer.
 //   - instances: The instances pointer.
-//   - meshes: The meshes pointer.
 //   - submeshes: The submeshes pointer.
 //   - materials: The materials pointer.
 //   - colors: The colors pointer used to apply custom color profiles to instances.
-//   - identifiers: The identifier data the holds the mesh and submesh indices that are currently being rendered.
-//   - options: The frame rendering options.
 vertex VertexOut vertexMain(VertexIn in [[stage_in]],
                             ushort amp_id [[amplification_id]],
                             uint vertex_id [[vertex_id]],
                             uint instance_id [[instance_id]],
-                            constant UniformsArray &uniformsArray [[buffer(VertexBufferIndexUniforms)]],
+                            constant Frame *frames [[buffer(VertexBufferIndexFrames)]],
                             constant Instance *instances [[buffer(VertexBufferIndexInstances)]],
-                            constant Mesh *meshes [[buffer(VertexBufferIndexMeshes)]],
-                            constant Submesh *submeshes [[buffer(VertexBufferIndexSubmeshes)]],
                             constant Material *materials [[buffer(VertexBufferIndexMaterials)]],
-                            constant float4 *colors [[buffer(VertexBufferIndexColors)]],
-                            constant Identifiers &identifiers [[buffer(VertexBufferIndexIdentifiers)]],
-                            constant RenderOptions &options [[buffer(VertexBufferIndexRenderOptions)]]) {
+                            constant float4 *colors [[buffer(VertexBufferIndexColors)]]) {
 
     VertexOut out;
-    Instance instance = instances[instance_id];
-    Submesh submesh = submeshes[identifiers.submesh];
-    Material material = materials[submesh.material];
-    
+    const Instance instance = instances[instance_id];
+    const Material material = materials[0];
+    const Frame frame = frames[0];
+    const Camera camera = frame.cameras[amp_id];
+
     uint instanceIndex = instance.index;
     int colorIndex = instance.colorIndex;
     
-    Uniforms uniforms = uniformsArray.uniforms[amp_id];
 
     float4x4 modelMatrix = instance.matrix;
-    float4x4 viewMatrix = uniforms.viewMatrix;
-    float4x4 projectionMatrix = uniforms.projectionMatrix;
+    float4x4 viewMatrix = camera.viewMatrix;
+    float4x4 projectionMatrix = camera.projectionMatrix;
     float4x4 modelViewProjectionMatrix = projectionMatrix * viewMatrix * modelMatrix;
     float4x4 modelViewMatrix = viewMatrix * modelMatrix;
 
@@ -69,7 +62,7 @@ vertex VertexOut vertexMain(VertexIn in [[stage_in]],
     out.color = material.rgba;
     
     // XRay the object
-    if (options.xRay) {
+    if (frame.xRay) {
         float grayscale = 0.299 * material.rgba.x + 0.587 * material.rgba.y + 0.114 * material.rgba.z;
         float alpha = material.rgba.w * 0.1;
         out.color = float4(grayscale, grayscale, grayscale, alpha);
@@ -94,10 +87,11 @@ vertex VertexOut vertexMain(VertexIn in [[stage_in]],
     out.cameraNormal = (normalize(modelViewMatrix * float4(normal, 0))).xyz;
     out.cameraDirection = float3(0, 0, 0) - (modelViewMatrix * in.position).xyz;
     out.cameraLightDirection = (viewMatrix * float4(normalize(lightDirection), 0)).xyz;
-    out.cameraDistance = length_squared((modelMatrix * in.position).xyz - uniforms.cameraPosition);
+    out.cameraDistance = length_squared((modelMatrix * in.position).xyz - camera.position);
 
     // Pass the instance index
     out.index = instanceIndex;
+
     return out;
 }
 
@@ -111,7 +105,7 @@ fragment FragmentOut fragmentMain(VertexOut in [[stage_in]],
                                   sampler colorSampler [[sampler(0)]]) {
 
     // If the color alpha is zero, discard the fragment
-    if (in.color.w == 0) {
+    if (in.color.w == 0.0) {
         discard_fragment();
     }
 
@@ -148,5 +142,23 @@ fragment FragmentOut fragmentMain(VertexOut in [[stage_in]],
     out.color = color;
     out.index = in.index;
     
+    return out;
+}
+
+// Provides a simple vertex shader for transforming the array of provided vertices.
+vertex VertexOut vertexDepthOnly(VertexIn in [[stage_in]],
+                                 ushort amp_id [[amplification_id]],
+                                 uint vertex_id [[vertex_id]],
+                                 const device float3 * positions [[buffer(VertexBufferIndexPositions)]],
+                                 constant Frame *frames [[buffer(VertexBufferIndexFrames)]]) {
+    VertexOut out;
+    const Frame frame = frames[0];
+    const Camera camera = frame.cameras[amp_id];
+    float4x4 viewMatrix = camera.viewMatrix;
+    float4x4 projectionMatrix = camera.projectionMatrix;
+    float4x4 viewProjectionMatrix = projectionMatrix * viewMatrix;
+
+    // Position
+    out.position = viewProjectionMatrix * float4(positions[vertex_id], 1.0f);
     return out;
 }

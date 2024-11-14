@@ -24,7 +24,7 @@ extension Vim {
     public class Camera: NSObject, ObservableObject {
 
         /// Holds the camera viewing frustum.
-        var frustum: Frustum = .init()
+        public var frustum: Frustum = .init()
 
         /// Holds our scene rotation transform which is used to
         /// convert from other cameras (such as ARKit or VisionPro).
@@ -221,7 +221,7 @@ extension Vim {
         /// region of space in the modeled world that may appear on the screen.
         /// See: https://lxjk.github.io/2017/04/15/Calculate-Minimal-Bounding-Sphere-of-Frustum.html
         /// See: https://gamedev.stackexchange.com/questions/19774/determine-corners-of-a-specific-plane-in-the-frustum
-        struct Frustum {
+        public struct Frustum {
 
             /// The plane sides of the camera frustum.
             enum Plane: Int {
@@ -234,7 +234,7 @@ extension Vim {
             }
 
             /// The frustum clipping planes.
-            var planes = [SIMD4<Float>](repeating: .zero, count: 6)
+            public var planes = [SIMD4<Float>](repeating: .zero, count: 6)
 
             /// Convenience var that returns the frustum near plane
             var nearPlane: SIMD4<Float> {

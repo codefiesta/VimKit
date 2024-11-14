@@ -1,7 +1,8 @@
 //
-//  VimImmersiveSpaceContent.swift
+//  CompositorRendererImmersiveSpaceContent.swift
+//  VimViewer
 //
-//
+//  Created by Kevin McKee
 //
 
 #if os(visionOS)
@@ -9,10 +10,10 @@ import CompositorServices
 import SwiftUI
 import VimKit
 
-public struct VimImmersiveSpaceContent: ImmersiveSpaceContent {
+public struct CompositorRendererImmersiveSpaceContent: ImmersiveSpaceContent {
 
     public var vim: Vim
-    public var configuration: VimCompositorLayerConfiguration
+    public var configuration: CompositorLayerConfiguration
     public var dataProvider: ARDataProvider
 
     /// Initializes the ImmersiveSpaceContent with the specified vim file, configuration, and data provider context.
@@ -20,7 +21,7 @@ public struct VimImmersiveSpaceContent: ImmersiveSpaceContent {
     ///   - vim: the vim file to render
     ///   - configuration: the rendering configuration
     ///   - dataProvider: the ARKit data provider
-    public init(vim: Vim, configuration: VimCompositorLayerConfiguration = .init(), dataProvider: ARDataProvider) {
+    public init(vim: Vim, configuration: CompositorRendererConfiguration = .init(), dataProvider: ARDataProvider) {
         self.vim = vim
         self.configuration = configuration
         self.dataProvider = dataProvider
@@ -32,14 +33,14 @@ public struct VimImmersiveSpaceContent: ImmersiveSpaceContent {
     public var body: some ImmersiveSpaceContent {
         CompositorLayer(configuration: configuration) { layerRenderer in
             // Build our compositor context that provides all of the objects we need to render
-            let compositorContext = VimCompositorContext(
+            let compositorContext = CompositorContext(
                 vim: vim,
                 layerRenderer: layerRenderer,
                 dataProvider: dataProvider
             )
 
             // Initiate the rendering engine
-            let engine = VimCompositorRenderer(compositorContext)
+            _ = CompositorRenderer(compositorContext)
         }
     }
 }

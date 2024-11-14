@@ -36,6 +36,7 @@ extension Instance {
                   maxBounds: .zero,
                   parent: parent,
                   mesh: mesh,
+                  flags: flags,
                   transparent: transparent
         )
     }
