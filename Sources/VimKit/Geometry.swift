@@ -373,10 +373,6 @@ public class Geometry: ObservableObject, @unchecked Sendable {
             let end = i < submeshIndexOffsets.endIndex - 1 ? Int(nextOffset): Int(submeshIndexOffsets.last!)
             let range: Range<Int> = start..<end
 
-            if start == end {
-                debugPrint("✅")
-            }
-
             // Account for a submesh with an empty material
             let material = submeshMaterials[i] == .empty ? Int32(defaultMaterial): submeshMaterials[i]
             let submesh = Submesh(material, range)
@@ -531,14 +527,18 @@ public class Geometry: ObservableObject, @unchecked Sendable {
         .init(width: gridWidth, height: instancedMeshes.count, depth: 1)
     }()
 
+    /// Provides a count of opaque instanced meshes.
     public lazy var opaqueInstancedMeshesCount: Int = {
         instancedMeshes.filter{ $0.transparent == false }.count
     }()
 
+    /// Provides a count of transparent instanced meshes.
     public lazy var transparentInstancedMeshesCount: Int = {
         instancedMeshes.filter{ $0.transparent == true }.count
     }()
 
+    /// Provides the offset into instanced meshes where the transparent instanced meshes begin.
+    /// This vale can be used as the buffer offset by multiplying with `MemoryLayout<InstancedMesh>.size`.
     public lazy var transparentInstancedMeshesOffset: Int = {
         instancedMeshes.firstIndex { instancedMesh in
             instancedMesh.transparent == true
