@@ -849,7 +849,7 @@ extension Geometry {
     /// Unhides all hidden instances.
     public func unhide() {
         for (i, value) in instances.enumerated() {
-            if value.state == .hidden {
+            if value.state == .hidden, value.flags == .zero {
                 instances[i].state = .default
             }
         }

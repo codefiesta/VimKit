@@ -93,6 +93,8 @@ typedef struct {
     size_t parent;
     // The mesh index (-1 indicates no mesh)
     size_t mesh;
+    // The first bit of each flag designates whether the instance should be initially hidden (1) or not (0) when rendered.
+    int16_t flags;
     // Flag indicating if this instance is transparent or not.
     bool transparent;
 } Instance;
