@@ -519,18 +519,16 @@ public class Geometry: ObservableObject, @unchecked Sendable {
         return instancedMeshesBuffer!.toUnsafeMutableBufferPointer()
     }()
 
-//    private lazy var maxSubmeshes: Int = {
-//        var maxIndices = 1
-//        for submesh in submeshes {
-//            maxIndices = max(maxIndices, submesh.indices.count)
-//        }
-//        return maxIndices
-//    }()
+    /// Calculates the max grid height by determining the max number of submeshes a mesh could possibly contain.
+    private lazy var gridWidth: Int = {
+        meshes.map{ $0.submeshes.count }.max() ?? 1
+    }()
 
+    /// Provides a grid size for executing indirect command buffer commands.
+    /// The width is the maximum number of submeshes a mesh could contain.
+    /// The height is the number of instanced meshes.
     public lazy var gridSize: MTLSize = {
-        let width = instancedMeshes.count
-        let height = submeshes.count
-        return .init(width: width, height: height, depth: 1)
+        .init(width: gridWidth, height: instancedMeshes.count, depth: 1)
     }()
 
     public lazy var opaqueInstancedMeshesCount: Int = {

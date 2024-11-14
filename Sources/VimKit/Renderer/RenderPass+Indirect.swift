@@ -200,8 +200,10 @@ class RenderPassIndirect: RenderPass {
     private func drawIndirect(descriptor: DrawDescriptor, renderEncoder: MTLRenderCommandEncoder) {
         guard let geometry, let icb else { return }
 
+        let gridSize = geometry.gridSize
         // Build the range of commands to execute
-        let range = 0..<geometry.instancedMeshes.count
+        //let range = 0..<geometry.instancedMeshes.count
+        let range = 0..<geometry.gridSize.width * geometry.gridSize.height
 
         // Execute the commands in range
         renderEncoder.executeCommandsInBuffer(icb.commandBuffer, range: range)
@@ -223,7 +225,6 @@ class RenderPassIndirect: RenderPass {
         renderEncoder.setVertexBuffer(descriptor.framesBuffer, offset: descriptor.framesBufferOffset, index: .frames)
         renderEncoder.setVertexBuffer(positionsBuffer, offset: 0, index: .positions)
 
-
         renderEncoder.drawIndexedPrimitives(
             type: .triangle,
             indexCount: geometry.indices.count,
@@ -234,24 +235,6 @@ class RenderPassIndirect: RenderPass {
         guard let blitEncoder = descriptor.commandBuffer.makeBlitCommandEncoder() else { return }
         blitEncoder.resetCommandsInBuffer(icb.commandBuffer, range: 0..<geometry.instancedMeshes.count)
         blitEncoder.endEncoding()
-
-//        for (NSUInteger viewIndex = 0; viewIndex < viewCount; ++viewIndex)
-//        {
-//            if(mainPass)
-//            {
-//                [blitEncoder resetCommandsInBuffer:commandData[viewIndex].commandBuffer withRange:NSMakeRange(0, mesh.opaqueChunkCount)];
-//                [blitEncoder resetCommandsInBuffer:commandData[viewIndex].commandBuffer_alphaMask withRange:NSMakeRange(0, mesh.alphaMaskedChunkCount)];
-//                [blitEncoder resetCommandsInBuffer:commandData[viewIndex].commandBuffer_transparent withRange:NSMakeRange(0, mesh.transparentChunkCount)];
-//            }
-//
-//            if(depthOnly)
-//            {
-//                [blitEncoder resetCommandsInBuffer:commandData[viewIndex].commandBuffer_depthOnly withRange:NSMakeRange(0, mesh.opaqueChunkCount)];
-//                [blitEncoder resetCommandsInBuffer:commandData[viewIndex].commandBuffer_depthOnly_alphaMask withRange:NSMakeRange(0, mesh.alphaMaskedChunkCount)];
-//            }
-//        }
-//        [blitEncoder endEncoding];
-
     }
 
     /// Default resize function

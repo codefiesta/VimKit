@@ -128,7 +128,7 @@ static bool isVisible(constant Frame *frames,
 
 // Encodes and draws the indexed primitives using the specified render command.
 // - Parameters:
-//   - renderCommand: The render command to use
+//   - cmd: The render command to use
 //   - positions: The pointer to the positions.
 //   - normals: The pointer to the normals.
 //   - indexBuffer: The pointer to the index buffer.
@@ -140,7 +140,7 @@ static bool isVisible(constant Frame *frames,
 //   - instanceCount: The count of instances to draw
 //   - baseInstance: The starting index of the instances pointer.
 __attribute__((always_inline))
-static void encodeAndDraw(thread render_command &renderCommand,
+static void encodeAndDraw(thread render_command &cmd,
                           constant float *positions [[buffer(KernelBufferIndexPositions)]],
                           constant float *normals [[buffer(KernelBufferIndexNormals)]],
                           constant uint32_t *indexBuffer [[buffer(KernelBufferIndexIndexBuffer)]],
@@ -153,18 +153,18 @@ static void encodeAndDraw(thread render_command &renderCommand,
                           uint baseInstance) {
     
     // Encode the buffers
-    renderCommand.set_vertex_buffer(frames, VertexBufferIndexFrames);
-    renderCommand.set_vertex_buffer(positions, VertexBufferIndexPositions);
-    renderCommand.set_vertex_buffer(normals, VertexBufferIndexNormals);
-    renderCommand.set_vertex_buffer(instances, VertexBufferIndexInstances);
-    renderCommand.set_vertex_buffer(materials, VertexBufferIndexMaterials);
-    renderCommand.set_vertex_buffer(colors, VertexBufferIndexColors);
-    renderCommand.set_vertex_buffer(materials, VertexBufferIndexMaterials);
+    cmd.set_vertex_buffer(frames, VertexBufferIndexFrames);
+    cmd.set_vertex_buffer(positions, VertexBufferIndexPositions);
+    cmd.set_vertex_buffer(normals, VertexBufferIndexNormals);
+    cmd.set_vertex_buffer(instances, VertexBufferIndexInstances);
+    cmd.set_vertex_buffer(materials, VertexBufferIndexMaterials);
+    cmd.set_vertex_buffer(colors, VertexBufferIndexColors);
+    cmd.set_vertex_buffer(materials, VertexBufferIndexMaterials);
     
     // TODO: Encode the Fragment Buffers
 
     // Execute the draw call
-    renderCommand.draw_indexed_primitives(primitive_type::triangle,
+    cmd.draw_indexed_primitives(primitive_type::triangle,
                                 indexCount,
                                 indexBuffer,
                                 instanceCount,
@@ -174,7 +174,7 @@ static void encodeAndDraw(thread render_command &renderCommand,
 
 // Encodes the buffers and adds draw commands via indirect command buffer.
 // - Parameters:
-//   - index: The thread position in the grid being executed.
+//   - threadPosition: The thread position in the grid being executed.
 //   - positions: The pointer to the positions.
 //   - normals: The pointer to the normals.
 //   - indexBuffer: The pointer to the index buffer.
@@ -188,7 +188,8 @@ static void encodeAndDraw(thread render_command &renderCommand,
 //   - icbContainer: The pointer to the indirect command buffer container.
 //   - rasterRateMapData: The raster data map.
 //   - depthPyramidTexture: The depth texture.
-kernel void encodeIndirectCommands(uint2 index [[thread_position_in_grid]],
+kernel void encodeIndirectCommands(uint2 threadPosition [[thread_position_in_grid]],
+                                   uint2 gridSize [[threads_per_grid]],
                                    constant float *positions [[buffer(KernelBufferIndexPositions)]],
                                    constant float *normals [[buffer(KernelBufferIndexNormals)]],
                                    constant uint32_t *indexBuffer [[buffer(KernelBufferIndexIndexBuffer)]],
@@ -203,21 +204,33 @@ kernel void encodeIndirectCommands(uint2 index [[thread_position_in_grid]],
                                    constant rasterization_rate_map_data *rasterRateMapData [[buffer(KernelBufferIndexRasterizationRateMapData)]],
                                    texture2d<float> depthPyramidTexture [[texture(0)]]) {
     
+    // The x lane provides the max number of submeshes that the mesh can contain
+    const uint x = threadPosition.x;
+    // The y lane provides the index of the instanced mesh to draw
+    const uint y = threadPosition.y;
+    // Grab the height of the our grid size
+    const uint height = gridSize.y;
+    
+    // Calculate the index of this position in the grid. This is used to
+    // get the the render command at this unique index as only one draw call can be issued per thread.
+    const uint index = y + (x * height);
+
     // Perform depth testing to check if the instanced mesh should be occluded or not
+    bool visible = true;
 //    bool visible = isVisible(frames,
-//                             instancedMeshes[index],
+//                             instancedMeshes[y],
 //                             instances,
 //                             meshes,
 //                             submeshes,
 //                             rasterRateMapData,
 //                             depthPyramidTexture);
     
-    bool visible = true;
+    // If this instanced mesh isn't visible don't issue any draw commands and simply exit
+    if (!visible) {
+        return;
+    }
 
-    const uint x = index.x;
-    const uint y = index.y;
-    
-    const InstancedMesh instancedMesh = instancedMeshes[x];
+    const InstancedMesh instancedMesh = instancedMeshes[y];
     const uint instanceCount = instancedMesh.instanceCount;
     const uint baseInstance = instancedMesh.baseInstance;
     const Mesh mesh = meshes[instancedMesh.mesh];
@@ -225,50 +238,32 @@ kernel void encodeIndirectCommands(uint2 index [[thread_position_in_grid]],
     const BoundedRange submeshRange = mesh.submeshes;
     const uint lowerBound = (uint) submeshRange.lowerBound;
     const uint upperBound = (uint) submeshRange.upperBound;
-    const uint submeshCount = upperBound - lowerBound;
-    // Check to make sure we are in bounds of the current submesh
-//    if (y < lowerBound || y >= upperBound) {
-//        visible = false;
-//    }
 
-    if (y >= submeshCount) {
-        return;
-    }
-    
-    const uint submeshIndex = lowerBound + y;
-    
-    threadgroup_barrier(mem_flags::mem_threadgroup);
-    
-    // If visible, set the buffers and add draw commands
-    if (visible) {
-        
-        
+    const uint i = x + lowerBound;
+
+    if (i < upperBound) {
+
         // Get indirect render commnd from the indirect command buffer
-        render_command renderCommand(icbContainer->commandBuffer, x);
+        render_command cmd(icbContainer->commandBuffer, index);
         
-        // Loop through the submeshes and execute the draw calls
-//        for (int i = lowerBound; i < upperBound; i++) {
+        const Submesh submesh = submeshes[i];
+        const BoundedRange indexRange = submesh.indices;
+        const uint materialIndex = (uint) submesh.material;
+        const uint indexCount = (uint)indexRange.upperBound - (uint)indexRange.lowerBound;
+        const uint indexBufferOffset = indexRange.lowerBound;
 
-            const Submesh submesh = submeshes[submeshIndex];
-            const BoundedRange indexRange = submesh.indices;
-            const uint materialIndex = (uint) submesh.material;
-            const uint indexCount = (uint)indexRange.upperBound - (uint)indexRange.lowerBound;
-            const uint indexBufferOffset = indexRange.lowerBound;
+        // Execute the draw call
+        encodeAndDraw(cmd,
+                      positions,
+                      normals,
+                      &indexBuffer[indexBufferOffset],
+                      frames,
+                      instances,
+                      &materials[materialIndex],
+                      colors,
+                      indexCount,
+                      instanceCount,
+                      baseInstance);
 
-            // Execute the draw call
-            encodeAndDraw(renderCommand,
-                          positions,
-                          normals,
-                          &indexBuffer[indexBufferOffset],
-                          frames,
-                          instances,
-                          &materials[materialIndex],
-                          colors,
-                          indexCount,
-                          instanceCount,
-                          baseInstance);
-//        }
     }
-
-    // If not visible, no draw command will be sent
 }
