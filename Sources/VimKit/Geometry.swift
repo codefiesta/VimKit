@@ -118,6 +118,7 @@ public class Geometry: ObservableObject, @unchecked Sendable {
         publish(state: .loading)
 
         let device = MTLContext.device
+        let supportsIndirectCommandBuffers = device.supportsFamily(.apple4)
         let cacheDir = FileManager.default.cacheDirectory
 
         // 1) Build the positions (vertex) buffer
@@ -158,7 +159,11 @@ public class Geometry: ObservableObject, @unchecked Sendable {
 
         // 10 Start indexing the file
         publish(state: .indexing)
-        await bvh = BVH(self)
+
+        // Don't bother building the bvh tree if indirect command buffers are supported
+        if !supportsIndirectCommandBuffers {
+            await bvh = BVH(self)
+        }
         incrementProgressCount()
 
         publish(state: .ready)
