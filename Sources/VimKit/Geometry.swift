@@ -540,9 +540,7 @@ public class Geometry: ObservableObject, @unchecked Sendable {
     /// Provides the offset into instanced meshes where the transparent instanced meshes begin.
     /// This vale can be used as the buffer offset by multiplying with `MemoryLayout<InstancedMesh>.size`.
     public lazy var transparentInstancedMeshesOffset: Int = {
-        instancedMeshes.firstIndex { instancedMesh in
-            instancedMesh.transparent == true
-        } ?? .zero
+        instancedMeshes.firstIndex { $0.transparent == true } ?? .zero
     }()
 
     // MARK: Materials
