@@ -235,9 +235,10 @@ class RenderPassIndirect: RenderPass {
     ///   - renderEncoder: the render encoder to use
     private func drawIndirect(descriptor: DrawDescriptor, renderEncoder: MTLRenderCommandEncoder) {
         guard let icb else { return }
-
-        let offset = MemoryLayout<MTLIndirectCommandBufferExecutionRange>.size * 0
-        renderEncoder.executeCommandsInBuffer(icb.commandBuffer, indirectBuffer: icb.executionRange, offset: offset)
+        for i in 0..<icb.executionRangeCount {
+            let offset = MemoryLayout<MTLIndirectCommandBufferExecutionRange>.size * i
+            renderEncoder.executeCommandsInBuffer(icb.commandBuffer, indirectBuffer: icb.executionRange, offset: offset)
+        }
     }
 
     /// Draws the depth pyramid offscreen.
@@ -450,23 +451,19 @@ class RenderPassIndirect: RenderPass {
     private func makeExecutionRange(_ totalCommands: Int) -> (count: Int, buffer: MTLBuffer?) {
 
         let rangeCount = Int(ceilf(Float(totalCommands)/Float(maxExecutionRange)))
-        var ranges: [Range<Int>] = .init()
+        var executionRanges: [MTLIndirectCommandBufferExecutionRange] = .init()
+
         for i in 0..<rangeCount {
-            let start = 0
             let offset = i * maxExecutionRange
             let commandsInRange = totalCommands - offset
-            let end = min(commandsInRange, maxExecutionRange)
-            let range = start..<end
-            ranges.append(range)
-        }
-
-        var executionRanges = ranges.map {
-            MTLIndirectCommandBufferExecutionRange(location: UInt32($0.lowerBound), length: UInt32($0.upperBound))
+            let length = min(commandsInRange, maxExecutionRange)
+            let range = MTLIndirectCommandBufferExecutionRange(location: UInt32(offset), length: UInt32(length))
+            executionRanges.append(range)
         }
 
         let length = MemoryLayout<MTLIndirectCommandBufferExecutionRange>.size * executionRanges.count
         let buffer = device.makeBuffer(bytes: &executionRanges, length: length, options: [.storageModeShared])
-        return (ranges.count, buffer)
+        return (executionRanges.count, buffer)
     }
 }
 
