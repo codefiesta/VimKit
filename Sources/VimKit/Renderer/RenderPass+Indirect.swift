@@ -188,8 +188,9 @@ class RenderPassIndirect: RenderPass {
 
         // 3) Dispatch the threads
         let gridSize = geometry.gridSize
-        let threadExecutionWidth = computePipelineState.maxTotalThreadsPerThreadgroup
-        let threadgroupSize: MTLSize = .init(width: threadExecutionWidth, height: 1, depth: 1)
+        let width = computePipelineState.threadExecutionWidth
+        let height = computePipelineState.maxTotalThreadsPerThreadgroup / width
+        let threadgroupSize: MTLSize = .init(width: width, height: height, depth: 1)
         computeEncoder.dispatchThreads(gridSize, threadsPerThreadgroup: threadgroupSize)
 
         // 4) End Encoding
@@ -210,13 +211,27 @@ class RenderPassIndirect: RenderPass {
         renderEncoder.setFragmentBuffer(rasterizationRateMapData, offset: 0, index: .rasterizationRateMapData)
     }
 
+    /// Optimizes the icb.
+    /// - Parameters:
+    ///   - descriptor: the draw descriptor
+    ///   - renderEncoder: the render encoder
+    private func optimize(descriptor: DrawDescriptor, renderEncoder: MTLRenderCommandEncoder) {
+
+        guard let icb, let geometry else { return }
+        guard let blitEncoder = descriptor.commandBuffer.makeBlitCommandEncoder() else { return }
+        let range = 0..<geometry.instancedMeshes.count
+        blitEncoder.optimizeIndirectCommandBuffer(icb.commandBuffer, range: range)
+        blitEncoder.endEncoding()
+    }
+
     /// Performs the indirect drawing via icb.
     /// - Parameters:
     ///   - descriptor: the draw descriptor to use
     ///   - renderEncoder: the render encoder to use
     private func drawIndirect(descriptor: DrawDescriptor, renderEncoder: MTLRenderCommandEncoder) {
         guard let icb else { return }
-        renderEncoder.executeCommandsInBuffer(icb.commandBuffer, indirectBuffer: icb.executionRange, offset: 0)
+        let offset = MemoryLayout<MTLIndirectCommandBufferExecutionRange>.size * 0
+        renderEncoder.executeCommandsInBuffer(icb.commandBuffer, indirectBuffer: icb.executionRange, offset: offset)
     }
 
     private func drawCulling(descriptor: DrawDescriptor, renderEncoder: MTLRenderCommandEncoder) {
