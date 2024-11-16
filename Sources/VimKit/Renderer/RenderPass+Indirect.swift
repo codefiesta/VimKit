@@ -27,8 +27,8 @@ private let labelDepthPyramidGeneration = "DepthPyramidGeneration"
 private let labelTextureDepth = "DepthTexture"
 private let labelTextureDepthPyramid = "DepthPyramidTexture"
 private let maxBufferBindCount = 24
-private let executionRangeCount = 3
 private let maxCommandCount = 1024 * 64
+private let maxExecutionRange = 1024 * 16
 
 /// Provides an indirect render pass using indirect command buffers.
 class RenderPassIndirect: RenderPass {
@@ -98,7 +98,10 @@ class RenderPassIndirect: RenderPass {
             guard let self, let geometry else { return }
             switch state {
             case .ready:
-                debugPrint("􀬨 Building indirect command buffers [\(geometry.instancedMeshes.count)]")
+                let gridSize = geometry.gridSize
+                let totalCommands = gridSize.width * gridSize.height
+                debugPrint("􀬨 Building indirect command buffers [\(totalCommands)]")
+                makeIndirectCommandBuffers(totalCommands)
             case .indexing, .loading, .unknown, .error:
                 break
             }
@@ -304,7 +307,8 @@ class RenderPassIndirect: RenderPass {
     }
 
     /// Makes the indirect command buffer struct.
-    private func makeIndirectCommandBuffers() {
+    /// - Parameter totalCommands: the total amount of commands the indirect command buffer supports.
+    private func makeIndirectCommandBuffers(_ totalCommands: Int = maxCommandCount) {
 
         guard let computeFunction else { return }
 
@@ -330,7 +334,7 @@ class RenderPassIndirect: RenderPass {
         commandBufferDepthOnlyAlphaMask.label = labelICBDepthOnlyAlphaMask
 
         // Make the execution range buffer
-        guard let executionRange = makeExecutionRange() else { return }
+        guard let executionRange = makeExecutionRange(totalCommands) else { return }
 
         // Make the argument encoders
         let icbArgumentEncoder = computeFunction.makeArgumentEncoder(.commandBufferContainer)
@@ -432,13 +436,15 @@ class RenderPassIndirect: RenderPass {
     /// Makes the execution range buffer.
     /// - Parameter totalCommands: the total amount of commands the indirect command buffer supports.
     /// - Returns: a new metal buffer cf MTLIndirectCommandBufferExecutionRange
-    private func makeExecutionRange(_ totalCommands: Int = maxCommandCount) -> MTLBuffer? {
+    private func makeExecutionRange(_ totalCommands: Int) -> MTLBuffer? {
 
-        let rangeCount = Int(ceilf(Float(totalCommands)/Float(maxCommandCount)))
+        let rangeCount = Int(ceilf(Float(totalCommands)/Float(maxExecutionRange)))
         var ranges: [Range<Int>] = .init()
         for i in 0..<rangeCount {
-            let start = i * maxCommandCount
-            let end = min(start + maxCommandCount, totalCommands)
+            let start = 0
+            let offset = i * maxExecutionRange
+            let commandsInRange = totalCommands - offset
+            let end = min(commandsInRange, maxExecutionRange)
             let range = start..<end
             ranges.append(range)
         }
