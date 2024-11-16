@@ -303,6 +303,7 @@ class RenderPassIndirect: RenderPass {
         self.computeFunction = computeFunction
     }
 
+    /// Makes the indirect command buffer struct.
     private func makeIndirectCommandBuffers() {
 
         guard let computeFunction else { return }
@@ -392,6 +393,7 @@ class RenderPassIndirect: RenderPass {
         depthPyramidTexture?.label = labelTextureDepthPyramid
     }
 
+    /// Makes the rasterization map data.
     private func makeRasterizationMap() {
 
         guard screenSize != .zero else { return }
@@ -427,17 +429,17 @@ class RenderPassIndirect: RenderPass {
         return renderPassDescriptor
     }
 
+    /// Makes the execution range buffer.
+    /// - Parameter totalCommands: the total amount of commands the indirect command buffer supports.
+    /// - Returns: a new metal buffer cf MTLIndirectCommandBufferExecutionRange
     private func makeExecutionRange(_ totalCommands: Int = maxCommandCount) -> MTLBuffer? {
 
-        //        guard let executionRange = device.makeBuffer(length: MemoryLayout<MTLIndirectCommandBufferExecutionRange>.size * executionRangeCount,
-        //                                                     options: [.storageModeShared]) else { return }
         let rangeCount = Int(ceilf(Float(totalCommands)/Float(maxCommandCount)))
         var ranges: [Range<Int>] = .init()
         for i in 0..<rangeCount {
             let start = i * maxCommandCount
             let end = min(start + maxCommandCount, totalCommands)
             let range = start..<end
-
             ranges.append(range)
         }
 
@@ -445,7 +447,6 @@ class RenderPassIndirect: RenderPass {
             MTLIndirectCommandBufferExecutionRange(location: UInt32($0.lowerBound), length: UInt32($0.upperBound))
         }
 
-        // 16384
         let length = MemoryLayout<MTLIndirectCommandBufferExecutionRange>.size * executionRanges.count
         return device.makeBuffer(bytes: &executionRanges, length: length, options: [.storageModeShared])
     }
