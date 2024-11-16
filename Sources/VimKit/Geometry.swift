@@ -728,8 +728,8 @@ extension Geometry {
         let gridSize: MTLSize = .init(width: instanceCount, height: 1, depth: 1)
         let width = pipelineState.threadExecutionWidth
         let height = pipelineState.maxTotalThreadsPerThreadgroup / width
-        let threadgroupSize: MTLSize = .init(width: width, height: height, depth: 1)
-        computeEncoder.dispatchThreadgroups(gridSize, threadsPerThreadgroup: threadgroupSize)
+        let threadsPerThreadgroup: MTLSize = .init(width: width, height: height, depth: 1)
+        computeEncoder.dispatchThreads(gridSize, threadsPerThreadgroup: threadsPerThreadgroup)
 
         computeEncoder.endEncoding()
         commandBuffer.commit()
