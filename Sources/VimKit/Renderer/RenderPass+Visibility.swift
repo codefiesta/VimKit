@@ -46,7 +46,7 @@ class RenderPassVisibility: RenderPass {
     var currentResults: [Int] = .init()
     /// Returns the subset of instanced mesh indexes that have returned true from the occlusion query.
     var currentVisibleResults: [Int] = .init()
-    /// Combine Subscribers which drive rendering events
+    /// Combine subscribers.
     var subscribers = Set<AnyCancellable>()
 
     /// Initializes the render pass with the provided rendering context.

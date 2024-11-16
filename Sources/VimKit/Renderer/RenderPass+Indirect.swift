@@ -4,14 +4,14 @@
 //
 //  Created by Kevin McKee
 //
-
+import Combine
 import MetalKit
 import VimKitShaders
 
 private let functionNameVertex = "vertexMain"
 private let functionNameVertexDepthOnly = "vertexDepthOnly"
 private let functionNameFragment = "fragmentMain"
-private let functionNameEncodeIndirectCommands = "encodeIndirectCommands"
+private let functionNameEncodeIndirectRenderCommands = "encodeIndirectRenderCommands"
 private let functionNameDepthPyramid = "depthPyramid"
 private let labelICB = "IndirectCommandBuffer"
 private let labelICBAlphaMask = "IndirectCommandBufferAlphaMask"
@@ -26,9 +26,9 @@ private let labelRasterizationRateMapData = "RenderRasterizationMapData"
 private let labelDepthPyramidGeneration = "DepthPyramidGeneration"
 private let labelTextureDepth = "DepthTexture"
 private let labelTextureDepthPyramid = "DepthPyramidTexture"
-private let maxCommandCount = 1024 * 64
 private let maxBufferBindCount = 24
-private let executionRangeCount = 3
+private let maxCommandCount = 1024 * 64
+private let maxExecutionRange = 1024 * 16
 
 /// Provides an indirect render pass using indirect command buffers.
 class RenderPassIndirect: RenderPass {
@@ -44,6 +44,8 @@ class RenderPassIndirect: RenderPass {
         var commandBufferDepthOnlyAlphaMask: MTLIndirectCommandBuffer
         /// A metal buffer storing the icb execution range
         var executionRange: MTLBuffer
+        /// The number of execution ranges.
+        var executionRangeCount: Int
         /// The icb encodeer arguments buffers consisting of MTLArgumentEncoders
         var argumentEncoder: MTLBuffer
         var argumentEncoderAlphaMask: MTLBuffer
@@ -67,12 +69,16 @@ class RenderPassIndirect: RenderPass {
     private var depthPyramidTexture: MTLTexture?
 
     /// The compute pipeline state.
+    private var computeFunction: MTLFunction?
     private var computePipelineState: MTLComputePipelineState?
     /// The render pipeline stae.
     private var pipelineState: MTLRenderPipelineState?
     private var pipelineStateDepthOnly: MTLRenderPipelineState?
     private var depthStencilState: MTLDepthStencilState?
     private var samplerState: MTLSamplerState?
+
+    /// Combine subscribers.
+    var subscribers = Set<AnyCancellable>()
 
     /// Initializes the render pass with the provided rendering context.
     /// - Parameter context: the rendering context.
@@ -87,7 +93,21 @@ class RenderPassIndirect: RenderPass {
         self.samplerState = makeSamplerState()
         self.depthPyramid = DepthPyramid(device, library)
         makeComputePipelineState(library)
+        makeIndirectCommandBuffers()
         makeRasterizationMap()
+
+        context.vim.geometry?.$state.sink { [weak self] state in
+            guard let self, let geometry else { return }
+            switch state {
+            case .ready:
+                let gridSize = geometry.gridSize
+                let totalCommands = gridSize.width * gridSize.height
+                debugPrint("􀬨 Building indirect command buffers [\(totalCommands)]")
+                makeIndirectCommandBuffers(totalCommands)
+            case .indexing, .loading, .unknown, .error:
+                break
+            }
+        }.store(in: &subscribers)
     }
 
     /// Performs all encoding and setup options before drawing.
@@ -104,8 +124,8 @@ class RenderPassIndirect: RenderPass {
         guard let renderPassDescriptor = makeRenderPassDescriptor(),
               let renderEncoder = descriptor.commandBuffer.makeRenderCommandEncoder(descriptor: renderPassDescriptor) else { return }
 
-        // Draw the geometry occluder
-        drawCulling(descriptor: descriptor, renderEncoder: renderEncoder)
+        // Draw the geometry occluder offscreen
+        drawDepthOffscreen(descriptor: descriptor, renderEncoder: renderEncoder)
 
         // End encoding
         renderEncoder.endEncoding()
@@ -156,10 +176,12 @@ class RenderPassIndirect: RenderPass {
         computeEncoder.setBuffer(materialsBuffer, offset: 0, index: .materials)
         computeEncoder.setBuffer(colorsBuffer, offset: 0, index: .colors)
         computeEncoder.setBuffer(icb.argumentEncoder, offset: 0, index: .commandBufferContainer)
+        computeEncoder.setBuffer(icb.executionRange, offset: 0, index: .executionRange)
         computeEncoder.setTexture(depthPyramidTexture, index: 0)
 
         // 2) Use Resources
         computeEncoder.useResource(icb.commandBuffer, usage: .read)
+        computeEncoder.useResource(icb.executionRange, usage: .write)
         computeEncoder.useResource(framesBuffer, usage: .read)
         computeEncoder.useResource(materialsBuffer, usage: .read)
         computeEncoder.useResource(instancesBuffer, usage: .read)
@@ -171,8 +193,9 @@ class RenderPassIndirect: RenderPass {
 
         // 3) Dispatch the threads
         let gridSize = geometry.gridSize
-        let threadExecutionWidth = computePipelineState.maxTotalThreadsPerThreadgroup
-        let threadgroupSize: MTLSize = .init(width: threadExecutionWidth, height: 1, depth: 1)
+        let width = computePipelineState.threadExecutionWidth
+        let height = computePipelineState.maxTotalThreadsPerThreadgroup / width
+        let threadgroupSize: MTLSize = .init(width: width, height: height, depth: 1)
         computeEncoder.dispatchThreads(gridSize, threadsPerThreadgroup: threadgroupSize)
 
         // 4) End Encoding
@@ -193,23 +216,36 @@ class RenderPassIndirect: RenderPass {
         renderEncoder.setFragmentBuffer(rasterizationRateMapData, offset: 0, index: .rasterizationRateMapData)
     }
 
+    /// Optimizes the icb.
+    /// - Parameters:
+    ///   - descriptor: the draw descriptor
+    ///   - renderEncoder: the render encoder
+    private func optimize(descriptor: DrawDescriptor, renderEncoder: MTLRenderCommandEncoder) {
+
+        guard let icb, let geometry else { return }
+        guard let blitEncoder = descriptor.commandBuffer.makeBlitCommandEncoder() else { return }
+        let range = 0..<geometry.instancedMeshes.count
+        blitEncoder.optimizeIndirectCommandBuffer(icb.commandBuffer, range: range)
+        blitEncoder.endEncoding()
+    }
+
     /// Performs the indirect drawing via icb.
     /// - Parameters:
     ///   - descriptor: the draw descriptor to use
     ///   - renderEncoder: the render encoder to use
     private func drawIndirect(descriptor: DrawDescriptor, renderEncoder: MTLRenderCommandEncoder) {
-        guard let geometry, let icb else { return }
-
-        let gridSize = geometry.gridSize
-        // Build the range of commands to execute
-        //let range = 0..<geometry.instancedMeshes.count
-        let range = 0..<geometry.gridSize.width * geometry.gridSize.height
-
-        // Execute the commands in range
-        renderEncoder.executeCommandsInBuffer(icb.commandBuffer, range: range)
+        guard let icb else { return }
+        for i in 0..<icb.executionRangeCount {
+            let offset = MemoryLayout<MTLIndirectCommandBufferExecutionRange>.size * i
+            renderEncoder.executeCommandsInBuffer(icb.commandBuffer, indirectBuffer: icb.executionRange, offset: offset)
+        }
     }
 
-    private func drawCulling(descriptor: DrawDescriptor, renderEncoder: MTLRenderCommandEncoder) {
+    /// Draws the depth pyramid offscreen.
+    /// - Parameters:
+    ///   - descriptor: the draw descriptor to use
+    ///   - renderEncoder: the render encoder to use
+    private func drawDepthOffscreen(descriptor: DrawDescriptor, renderEncoder: MTLRenderCommandEncoder) {
 
         guard let geometry,
               let icb,
@@ -272,9 +308,17 @@ class RenderPassIndirect: RenderPass {
         }
 
         // Make the compute pipeline state
-        guard let function = library.makeFunction(name: functionNameEncodeIndirectCommands),
-              let computePipelineState = try? device.makeComputePipelineState(function: function) else { return }
+        guard let computeFunction = library.makeFunction(name: functionNameEncodeIndirectRenderCommands),
+              let computePipelineState = try? device.makeComputePipelineState(function: computeFunction) else { return }
         self.computePipelineState = computePipelineState
+        self.computeFunction = computeFunction
+    }
+
+    /// Makes the indirect command buffer struct.
+    /// - Parameter totalCommands: the total amount of commands the indirect command buffer supports.
+    private func makeIndirectCommandBuffers(_ totalCommands: Int = maxCommandCount) {
+
+        guard let computeFunction else { return }
 
         // Make the indirect command buffer descriptor
         let descriptor = MTLIndirectCommandBufferDescriptor()
@@ -285,11 +329,11 @@ class RenderPassIndirect: RenderPass {
         descriptor.maxFragmentBufferBindCount = maxBufferBindCount
 
         // Make the indirect command buffers and label them
-        guard let commandBuffer = device.makeIndirectCommandBuffer(descriptor: descriptor, maxCommandCount: maxCommandCount),
-              let commandBufferAlphaMask = device.makeIndirectCommandBuffer(descriptor: descriptor, maxCommandCount: maxCommandCount),
-              let commandBufferTransparent = device.makeIndirectCommandBuffer(descriptor: descriptor, maxCommandCount: maxCommandCount),
-              let commandBufferDepthOnly = device.makeIndirectCommandBuffer(descriptor: descriptor, maxCommandCount: maxCommandCount),
-              let commandBufferDepthOnlyAlphaMask = device.makeIndirectCommandBuffer(descriptor: descriptor, maxCommandCount: maxCommandCount) else { return }
+        guard let commandBuffer = device.makeIndirectCommandBuffer(descriptor: descriptor, maxCommandCount: totalCommands),
+              let commandBufferAlphaMask = device.makeIndirectCommandBuffer(descriptor: descriptor, maxCommandCount: totalCommands),
+              let commandBufferTransparent = device.makeIndirectCommandBuffer(descriptor: descriptor, maxCommandCount: totalCommands),
+              let commandBufferDepthOnly = device.makeIndirectCommandBuffer(descriptor: descriptor, maxCommandCount: totalCommands),
+              let commandBufferDepthOnlyAlphaMask = device.makeIndirectCommandBuffer(descriptor: descriptor, maxCommandCount: totalCommands) else { return }
 
         commandBuffer.label = labelICB
         commandBufferAlphaMask.label = labelICBAlphaMask
@@ -298,11 +342,12 @@ class RenderPassIndirect: RenderPass {
         commandBufferDepthOnlyAlphaMask.label = labelICBDepthOnlyAlphaMask
 
         // Make the execution range buffer
-        guard let executionRange = device.makeBuffer(length: MemoryLayout<MTLIndirectCommandBufferExecutionRange>.size * executionRangeCount,
-                                                     options: [.storageModeShared]) else { return }
+        let executionRangeResult = makeExecutionRange(totalCommands)
+        guard let executionRange = executionRangeResult.buffer else { return }
+        let executionRangeCount = executionRangeResult.count
 
         // Make the argument encoders
-        let icbArgumentEncoder = function.makeArgumentEncoder(.commandBufferContainer)
+        let icbArgumentEncoder = computeFunction.makeArgumentEncoder(.commandBufferContainer)
         guard let argumentEncoder = device.makeBuffer(length: icbArgumentEncoder.encodedLength),
               let argumentEncoderAlphaMask = device.makeBuffer(length: icbArgumentEncoder.encodedLength),
               let argumentEncoderTransparent = device.makeBuffer(length: icbArgumentEncoder.encodedLength) else { return }
@@ -326,12 +371,13 @@ class RenderPassIndirect: RenderPass {
                     commandBufferDepthOnly: commandBufferDepthOnly,
                     commandBufferDepthOnlyAlphaMask: commandBufferDepthOnlyAlphaMask,
                     executionRange: executionRange,
+                    executionRangeCount: executionRangeCount,
                     argumentEncoder: argumentEncoder,
                     argumentEncoderAlphaMask: argumentEncoderAlphaMask,
                     argumentEncoderTransparent: argumentEncoderTransparent)
     }
 
-    /// Rebuilds the depth textures
+    /// Makes the depth textures.
     private func makeTextures() {
         guard screenSize != .zero else { return }
 
@@ -362,6 +408,7 @@ class RenderPassIndirect: RenderPass {
         depthPyramidTexture?.label = labelTextureDepthPyramid
     }
 
+    /// Makes the rasterization map data.
     private func makeRasterizationMap() {
 
         guard screenSize != .zero else { return }
@@ -384,6 +431,7 @@ class RenderPassIndirect: RenderPass {
     }
 
     /// Builds an offscreen render pass descriptor.
+    /// - Returns: the offscreen render pass descriptor
     private func makeRenderPassDescriptor() -> MTLRenderPassDescriptor? {
 
         let renderPassDescriptor = MTLRenderPassDescriptor()
@@ -395,6 +443,27 @@ class RenderPassIndirect: RenderPass {
         renderPassDescriptor.depthAttachment.storeAction = .store
         renderPassDescriptor.rasterizationRateMap = rasterizationRateMap
         return renderPassDescriptor
+    }
+
+    /// Makes the execution range buffer.
+    /// - Parameter totalCommands: the total amount of commands the indirect command buffer supports.
+    /// - Returns: a new metal buffer cf MTLIndirectCommandBufferExecutionRange
+    private func makeExecutionRange(_ totalCommands: Int) -> (count: Int, buffer: MTLBuffer?) {
+
+        let rangeCount = Int(ceilf(Float(totalCommands)/Float(maxExecutionRange)))
+        var executionRanges: [MTLIndirectCommandBufferExecutionRange] = .init()
+
+        for i in 0..<rangeCount {
+            let offset = i * maxExecutionRange
+            let commandsInRange = totalCommands - offset
+            let length = min(commandsInRange, maxExecutionRange)
+            let range = MTLIndirectCommandBufferExecutionRange(location: UInt32(offset), length: UInt32(length))
+            executionRanges.append(range)
+        }
+
+        let length = MemoryLayout<MTLIndirectCommandBufferExecutionRange>.size * executionRanges.count
+        let buffer = device.makeBuffer(bytes: &executionRanges, length: length, options: [.storageModeShared])
+        return (executionRanges.count, buffer)
     }
 }
 

@@ -118,6 +118,7 @@ public class Geometry: ObservableObject, @unchecked Sendable {
         publish(state: .loading)
 
         let device = MTLContext.device
+        let supportsIndirectCommandBuffers = device.supportsFamily(.apple4)
         let cacheDir = FileManager.default.cacheDirectory
 
         // 1) Build the positions (vertex) buffer
@@ -158,7 +159,11 @@ public class Geometry: ObservableObject, @unchecked Sendable {
 
         // 10 Start indexing the file
         publish(state: .indexing)
-        await bvh = BVH(self)
+
+        // Don't bother building the bvh tree if indirect command buffers are supported
+        if !supportsIndirectCommandBuffers {
+            await bvh = BVH(self)
+        }
         incrementProgressCount()
 
         publish(state: .ready)
@@ -540,9 +545,7 @@ public class Geometry: ObservableObject, @unchecked Sendable {
     /// Provides the offset into instanced meshes where the transparent instanced meshes begin.
     /// This vale can be used as the buffer offset by multiplying with `MemoryLayout<InstancedMesh>.size`.
     public lazy var transparentInstancedMeshesOffset: Int = {
-        instancedMeshes.firstIndex { instancedMesh in
-            instancedMesh.transparent == true
-        } ?? .zero
+        instancedMeshes.firstIndex { $0.transparent == true } ?? .zero
     }()
 
     // MARK: Materials
@@ -670,9 +673,10 @@ extension Geometry {
         computeEncoder.setBytes(&indicesCount, length: MemoryLayout<Int>.size, index: 5)
 
         // Set the thread group size and dispatch
-        let gridSize = MTLSizeMake(1, 1, 1)
-        let maxThreadsPerGroup = pipelineState.maxTotalThreadsPerThreadgroup
-        let threadgroupSize = MTLSizeMake(maxThreadsPerGroup, 1, 1)
+        let gridSize: MTLSize = .init(width: 1, height: 1, depth: 1)
+        let width = pipelineState.threadExecutionWidth
+        let height = pipelineState.maxTotalThreadsPerThreadgroup / width
+        let threadgroupSize: MTLSize = .init(width: width, height: height, depth: 1)
         computeEncoder.dispatchThreadgroups(gridSize, threadsPerThreadgroup: threadgroupSize)
 
         computeEncoder.endEncoding()
@@ -698,7 +702,7 @@ extension Geometry {
         }
 
         let commandQueue = device.makeCommandQueue()
-        var instanceCount = instances.count
+        var instanceCount = instances.count - 1
 
         guard !Task.isCancelled,
               let library = MTLContext.makeLibrary(),
@@ -719,13 +723,13 @@ extension Geometry {
         computeEncoder.setBuffer(instancesBuffer, offset: 0, index: 2)
         computeEncoder.setBuffer(meshesBuffer, offset: 0, index: 3)
         computeEncoder.setBuffer(submeshesBuffer, offset: 0, index: 4)
-        computeEncoder.setBytes(&instanceCount, length: MemoryLayout<Int>.size, index: 5)
 
         // Set the thread group size and dispatch
-        let gridSize: MTLSize = MTLSizeMake(1, 1, 1)
-        let maxThreadsPerGroup = pipelineState.maxTotalThreadsPerThreadgroup
-        let threadgroupSize = MTLSizeMake(maxThreadsPerGroup, 1, 1)
-        computeEncoder.dispatchThreadgroups(gridSize, threadsPerThreadgroup: threadgroupSize)
+        let gridSize: MTLSize = .init(width: instanceCount, height: 1, depth: 1)
+        let width = pipelineState.threadExecutionWidth
+        let height = pipelineState.maxTotalThreadsPerThreadgroup / width
+        let threadsPerThreadgroup: MTLSize = .init(width: width, height: height, depth: 1)
+        computeEncoder.dispatchThreads(gridSize, threadsPerThreadgroup: threadsPerThreadgroup)
 
         computeEncoder.endEncoding()
         commandBuffer.commit()

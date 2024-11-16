@@ -188,7 +188,7 @@ static void encodeAndDraw(thread render_command &cmd,
 //   - icbContainer: The pointer to the indirect command buffer container.
 //   - rasterRateMapData: The raster data map.
 //   - depthPyramidTexture: The depth texture.
-kernel void encodeIndirectCommands(uint2 threadPosition [[thread_position_in_grid]],
+kernel void encodeIndirectRenderCommands(uint2 threadPosition [[thread_position_in_grid]],
                                    uint2 gridSize [[threads_per_grid]],
                                    constant float *positions [[buffer(KernelBufferIndexPositions)]],
                                    constant float *normals [[buffer(KernelBufferIndexNormals)]],
