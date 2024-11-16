@@ -215,17 +215,8 @@ class RenderPassIndirect: RenderPass {
     ///   - descriptor: the draw descriptor to use
     ///   - renderEncoder: the render encoder to use
     private func drawIndirect(descriptor: DrawDescriptor, renderEncoder: MTLRenderCommandEncoder) {
-        guard let geometry, let icb else { return }
-
-        //let gridSize = geometry.gridSize
-        // Build the range of commands to execute
-        //let range = 0..<1024 * 16
-        let range = 0..<geometry.gridSize.width * geometry.gridSize.height
-        renderEncoder.executeCommandsInBuffer(icb.commandBuffer, range: range)
-
-        // Execute the commands in range
-//        let offset = 0
-//        renderEncoder.executeCommandsInBuffer(icb.commandBuffer, indirectBuffer: icb.executionRange, offset: offset)
+        guard let icb else { return }
+        renderEncoder.executeCommandsInBuffer(icb.commandBuffer, indirectBuffer: icb.executionRange, offset: 0)
     }
 
     private func drawCulling(descriptor: DrawDescriptor, renderEncoder: MTLRenderCommandEncoder) {

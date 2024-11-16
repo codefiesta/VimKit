@@ -673,9 +673,9 @@ extension Geometry {
         computeEncoder.setBytes(&indicesCount, length: MemoryLayout<Int>.size, index: 5)
 
         // Set the thread group size and dispatch
-        let gridSize = MTLSizeMake(1, 1, 1)
-        let maxThreadsPerGroup = pipelineState.maxTotalThreadsPerThreadgroup
-        let threadgroupSize = MTLSizeMake(maxThreadsPerGroup, 1, 1)
+        let gridSize: MTLSize = .init(width: 1, height: 1, depth: 1)
+        let threadsPerGroup = pipelineState.maxTotalThreadsPerThreadgroup
+        let threadgroupSize: MTLSize = .init(width: threadsPerGroup, height: 1, depth: 1)
         computeEncoder.dispatchThreadgroups(gridSize, threadsPerThreadgroup: threadgroupSize)
 
         computeEncoder.endEncoding()
@@ -725,9 +725,9 @@ extension Geometry {
         computeEncoder.setBytes(&instanceCount, length: MemoryLayout<Int>.size, index: 5)
 
         // Set the thread group size and dispatch
-        let gridSize: MTLSize = MTLSizeMake(1, 1, 1)
-        let maxThreadsPerGroup = pipelineState.maxTotalThreadsPerThreadgroup
-        let threadgroupSize = MTLSizeMake(maxThreadsPerGroup, 1, 1)
+        let gridSize: MTLSize = .init(width: 1, height: 1, depth: 1)
+        let threadsPerGroup = pipelineState.maxTotalThreadsPerThreadgroup
+        let threadgroupSize: MTLSize = .init(width: threadsPerGroup, height: 1, depth: 1)
         computeEncoder.dispatchThreadgroups(gridSize, threadsPerThreadgroup: threadgroupSize)
 
         computeEncoder.endEncoding()
