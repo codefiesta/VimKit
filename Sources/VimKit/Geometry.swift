@@ -702,7 +702,7 @@ extension Geometry {
         }
 
         let commandQueue = device.makeCommandQueue()
-        var instanceCount = instances.count
+        var instanceCount = instances.count - 1
 
         guard !Task.isCancelled,
               let library = MTLContext.makeLibrary(),
@@ -723,10 +723,9 @@ extension Geometry {
         computeEncoder.setBuffer(instancesBuffer, offset: 0, index: 2)
         computeEncoder.setBuffer(meshesBuffer, offset: 0, index: 3)
         computeEncoder.setBuffer(submeshesBuffer, offset: 0, index: 4)
-        computeEncoder.setBytes(&instanceCount, length: MemoryLayout<Int>.size, index: 5)
 
         // Set the thread group size and dispatch
-        let gridSize: MTLSize = .init(width: 1, height: 1, depth: 1)
+        let gridSize: MTLSize = .init(width: instanceCount, height: 1, depth: 1)
         let width = pipelineState.threadExecutionWidth
         let height = pipelineState.maxTotalThreadsPerThreadgroup / width
         let threadgroupSize: MTLSize = .init(width: width, height: height, depth: 1)
