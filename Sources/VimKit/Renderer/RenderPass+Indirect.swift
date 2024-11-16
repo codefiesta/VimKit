@@ -44,6 +44,8 @@ class RenderPassIndirect: RenderPass {
         var commandBufferDepthOnlyAlphaMask: MTLIndirectCommandBuffer
         /// A metal buffer storing the icb execution range
         var executionRange: MTLBuffer
+        /// The number of execution ranges.
+        var executionRangeCount: Int
         /// The icb encodeer arguments buffers consisting of MTLArgumentEncoders
         var argumentEncoder: MTLBuffer
         var argumentEncoderAlphaMask: MTLBuffer
@@ -122,8 +124,8 @@ class RenderPassIndirect: RenderPass {
         guard let renderPassDescriptor = makeRenderPassDescriptor(),
               let renderEncoder = descriptor.commandBuffer.makeRenderCommandEncoder(descriptor: renderPassDescriptor) else { return }
 
-        // Draw the geometry occluder
-        drawCulling(descriptor: descriptor, renderEncoder: renderEncoder)
+        // Draw the geometry occluder offscreen
+        drawDepthOffscreen(descriptor: descriptor, renderEncoder: renderEncoder)
 
         // End encoding
         renderEncoder.endEncoding()
@@ -233,11 +235,16 @@ class RenderPassIndirect: RenderPass {
     ///   - renderEncoder: the render encoder to use
     private func drawIndirect(descriptor: DrawDescriptor, renderEncoder: MTLRenderCommandEncoder) {
         guard let icb else { return }
+
         let offset = MemoryLayout<MTLIndirectCommandBufferExecutionRange>.size * 0
         renderEncoder.executeCommandsInBuffer(icb.commandBuffer, indirectBuffer: icb.executionRange, offset: offset)
     }
 
-    private func drawCulling(descriptor: DrawDescriptor, renderEncoder: MTLRenderCommandEncoder) {
+    /// Draws the depth pyramid offscreen.
+    /// - Parameters:
+    ///   - descriptor: the draw descriptor to use
+    ///   - renderEncoder: the render encoder to use
+    private func drawDepthOffscreen(descriptor: DrawDescriptor, renderEncoder: MTLRenderCommandEncoder) {
 
         guard let geometry,
               let icb,
@@ -321,11 +328,11 @@ class RenderPassIndirect: RenderPass {
         descriptor.maxFragmentBufferBindCount = maxBufferBindCount
 
         // Make the indirect command buffers and label them
-        guard let commandBuffer = device.makeIndirectCommandBuffer(descriptor: descriptor, maxCommandCount: maxCommandCount),
-              let commandBufferAlphaMask = device.makeIndirectCommandBuffer(descriptor: descriptor, maxCommandCount: maxCommandCount),
-              let commandBufferTransparent = device.makeIndirectCommandBuffer(descriptor: descriptor, maxCommandCount: maxCommandCount),
-              let commandBufferDepthOnly = device.makeIndirectCommandBuffer(descriptor: descriptor, maxCommandCount: maxCommandCount),
-              let commandBufferDepthOnlyAlphaMask = device.makeIndirectCommandBuffer(descriptor: descriptor, maxCommandCount: maxCommandCount) else { return }
+        guard let commandBuffer = device.makeIndirectCommandBuffer(descriptor: descriptor, maxCommandCount: totalCommands),
+              let commandBufferAlphaMask = device.makeIndirectCommandBuffer(descriptor: descriptor, maxCommandCount: totalCommands),
+              let commandBufferTransparent = device.makeIndirectCommandBuffer(descriptor: descriptor, maxCommandCount: totalCommands),
+              let commandBufferDepthOnly = device.makeIndirectCommandBuffer(descriptor: descriptor, maxCommandCount: totalCommands),
+              let commandBufferDepthOnlyAlphaMask = device.makeIndirectCommandBuffer(descriptor: descriptor, maxCommandCount: totalCommands) else { return }
 
         commandBuffer.label = labelICB
         commandBufferAlphaMask.label = labelICBAlphaMask
@@ -334,7 +341,9 @@ class RenderPassIndirect: RenderPass {
         commandBufferDepthOnlyAlphaMask.label = labelICBDepthOnlyAlphaMask
 
         // Make the execution range buffer
-        guard let executionRange = makeExecutionRange(totalCommands) else { return }
+        let executionRangeResult = makeExecutionRange(totalCommands)
+        guard let executionRange = executionRangeResult.buffer else { return }
+        let executionRangeCount = executionRangeResult.count
 
         // Make the argument encoders
         let icbArgumentEncoder = computeFunction.makeArgumentEncoder(.commandBufferContainer)
@@ -361,12 +370,13 @@ class RenderPassIndirect: RenderPass {
                     commandBufferDepthOnly: commandBufferDepthOnly,
                     commandBufferDepthOnlyAlphaMask: commandBufferDepthOnlyAlphaMask,
                     executionRange: executionRange,
+                    executionRangeCount: executionRangeCount,
                     argumentEncoder: argumentEncoder,
                     argumentEncoderAlphaMask: argumentEncoderAlphaMask,
                     argumentEncoderTransparent: argumentEncoderTransparent)
     }
 
-    /// Rebuilds the depth textures
+    /// Makes the depth textures.
     private func makeTextures() {
         guard screenSize != .zero else { return }
 
@@ -420,6 +430,7 @@ class RenderPassIndirect: RenderPass {
     }
 
     /// Builds an offscreen render pass descriptor.
+    /// - Returns: the offscreen render pass descriptor
     private func makeRenderPassDescriptor() -> MTLRenderPassDescriptor? {
 
         let renderPassDescriptor = MTLRenderPassDescriptor()
@@ -436,7 +447,7 @@ class RenderPassIndirect: RenderPass {
     /// Makes the execution range buffer.
     /// - Parameter totalCommands: the total amount of commands the indirect command buffer supports.
     /// - Returns: a new metal buffer cf MTLIndirectCommandBufferExecutionRange
-    private func makeExecutionRange(_ totalCommands: Int) -> MTLBuffer? {
+    private func makeExecutionRange(_ totalCommands: Int) -> (count: Int, buffer: MTLBuffer?) {
 
         let rangeCount = Int(ceilf(Float(totalCommands)/Float(maxExecutionRange)))
         var ranges: [Range<Int>] = .init()
@@ -454,7 +465,8 @@ class RenderPassIndirect: RenderPass {
         }
 
         let length = MemoryLayout<MTLIndirectCommandBufferExecutionRange>.size * executionRanges.count
-        return device.makeBuffer(bytes: &executionRanges, length: length, options: [.storageModeShared])
+        let buffer = device.makeBuffer(bytes: &executionRanges, length: length, options: [.storageModeShared])
+        return (ranges.count, buffer)
     }
 }
 
