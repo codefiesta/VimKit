@@ -58,19 +58,23 @@ static bool isInsideViewFrustum(const Camera camera,
 
 // Checks if the instance passes the depth test.
 // - Parameters:
-//   - camera: The per frame camera data.
+//   - camera: The per frame data.
 //   - instance: The instance to check.
 //   - textureSize: The texture size.
 //   - depthSampler: The depth sampler.
+//   - rasterRateMapData: The rasterization rate map data.
 //   - depthPyramidTexture: The depth pyramid texture.
 // - Returns: true if the instance passes the depth test
 __attribute__((always_inline))
-static bool depthTest(const Camera camera,
+static bool depthTest(const Frame frame,
                       const Instance instance,
                       const uint2 textureSize,
                       const sampler depthSampler,
+                      constant rasterization_rate_map_data *rasterRateMapData,
                       texture2d<float> depthPyramidTexture) {
     
+    const Camera camera = frame.cameras[0];
+
     float3 minBounds = instance.minBounds;
     float3 maxBounds = instance.maxBounds;
     float3 extents = maxBounds - minBounds;
@@ -132,7 +136,7 @@ static bool depthTest(const Camera camera,
 
 // Checks if the instanced mesh is visible inside the view frustum and passes the depth test.
 // - Parameters:
-//   - frames: The frames buffer.
+//   - frame: The per frame data.
 //   - instancedMesh: The instanced mesh to check.
 //   - instances: The instances pointer.
 //   - meshes: The meshes pointer.
@@ -141,7 +145,7 @@ static bool depthTest(const Camera camera,
 //   - depthPyramidTexture: The depth pyramid texture.
 // - Returns: true if the instanced mesh is inside the view frustum and passes the depth test
 __attribute__((always_inline))
-static bool isVisible(constant Frame *frames,
+static bool isVisible(const Frame frame,
                       const InstancedMesh instancedMesh,
                       constant Instance *instances,
                       constant Mesh *meshes,
@@ -149,7 +153,6 @@ static bool isVisible(constant Frame *frames,
                       constant rasterization_rate_map_data *rasterRateMapData,
                       texture2d<float> depthPyramidTexture) {
     
-    const Frame frame = frames[0];
     const Camera camera = frame.cameras[0]; // TODO: Stereoscopic views??
 
     // Get the texture size and sampler
@@ -168,7 +171,7 @@ static bool isVisible(constant Frame *frames,
         // Check if inside the view frustum
         if (isInsideViewFrustum(camera, instance)) {
             // Check if the instance passes the depth test
-            //if (depthTest(camera, instance, textureSize, depthSampler, depthPyramidTexture)) {
+            //if (depthTest(frame, instance, textureSize, depthSampler, rasterRateMapData, depthPyramidTexture)) {
                 return true;
             //}
         }
@@ -267,9 +270,10 @@ kernel void encodeIndirectRenderCommands(uint2 threadPosition [[thread_position_
     const uint index = y + (x * height);
 
     const InstancedMesh instancedMesh = instancedMeshes[y];
+    const Frame frame = frames[0];
 
     // Perform depth testing to check if the instanced mesh should be occluded or not
-    bool visible = isVisible(frames,
+    bool visible = isVisible(frame,
                              instancedMesh,
                              instances,
                              meshes,

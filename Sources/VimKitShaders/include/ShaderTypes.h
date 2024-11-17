@@ -64,6 +64,8 @@ typedef struct {
     Camera cameras[2];
     // The screen viewport size
     simd_float2 viewportSize;
+    // The physical resolution size used for adjusting between screen and physical space
+    simd_float2 physicalSize;
     // Flag indicating if this frame is being rendered in xray mode.
     bool xRay;
 } Frame;

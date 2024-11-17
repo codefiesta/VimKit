@@ -21,8 +21,6 @@ private let labelICBDepthOnlyAlphaMask = "IndirectCommandBufferDepthOnlyAlphaMas
 private let labelPipeline = "IndirectRendererPipeline"
 private let labelPipelineNoDepth = "IndirectRendererPipelineNoDepth"
 private let labelRenderEncoder = "RenderEncoderIndirect"
-private let labelRasterizationRateMap = "RenderRasterizationMap"
-private let labelRasterizationRateMapData = "RenderRasterizationMapData"
 private let labelDepthPyramidGeneration = "DepthPyramidGeneration"
 private let labelTextureDepth = "DepthTexture"
 private let labelTextureDepthPyramid = "DepthPyramidTexture"
@@ -55,16 +53,11 @@ class RenderPassIndirect: RenderPass {
     /// The context that provides all of the data we need
     let context: RendererContext
 
-    /// The viewport size
-    private var screenSize: MTLSize = .zero
-
     /// The indirect command structure holding the .
     var icb: ICB?
 
     /// Depth testing
     private var depthPyramid: DepthPyramid?
-    private var rasterizationRateMap: MTLRasterizationRateMap?
-    private var rasterizationRateMapData: MTLBuffer?
     private var depthTexture: MTLTexture?
     private var depthPyramidTexture: MTLTexture?
 
@@ -94,7 +87,6 @@ class RenderPassIndirect: RenderPass {
         self.depthPyramid = DepthPyramid(device, library)
         makeComputePipelineState(library)
         makeIndirectCommandBuffers()
-        makeRasterizationMap()
 
         context.vim.geometry?.$state.sink { [weak self] state in
             guard let self, let geometry else { return }
@@ -130,7 +122,7 @@ class RenderPassIndirect: RenderPass {
         computeEncoder.endEncoding()
 
         // Make the offscreen render pass descriptor
-        guard let renderPassDescriptor = makeRenderPassDescriptor(),
+        guard let renderPassDescriptor = makeRenderPassDescriptor(descriptor: descriptor),
               let renderEncoder = descriptor.commandBuffer.makeRenderCommandEncoder(descriptor: renderPassDescriptor) else { return }
 
         // Draw the geometry occluder offscreen
@@ -219,7 +211,7 @@ class RenderPassIndirect: RenderPass {
         renderEncoder.setCullMode(options.cullMode)
         renderEncoder.setDepthStencilState(depthStencilState)
         renderEncoder.setTriangleFillMode(fillMode)
-        renderEncoder.setFragmentBuffer(rasterizationRateMapData, offset: 0, index: .rasterizationRateMapData)
+        renderEncoder.setFragmentBuffer(descriptor.rasterizationRateMapData, offset: 0, index: .rasterizationRateMapData)
     }
 
     /// Resets the commands in the indirect command buffer.
@@ -286,11 +278,11 @@ class RenderPassIndirect: RenderPass {
     }
 
     /// Default resize function
-    /// - Parameter viewportSize: the new viewport size
-    func resize(viewportSize: SIMD2<Float>) {
-        screenSize = MTLSize(width: Int(viewportSize.x), height: Int(viewportSize.y), depth: .zero)
-        makeTextures()
-        makeRasterizationMap()
+    /// - Parameters:
+    ///   - viewportSize: the viewport size
+    ///   - physicalSize: the physical size
+    func resize(viewportSize: SIMD2<Float>, physicalSize: SIMD2<Float>) {
+        makeTextures(physicalSize)
     }
 
     /// Makes a depth only pipeline state
@@ -390,11 +382,11 @@ class RenderPassIndirect: RenderPass {
     }
 
     /// Makes the depth textures.
-    private func makeTextures() {
-        guard screenSize != .zero else { return }
+    private func makeTextures(_ physicalSize: SIMD2<Float>) {
+        guard physicalSize != .zero else { return }
 
-        let width = Int(screenSize.width)
-        let height = Int(screenSize.height)
+        let width = Int(physicalSize.x)
+        let height = Int(physicalSize.y)
 
         // Depth Texture
         let depthTextureDescriptor = MTLTextureDescriptor.texture2DDescriptor(
@@ -420,31 +412,9 @@ class RenderPassIndirect: RenderPass {
         depthPyramidTexture?.label = labelTextureDepthPyramid
     }
 
-    /// Makes the rasterization map data.
-    private func makeRasterizationMap() {
-
-        guard screenSize != .zero else { return }
-        let quality: [Float] = [0.3, 0.6, 1.0, 0.6, 0.3]
-        let sampleCount: MTLSize = .init(width: 5, height: 5, depth: 0)
-        let layerDescriptor: MTLRasterizationRateLayerDescriptor = .init(horizontal: quality, vertical: quality)
-        layerDescriptor.sampleCount = sampleCount
-
-        let rasterizationRateMapDescriptor: MTLRasterizationRateMapDescriptor = .init(screenSize: screenSize, layer: layerDescriptor, label: labelRasterizationRateMap)
-
-        guard let rasterizationRateMap = device.makeRasterizationRateMap(descriptor: rasterizationRateMapDescriptor) else { return }
-
-        self.rasterizationRateMap = rasterizationRateMap
-        let bufferLength = rasterizationRateMap.parameterDataSizeAndAlign.size
-        guard let rasterizationRateMapData = device.makeBuffer(length: bufferLength, options: []) else { return }
-        rasterizationRateMapData.label = labelRasterizationRateMapData
-
-        self.rasterizationRateMapData = rasterizationRateMapData
-        rasterizationRateMap.copyParameterData(buffer: rasterizationRateMapData, offset: 0)
-    }
-
     /// Builds an offscreen render pass descriptor.
     /// - Returns: the offscreen render pass descriptor
-    private func makeRenderPassDescriptor() -> MTLRenderPassDescriptor? {
+    private func makeRenderPassDescriptor(descriptor: DrawDescriptor) -> MTLRenderPassDescriptor? {
 
         let renderPassDescriptor = MTLRenderPassDescriptor()
 
@@ -453,7 +423,7 @@ class RenderPassIndirect: RenderPass {
         renderPassDescriptor.depthAttachment.clearDepth = 1.0
         renderPassDescriptor.depthAttachment.loadAction = .clear
         renderPassDescriptor.depthAttachment.storeAction = .store
-        renderPassDescriptor.rasterizationRateMap = rasterizationRateMap
+        renderPassDescriptor.rasterizationRateMap = descriptor.rasterizationRateMap
         return renderPassDescriptor
     }
 

@@ -85,6 +85,10 @@ open class Renderer: NSObject {
     open var framesBufferOffset: Int = 0
     open var framesBufferAddress: UnsafeMutablePointer<Frame>!
 
+    // Rasterization
+    open var rasterizationRateMap: MTLRasterizationRateMap?
+    open var rasterizationRateMapData: MTLBuffer?
+
     /// Combine Subscribers which drive rendering events
     open var subscribers = Set<AnyCancellable>()
 
@@ -99,6 +103,9 @@ open class Renderer: NSObject {
             }
         }
     }
+
+    /// The physical resolution size used for adjusting between screen and physical space.
+    open var physicalSize: SIMD2<Float> = .zero
 
     /// Provides the clock used for latency stats.
     private var clock: Clock = .init()
@@ -158,6 +165,7 @@ extension Renderer {
         // Frame Camera Data
         framesBufferAddress[0].cameras.0 = camera(0)
         framesBufferAddress[0].viewportSize = viewportSize
+        framesBufferAddress[0].physicalSize = physicalSize
         framesBufferAddress[0].xRay = xRayMode
     }
 

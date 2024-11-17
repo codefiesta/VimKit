@@ -9,6 +9,8 @@ import MetalKit
 import VimKitShaders
 
 private let labelInstancePickingTexture = "InstancePickingTexture"
+private let labelRasterizationRateMap = "RenderRasterizationMap"
+private let labelRasterizationRateMapData = "RenderRasterizationMapData"
 
 extension Renderer {
 
@@ -39,16 +41,19 @@ extension Renderer {
         camera.viewportSize = viewportSize
 
         // Rebuild the textures.
-        buildTextures()
+        makeTextures()
+
+        // Make the rasterizarion map data
+        makeRasterizationMap()
 
         // Inform the render passes that the view has been resized
         for (i, _) in renderPasses.enumerated() {
-            renderPasses[i].resize(viewportSize: viewportSize)
+            renderPasses[i].resize(viewportSize: viewportSize, physicalSize: physicalSize)
         }
     }
 
-    /// Builds the textures when the viewport size changes.
-    func buildTextures() {
+    /// Makes the textures when the viewport size changes.
+    func makeTextures() {
 
         guard viewportSize != .zero else { return }
 
@@ -61,5 +66,31 @@ extension Renderer {
 
         instancePickingTexture = device.makeTexture(descriptor: instancePickingTextureDescriptor)
         instancePickingTexture?.label = labelInstancePickingTexture
+    }
+
+    /// Makes the rasterization map data.
+    private func makeRasterizationMap() {
+
+        guard viewportSize != .zero else { return }
+        let screenSize: MTLSize = .init(width: Int(viewportSize.x), height: Int(viewportSize.y), depth: .zero)
+        let quality: [Float] = [0.3, 0.6, 1.0, 0.6, 0.3]
+        let sampleCount: MTLSize = .init(width: 5, height: 5, depth: 0)
+        let layerDescriptor: MTLRasterizationRateLayerDescriptor = .init(horizontal: quality, vertical: quality)
+        layerDescriptor.sampleCount = sampleCount
+
+        let rasterizationRateMapDescriptor: MTLRasterizationRateMapDescriptor = .init(screenSize: screenSize, layer: layerDescriptor, label: labelRasterizationRateMap)
+
+        guard let rasterizationRateMap = device.makeRasterizationRateMap(descriptor: rasterizationRateMapDescriptor) else { return }
+
+        self.rasterizationRateMap = rasterizationRateMap
+        let bufferLength = rasterizationRateMap.parameterDataSizeAndAlign.size
+        guard let rasterizationRateMapData = device.makeBuffer(length: bufferLength, options: []) else { return }
+        rasterizationRateMapData.label = labelRasterizationRateMapData
+
+        self.rasterizationRateMapData = rasterizationRateMapData
+        rasterizationRateMap.copyParameterData(buffer: rasterizationRateMapData, offset: 0)
+
+        let physicalSize = rasterizationRateMap.physicalSize(layer: 0)
+        self.physicalSize = .init(Float(physicalSize.width), Float(physicalSize.height))
     }
 }
