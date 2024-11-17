@@ -16,7 +16,7 @@ using namespace metal;
 // - Returns: true if the instance is inside the view frustum, otherwise false
 __attribute__((always_inline))
 static bool isInsideViewFrustum(constant Frame *frames,
-                                constant Instance &instance) {
+                                const Instance instance) {
     
     
     if (instance.state == InstanceStateHidden) { return false; }
@@ -62,7 +62,7 @@ static bool isInsideViewFrustum(constant Frame *frames,
 // Checks if the instanced mesh is visible inside the view frustum and passes the depth test.
 // - Parameters:
 //   - frames: The frames buffer.
-//   - instancedMesh: The instanced mesh to chek.
+//   - instancedMesh: The instanced mesh to check.
 //   - instances: The instances pointer.
 //   - meshes: The meshes pointer.
 //   - submeshes: The submeshes pointer.
@@ -71,7 +71,7 @@ static bool isInsideViewFrustum(constant Frame *frames,
 // - Returns: true if the instanced mesh is inside the view frustum and passes the depth test
 __attribute__((always_inline))
 static bool isVisible(constant Frame *frames,
-                      constant InstancedMesh &instancedMesh,
+                      const InstancedMesh instancedMesh,
                       constant Instance *instances,
                       constant Mesh *meshes,
                       constant Submesh *submeshes,
@@ -80,47 +80,55 @@ static bool isVisible(constant Frame *frames,
     
     // Depth buffer culling.
     const uint2 textureSize = uint2(depthPyramidTexture.get_width(), depthPyramidTexture.get_height());
+    constexpr sampler depthSampler(filter::nearest, mip_filter::nearest, address::clamp_to_edge);
 
     const int lowerBound = (int) instancedMesh.baseInstance;
     const int upperBound = lowerBound + (int) instancedMesh.instanceCount;
-    constexpr sampler depthSampler(filter::nearest, mip_filter::nearest, address::clamp_to_edge);
 
-    // If any of the instances appear, simply draw the entire instanced mesh
     for (int i = lowerBound; i < upperBound; i++) {
         
-        if (!isInsideViewFrustum(frames, instances[i])) { continue; }
-        
         const Instance instance = instances[i];
-        const float2 extents = float2(textureSize) * (instance.maxBounds.xy - instance.minBounds.xy);
-        const uint lod = ceil(log2(max(extents.x, extents.y)));
-        
-        const uint2 lodSizeInLod0Pixels = textureSize & (0xFFFFFFFF << lod);
-        const float2 lodScale = float2(textureSize) / float2(lodSizeInLod0Pixels);
-        const float2 sampleLocationMin = instance.minBounds.xy * lodScale;
-        const float2 sampleLocationMax = instance.maxBounds.xy * lodScale;
 
-        const float d0 = depthPyramidTexture.sample(depthSampler,
-                                                    float2(sampleLocationMin.x, sampleLocationMin.y),
-                                                    level(lod)).x;
+        // 1) Check if inside the view frustum
+        if (isInsideViewFrustum(frames, instance)) {
 
-        const float d1 = depthPyramidTexture.sample(depthSampler,
-                                                    float2(sampleLocationMin.x, sampleLocationMax.y),
-                                                    level(lod)).x;
-        
-        const float d2 = depthPyramidTexture.sample(depthSampler,
-                                                    float2(sampleLocationMax.x, sampleLocationMin.y),
-                                                    level(lod)).x;
+            // 2) Check the depth buffer
+            const float compareValue = instance.minBounds.z;
 
-        const float d3 = depthPyramidTexture.sample(depthSampler,
-                                                    float2(sampleLocationMax.x, sampleLocationMax.y),
-                                                    level(lod)).x;
+            const float2 extents = float2(textureSize) * (instance.maxBounds.xy - instance.minBounds.xy);
+            const uint lod = ceil(log2(max(extents.x, extents.y)));
+            
+            const uint2 lodSizeInPixels = textureSize & (0xFFFFFFFF << lod);
+            const float2 lodScale = float2(textureSize) / float2(lodSizeInPixels);
 
-        const float compareValue = instance.minBounds.z;
-        float maxDepth = max(max(d0, d1), max(d2, d3));
-        
-        if (compareValue >= maxDepth) {
-            return true;
+            // Use the min(x,y) and max(x,y) as the sample locations
+            const float2 sampleLocationMin = instance.minBounds.xy * lodScale;
+            const float2 sampleLocationMax = instance.maxBounds.xy * lodScale;
+
+            const float d0 = depthPyramidTexture.sample(depthSampler,
+                                                        float2(sampleLocationMin.x, sampleLocationMin.y),
+                                                        level(lod)).x;
+
+            const float d1 = depthPyramidTexture.sample(depthSampler,
+                                                        float2(sampleLocationMin.x, sampleLocationMax.y),
+                                                        level(lod)).x;
+            
+            const float d2 = depthPyramidTexture.sample(depthSampler,
+                                                        float2(sampleLocationMax.x, sampleLocationMin.y),
+                                                        level(lod)).x;
+
+            const float d3 = depthPyramidTexture.sample(depthSampler,
+                                                        float2(sampleLocationMax.x, sampleLocationMax.y),
+                                                        level(lod)).x;
+
+            float maxDepth = max(max(d0, d1), max(d2, d3));
+            
+            if (compareValue >= maxDepth) {
+                return true;
+            }
+
         }
+
     }
     
     return false;
@@ -215,22 +223,22 @@ kernel void encodeIndirectRenderCommands(uint2 threadPosition [[thread_position_
     // get the the render command at this unique index as only one draw call can be issued per thread.
     const uint index = y + (x * height);
 
+    const InstancedMesh instancedMesh = instancedMeshes[y];
+
     // Perform depth testing to check if the instanced mesh should be occluded or not
-    bool visible = true;
-//    bool visible = isVisible(frames,
-//                             instancedMeshes[y],
-//                             instances,
-//                             meshes,
-//                             submeshes,
-//                             rasterRateMapData,
-//                             depthPyramidTexture);
+    bool visible = isVisible(frames,
+                             instancedMesh,
+                             instances,
+                             meshes,
+                             submeshes,
+                             rasterRateMapData,
+                             depthPyramidTexture);
     
     // If this instanced mesh isn't visible don't issue any draw commands and simply exit
     if (!visible) {
         return;
     }
 
-    const InstancedMesh instancedMesh = instancedMeshes[y];
     const uint instanceCount = instancedMesh.instanceCount;
     const uint baseInstance = instancedMesh.baseInstance;
     const Mesh mesh = meshes[instancedMesh.mesh];
