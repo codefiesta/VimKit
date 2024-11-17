@@ -18,6 +18,10 @@ public struct DrawDescriptor {
     let framesBuffer: MTLBuffer?
     /// The uniforms buffer offset
     let framesBufferOffset: Int
+    /// The rasterization rate map.
+    let rasterizationRateMap: MTLRasterizationRateMap?
+    /// A metal buffer providing MTLRasterizationRateMapData
+    let rasterizationRateMapData: MTLBuffer?
     /// The current  visibility write buffer which samples passing the depth and stencil tests are counted.
     let visibilityResultBuffer: MTLBuffer?
     /// Provides a subset of instanced mesh indexes that have returned true from the occlusion query.
@@ -62,8 +66,10 @@ public protocol RenderPass {
     func didDraw(descriptor: DrawDescriptor)
 
     /// Performs resize operations (resizing textures).
-    /// - Parameter viewportSize: the new viewport size.
-    mutating func resize(viewportSize: SIMD2<Float>)
+    /// - Parameters:
+    ///   - viewportSize: the viewport size
+    ///   - physicalSize: the physical size
+    mutating func resize(viewportSize: SIMD2<Float>, physicalSize: SIMD2<Float>)
 
     /// Update the render pass per-frame rendering state (if needed).
     mutating func updateFrameState()
@@ -225,9 +231,12 @@ extension RenderPass {
         return vertexDescriptor
     }
 
+
     /// Default resize function
-    /// - Parameter viewportSize: the new viewport size
-    mutating func resize(viewportSize: SIMD2<Float>) { }
+    /// - Parameters:
+    ///   - viewportSize: the viewport size
+    ///   - physicalSize: the physical size
+    mutating func resize(viewportSize: SIMD2<Float>, physicalSize: SIMD2<Float>) { }
 
     /// Noop update frame state call
     mutating func updateFrameState() { }

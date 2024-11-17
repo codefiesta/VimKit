@@ -21,8 +21,6 @@ private let labelICBDepthOnlyAlphaMask = "IndirectCommandBufferDepthOnlyAlphaMas
 private let labelPipeline = "IndirectRendererPipeline"
 private let labelPipelineNoDepth = "IndirectRendererPipelineNoDepth"
 private let labelRenderEncoder = "RenderEncoderIndirect"
-private let labelRasterizationRateMap = "RenderRasterizationMap"
-private let labelRasterizationRateMapData = "RenderRasterizationMapData"
 private let labelDepthPyramidGeneration = "DepthPyramidGeneration"
 private let labelTextureDepth = "DepthTexture"
 private let labelTextureDepthPyramid = "DepthPyramidTexture"
@@ -50,21 +48,18 @@ class RenderPassIndirect: RenderPass {
         var argumentEncoder: MTLBuffer
         var argumentEncoderAlphaMask: MTLBuffer
         var argumentEncoderTransparent: MTLBuffer
+        /// A metal buffer for keep track of executed commands storing a single byte per command.
+        var executedCommandsBuffer: MTLBuffer?
     }
 
     /// The context that provides all of the data we need
     let context: RendererContext
-
-    /// The viewport size
-    private var screenSize: MTLSize = .zero
 
     /// The indirect command structure holding the .
     var icb: ICB?
 
     /// Depth testing
     private var depthPyramid: DepthPyramid?
-    private var rasterizationRateMap: MTLRasterizationRateMap?
-    private var rasterizationRateMapData: MTLBuffer?
     private var depthTexture: MTLTexture?
     private var depthPyramidTexture: MTLTexture?
 
@@ -94,13 +89,20 @@ class RenderPassIndirect: RenderPass {
         self.depthPyramid = DepthPyramid(device, library)
         makeComputePipelineState(library)
         makeIndirectCommandBuffers()
-        makeRasterizationMap()
 
         context.vim.geometry?.$state.sink { [weak self] state in
             guard let self, let geometry else { return }
             switch state {
             case .ready:
+
                 let gridSize = geometry.gridSize
+
+                // Update the stats
+                context.vim.stats.instanceCount = geometry.instances.count
+                context.vim.stats.meshCount = geometry.meshes.count
+                context.vim.stats.submeshCount = geometry.submeshes.count
+                context.vim.stats.gridSize = gridSize
+
                 let totalCommands = gridSize.width * gridSize.height
                 debugPrint("􀬨 Building indirect command buffers [\(totalCommands)]")
                 makeIndirectCommandBuffers(totalCommands)
@@ -115,13 +117,22 @@ class RenderPassIndirect: RenderPass {
     ///   - descriptor: the draw descriptor
     func willDraw(descriptor: DrawDescriptor) {
 
-        guard let computeEncoder = descriptor.commandBuffer.makeComputeCommandEncoder() else { return }
+        guard let depthPyramid,
+              let depthPyramidTexture,
+              let depthTexture,
+              let computeEncoder = descriptor.commandBuffer.makeComputeCommandEncoder() else { return }
+
+        // Generate the depth pyramid
+        depthPyramid.generate(depthPyramidTexture: depthPyramidTexture, depthTexture: depthTexture, encoder: computeEncoder)
 
         // Encode the buffers onto the comute encoder
         encode(descriptor: descriptor, computeEncoder: computeEncoder)
 
+        // End the compute encoding
+        computeEncoder.endEncoding()
+
         // Make the offscreen render pass descriptor
-        guard let renderPassDescriptor = makeRenderPassDescriptor(),
+        guard let renderPassDescriptor = makeRenderPassDescriptor(descriptor: descriptor),
               let renderEncoder = descriptor.commandBuffer.makeRenderCommandEncoder(descriptor: renderPassDescriptor) else { return }
 
         // Draw the geometry occluder offscreen
@@ -129,6 +140,9 @@ class RenderPassIndirect: RenderPass {
 
         // End encoding
         renderEncoder.endEncoding()
+
+        // Reset
+        reset(descriptor: descriptor);
     }
 
     /// Performs a draw call with the specified command buffer and render pass descriptor.
@@ -153,6 +167,7 @@ class RenderPassIndirect: RenderPass {
               let computePipelineState,
               let icb,
               let framesBuffer = descriptor.framesBuffer,
+              let executedCommandsBuffer = icb.executedCommandsBuffer,
               let positionsBuffer = geometry.positionsBuffer,
               let normalsBuffer = geometry.normalsBuffer,
               let indexBuffer = geometry.indexBuffer,
@@ -176,12 +191,13 @@ class RenderPassIndirect: RenderPass {
         computeEncoder.setBuffer(materialsBuffer, offset: 0, index: .materials)
         computeEncoder.setBuffer(colorsBuffer, offset: 0, index: .colors)
         computeEncoder.setBuffer(icb.argumentEncoder, offset: 0, index: .commandBufferContainer)
-        computeEncoder.setBuffer(icb.executionRange, offset: 0, index: .executionRange)
+        computeEncoder.setBuffer(executedCommandsBuffer, offset: 0, index: .executedCommands)
+        computeEncoder.setBuffer(descriptor.rasterizationRateMapData, offset: 0, index: .rasterizationRateMapData)
         computeEncoder.setTexture(depthPyramidTexture, index: 0)
 
         // 2) Use Resources
         computeEncoder.useResource(icb.commandBuffer, usage: .read)
-        computeEncoder.useResource(icb.executionRange, usage: .write)
+        computeEncoder.useResource(executedCommandsBuffer, usage: .write)
         computeEncoder.useResource(framesBuffer, usage: .read)
         computeEncoder.useResource(materialsBuffer, usage: .read)
         computeEncoder.useResource(instancesBuffer, usage: .read)
@@ -197,9 +213,6 @@ class RenderPassIndirect: RenderPass {
         let height = computePipelineState.maxTotalThreadsPerThreadgroup / width
         let threadgroupSize: MTLSize = .init(width: width, height: height, depth: 1)
         computeEncoder.dispatchThreads(gridSize, threadsPerThreadgroup: threadgroupSize)
-
-        // 4) End Encoding
-        computeEncoder.endEncoding()
     }
 
     /// Encodes the buffer data into the render encoder.
@@ -213,18 +226,31 @@ class RenderPassIndirect: RenderPass {
         renderEncoder.setCullMode(options.cullMode)
         renderEncoder.setDepthStencilState(depthStencilState)
         renderEncoder.setTriangleFillMode(fillMode)
-        renderEncoder.setFragmentBuffer(rasterizationRateMapData, offset: 0, index: .rasterizationRateMapData)
+        renderEncoder.setFragmentBuffer(descriptor.rasterizationRateMapData, offset: 0, index: .rasterizationRateMapData)
+    }
+
+    /// Resets the commands in the indirect command buffer.
+    /// - Parameters:
+    ///   - descriptor: the draw descriptor
+    ///   - renderEncoder: the render encoder
+    private func reset(descriptor: DrawDescriptor) {
+        guard let icb else { return }
+        if let executedCommandsBuffer = icb.executedCommandsBuffer {
+            Task {
+                let range: UnsafeMutableBufferPointer<UInt8> = executedCommandsBuffer.toUnsafeMutableBufferPointer()
+                let count = range.filter{ $0 == 1 }.count
+                context.vim.stats.executedCommands = count
+            }
+        }
     }
 
     /// Optimizes the icb.
     /// - Parameters:
     ///   - descriptor: the draw descriptor
-    ///   - renderEncoder: the render encoder
-    private func optimize(descriptor: DrawDescriptor, renderEncoder: MTLRenderCommandEncoder) {
-
-        guard let icb, let geometry else { return }
-        guard let blitEncoder = descriptor.commandBuffer.makeBlitCommandEncoder() else { return }
-        let range = 0..<geometry.instancedMeshes.count
+    private func optimize(descriptor: DrawDescriptor) {
+        guard let icb, let geometry, let blitEncoder = descriptor.commandBuffer.makeBlitCommandEncoder() else { return }
+        let gridSize = geometry.gridSize
+        let range = 0..<gridSize.width * gridSize.height
         blitEncoder.optimizeIndirectCommandBuffer(icb.commandBuffer, range: range)
         blitEncoder.endEncoding()
     }
@@ -267,18 +293,14 @@ class RenderPassIndirect: RenderPass {
             indexType: .uint32,
             indexBuffer: indexBuffer, indexBufferOffset: 0
         )
-
-        guard let blitEncoder = descriptor.commandBuffer.makeBlitCommandEncoder() else { return }
-        blitEncoder.resetCommandsInBuffer(icb.commandBuffer, range: 0..<geometry.instancedMeshes.count)
-        blitEncoder.endEncoding()
     }
 
     /// Default resize function
-    /// - Parameter viewportSize: the new viewport size
-    func resize(viewportSize: SIMD2<Float>) {
-        screenSize = MTLSize(width: Int(viewportSize.x), height: Int(viewportSize.y), depth: .zero)
-        makeTextures()
-        makeRasterizationMap()
+    /// - Parameters:
+    ///   - viewportSize: the viewport size
+    ///   - physicalSize: the physical size
+    func resize(viewportSize: SIMD2<Float>, physicalSize: SIMD2<Float>) {
+        makeTextures(physicalSize)
     }
 
     /// Makes a depth only pipeline state
@@ -364,6 +386,8 @@ class RenderPassIndirect: RenderPass {
             icbArgumentEncoder.setIndirectCommandBuffer(commandBuffersDepthOnly[i], index: .commandBufferDepthOnly)
         }
 
+        guard let executedCommandsBuffer = device.makeBuffer(length: MemoryLayout<UInt8>.size * totalCommands, options: [.storageModeShared]) else { return }
+
         // Set the struct to hold onto the icb data
         icb = .init(commandBuffer: commandBuffer,
                     commandBufferAlphaMask: commandBufferAlphaMask,
@@ -374,15 +398,17 @@ class RenderPassIndirect: RenderPass {
                     executionRangeCount: executionRangeCount,
                     argumentEncoder: argumentEncoder,
                     argumentEncoderAlphaMask: argumentEncoderAlphaMask,
-                    argumentEncoderTransparent: argumentEncoderTransparent)
+                    argumentEncoderTransparent: argumentEncoderTransparent,
+                    executedCommandsBuffer: executedCommandsBuffer
+        )
     }
 
     /// Makes the depth textures.
-    private func makeTextures() {
-        guard screenSize != .zero else { return }
+    private func makeTextures(_ physicalSize: SIMD2<Float>) {
+        guard physicalSize != .zero else { return }
 
-        let width = Int(screenSize.width)
-        let height = Int(screenSize.height)
+        let width = Int(physicalSize.x)
+        let height = Int(physicalSize.y)
 
         // Depth Texture
         let depthTextureDescriptor = MTLTextureDescriptor.texture2DDescriptor(
@@ -398,7 +424,7 @@ class RenderPassIndirect: RenderPass {
 
         // Depth Pyramid Texture
         let depthPyramidTextureDescriptor = MTLTextureDescriptor.texture2DDescriptor(
-            pixelFormat: .depth32Float,
+            pixelFormat: .r32Float,
             width: width / 2,
             height: height / 2,
             mipmapped: true)
@@ -408,31 +434,9 @@ class RenderPassIndirect: RenderPass {
         depthPyramidTexture?.label = labelTextureDepthPyramid
     }
 
-    /// Makes the rasterization map data.
-    private func makeRasterizationMap() {
-
-        guard screenSize != .zero else { return }
-        let quality: [Float] = [0.3, 0.6, 1.0, 0.6, 0.3]
-        let sampleCount: MTLSize = .init(width: 5, height: 5, depth: 0)
-        let layerDescriptor: MTLRasterizationRateLayerDescriptor = .init(horizontal: quality, vertical: quality)
-        layerDescriptor.sampleCount = sampleCount
-
-        let rasterizationRateMapDescriptor: MTLRasterizationRateMapDescriptor = .init(screenSize: screenSize, layer: layerDescriptor, label: labelRasterizationRateMap)
-
-        guard let rasterizationRateMap = device.makeRasterizationRateMap(descriptor: rasterizationRateMapDescriptor) else { return }
-
-        self.rasterizationRateMap = rasterizationRateMap
-        let bufferLength = rasterizationRateMap.parameterDataSizeAndAlign.size
-        guard let rasterizationRateMapData = device.makeBuffer(length: bufferLength, options: []) else { return }
-        rasterizationRateMapData.label = labelRasterizationRateMapData
-
-        self.rasterizationRateMapData = rasterizationRateMapData
-        rasterizationRateMap.copyParameterData(buffer: rasterizationRateMapData, offset: 0)
-    }
-
     /// Builds an offscreen render pass descriptor.
     /// - Returns: the offscreen render pass descriptor
-    private func makeRenderPassDescriptor() -> MTLRenderPassDescriptor? {
+    private func makeRenderPassDescriptor(descriptor: DrawDescriptor) -> MTLRenderPassDescriptor? {
 
         let renderPassDescriptor = MTLRenderPassDescriptor()
 
@@ -441,7 +445,7 @@ class RenderPassIndirect: RenderPass {
         renderPassDescriptor.depthAttachment.clearDepth = 1.0
         renderPassDescriptor.depthAttachment.loadAction = .clear
         renderPassDescriptor.depthAttachment.storeAction = .store
-        renderPassDescriptor.rasterizationRateMap = rasterizationRateMap
+        renderPassDescriptor.rasterizationRateMap = descriptor.rasterizationRateMap
         return renderPassDescriptor
     }
 
@@ -488,40 +492,44 @@ fileprivate class DepthPyramid {
     ///   - encoder: the encoder to use.
     func generate(depthPyramidTexture: MTLTexture, depthTexture: MTLTexture, encoder: MTLComputeCommandEncoder ) {
         guard let computePipelineState else { return }
+
         encoder.pushDebugGroup(labelDepthPyramidGeneration)
         encoder.setComputePipelineState(computePipelineState)
 
-        var src: MTLTexture? = depthTexture
+        var srcTexture: MTLTexture? = depthTexture
         var startMip = 0
 
         if depthPyramidTexture.label == depthTexture.label {
-            let range = 0..<1
-            src = depthPyramidTexture.makeTextureView(pixelFormat: .r32Float, textureType: .type2D, levels: range, slices: range)
+            let levels = 0..<1
+            let slices = 0..<1
+            srcTexture = depthPyramidTexture.makeTextureView(pixelFormat: .r32Float, textureType: .type2D, levels: levels, slices: slices)
             startMip = 1
         }
 
-        guard let src else { return }
+        guard let srcTexture else { return }
 
         for i in startMip..<depthPyramidTexture.mipmapLevelCount {
 
-            let levels = i..<1
-            let slices = 0..<1
+            let levels: Range<Int> = i..<i+1
+            let slices: Range<Int> = 0..<1
 
-            guard let dest = depthPyramidTexture.makeTextureView(pixelFormat: .r32Float,
+            guard let destinationTexture = depthPyramidTexture.makeTextureView(pixelFormat: .r32Float,
                                                                  textureType: .type2D,
                                                                  levels: levels,
                                                                  slices: slices) else { continue }
-            dest.label = "PyramidMip\(i)"
-            encoder.setTexture(src, index: 0)
-            encoder.setTexture(dest, index: 1)
+            encoder.setTexture(srcTexture, index: 0)
+            encoder.setTexture(destinationTexture, index: 1)
+            encoder.useResource(destinationTexture, usage: .write)
 
-            var sizes: SIMD4<UInt> = [UInt(src.width), UInt(src.height), .zero, .zero]
+            var sizes: SIMD4<UInt> = [UInt(srcTexture.width), UInt(srcTexture.height), .zero, .zero]
             encoder.setBytes(&sizes, length: MemoryLayout<SIMD4<UInt>>.size, index: .depthPyramidSize)
 
             let threadsPerThreadgroup: MTLSize = .init(width: 8, height: 8, depth: 1)
-            let threadsPerGrid: MTLSize = .init(width: dest.width, height: dest.height, depth: 1)
+
+            let gridSize: MTLSize = .init(width: destinationTexture.width, height: destinationTexture.height, depth: 1)
                 .divideRoundUp(threadsPerThreadgroup)
-            encoder.dispatchThreads(threadsPerGrid, threadsPerThreadgroup: threadsPerThreadgroup)
+
+            encoder.dispatchThreads(gridSize, threadsPerThreadgroup: threadsPerThreadgroup)
         }
         encoder.popDebugGroup()
     }
