@@ -59,6 +59,59 @@ static bool isInsideViewFrustum(constant Frame *frames,
     return true;
 }
 
+// Checks if the instance passes the depth test.
+// - Parameters:
+//   - instance: The instance to check.
+//   - textureSize: The texture size.
+//   - depthSampler: The depth sampler.
+//   - depthPyramidTexture: The depth pyramid texture.
+// - Returns: true if the instance passes the depth test
+__attribute__((always_inline))
+static bool depthTest(const Instance instance,
+                      const uint2 textureSize,
+                      const sampler depthSampler,
+                      texture2d<float> depthPyramidTexture) {
+    
+    // Check the depth buffer
+    const float compareValue = instance.minBounds.z;
+
+    const float2 extents = float2(textureSize) * (instance.maxBounds.xy - instance.minBounds.xy);
+    const uint lod = ceil(log2(max(extents.x, extents.y)));
+    
+    const uint2 lodSizeInPixels = textureSize & (0xFFFFFFFF << lod);
+    const float2 lodScale = float2(textureSize) / float2(lodSizeInPixels);
+
+    // Use the min(x,y) and max(x,y) as the sample locations
+    const float2 sampleLocationMin = instance.minBounds.xy * lodScale;
+    const float2 sampleLocationMax = instance.maxBounds.xy * lodScale;
+
+    // Sample the corners
+    const float d0 = depthPyramidTexture.sample(depthSampler,
+                                                float2(sampleLocationMin.x, sampleLocationMin.y),
+                                                level(lod)).x;
+
+    const float d1 = depthPyramidTexture.sample(depthSampler,
+                                                float2(sampleLocationMin.x, sampleLocationMax.y),
+                                                level(lod)).x;
+    
+    const float d2 = depthPyramidTexture.sample(depthSampler,
+                                                float2(sampleLocationMax.x, sampleLocationMin.y),
+                                                level(lod)).x;
+
+    const float d3 = depthPyramidTexture.sample(depthSampler,
+                                                float2(sampleLocationMax.x, sampleLocationMax.y),
+                                                level(lod)).x;
+
+    // Determine the max depth
+    float maxDepth = max(max(d0, d1), max(d2, d3));
+    
+    if (compareValue >= maxDepth) {
+        return true;
+    }
+
+    return false;
+}
+
 // Checks if the instanced mesh is visible inside the view frustum and passes the depth test.
 // - Parameters:
 //   - frames: The frames buffer.
@@ -78,57 +131,26 @@ static bool isVisible(constant Frame *frames,
                       constant rasterization_rate_map_data *rasterRateMapData,
                       texture2d<float> depthPyramidTexture) {
     
-    // Depth buffer culling.
+    // Get the texture size and sampler
     const uint2 textureSize = uint2(depthPyramidTexture.get_width(), depthPyramidTexture.get_height());
     constexpr sampler depthSampler(filter::nearest, mip_filter::nearest, address::clamp_to_edge);
 
     const int lowerBound = (int) instancedMesh.baseInstance;
     const int upperBound = lowerBound + (int) instancedMesh.instanceCount;
 
+    // Loop through the instances and check their visibility
+    // If any instances are visible simply return true and allow the instancing draw call to happen
     for (int i = lowerBound; i < upperBound; i++) {
         
         const Instance instance = instances[i];
 
-        // 1) Check if inside the view frustum
+        // Check if inside the view frustum
         if (isInsideViewFrustum(frames, instance)) {
-
-            // 2) Check the depth buffer
-            const float compareValue = instance.minBounds.z;
-
-            const float2 extents = float2(textureSize) * (instance.maxBounds.xy - instance.minBounds.xy);
-            const uint lod = ceil(log2(max(extents.x, extents.y)));
-            
-            const uint2 lodSizeInPixels = textureSize & (0xFFFFFFFF << lod);
-            const float2 lodScale = float2(textureSize) / float2(lodSizeInPixels);
-
-            // Use the min(x,y) and max(x,y) as the sample locations
-            const float2 sampleLocationMin = instance.minBounds.xy * lodScale;
-            const float2 sampleLocationMax = instance.maxBounds.xy * lodScale;
-
-            const float d0 = depthPyramidTexture.sample(depthSampler,
-                                                        float2(sampleLocationMin.x, sampleLocationMin.y),
-                                                        level(lod)).x;
-
-            const float d1 = depthPyramidTexture.sample(depthSampler,
-                                                        float2(sampleLocationMin.x, sampleLocationMax.y),
-                                                        level(lod)).x;
-            
-            const float d2 = depthPyramidTexture.sample(depthSampler,
-                                                        float2(sampleLocationMax.x, sampleLocationMin.y),
-                                                        level(lod)).x;
-
-            const float d3 = depthPyramidTexture.sample(depthSampler,
-                                                        float2(sampleLocationMax.x, sampleLocationMax.y),
-                                                        level(lod)).x;
-
-            float maxDepth = max(max(d0, d1), max(d2, d3));
-            
-            if (compareValue >= maxDepth) {
+            // Check if the instance passes the depth test
+            if (depthTest(instance, textureSize, depthSampler, depthPyramidTexture)) {
                 return true;
             }
-
         }
-
     }
     
     return false;
