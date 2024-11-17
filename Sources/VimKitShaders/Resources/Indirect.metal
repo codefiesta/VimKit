@@ -11,18 +11,15 @@ using namespace metal;
 
 // Checks if the instance is inside the view frustum.
 // - Parameters:
-//   - frames: The frames buffer.
+//   - camera: The per frame camera data.
 //   - instance: The instance to check if inside the view frustum.
 // - Returns: true if the instance is inside the view frustum, otherwise false
 __attribute__((always_inline))
-static bool isInsideViewFrustum(constant Frame *frames,
+static bool isInsideViewFrustum(const Camera camera,
                                 const Instance instance) {
     
     
     if (instance.state == InstanceStateHidden) { return false; }
-
-    const Frame frame = frames[0];
-    const Camera camera = frame.cameras[0]; // TODO: Stereoscopic views??
 
     const float3 minBounds = instance.minBounds;
     const float3 maxBounds = instance.maxBounds;
@@ -61,29 +58,50 @@ static bool isInsideViewFrustum(constant Frame *frames,
 
 // Checks if the instance passes the depth test.
 // - Parameters:
+//   - camera: The per frame camera data.
 //   - instance: The instance to check.
 //   - textureSize: The texture size.
 //   - depthSampler: The depth sampler.
 //   - depthPyramidTexture: The depth pyramid texture.
 // - Returns: true if the instance passes the depth test
 __attribute__((always_inline))
-static bool depthTest(const Instance instance,
+static bool depthTest(const Camera camera,
+                      const Instance instance,
                       const uint2 textureSize,
                       const sampler depthSampler,
                       texture2d<float> depthPyramidTexture) {
     
+    float3 minBounds = instance.minBounds;
+    float3 maxBounds = instance.maxBounds;
+    float3 extents = maxBounds - minBounds;
+    float3 center = (maxBounds + minBounds) * 0.5;
+    
+    
+    // Position + Scale the bounding box
+    float4x4 modelMatrix = float4x4(float4(extents.x,0,0,0),
+                               float4(0,extents.y,0,0),
+                               float4(0,0,extents.z,0),
+                               float4(center,1));
+    
+    float4x4 viewMatrix = camera.viewMatrix;
+    float4x4 projectionMatrix = camera.projectionMatrix;
+    float4x4 modelViewProjectionMatrix = projectionMatrix * viewMatrix * modelMatrix;
+    
+    minBounds = (modelViewProjectionMatrix * float4(minBounds, 1.0)).xyz;
+    maxBounds = (modelViewProjectionMatrix * float4(maxBounds, 1.0)).xyz;
+    
     // Check the depth buffer
-    const float compareValue = instance.minBounds.z;
+    const float compareValue = minBounds.z;
 
-    const float2 extents = float2(textureSize) * (instance.maxBounds.xy - instance.minBounds.xy);
-    const uint lod = ceil(log2(max(extents.x, extents.y)));
+    const float2 ext = float2(textureSize) * extents.xy;
+    const uint lod = ceil(log2(max(ext.x, ext.y)));
     
     const uint2 lodSizeInPixels = textureSize & (0xFFFFFFFF << lod);
     const float2 lodScale = float2(textureSize) / float2(lodSizeInPixels);
 
     // Use the min(x,y) and max(x,y) as the sample locations
-    const float2 sampleLocationMin = instance.minBounds.xy * lodScale;
-    const float2 sampleLocationMax = instance.maxBounds.xy * lodScale;
+    const float2 sampleLocationMin = minBounds.xy * lodScale;
+    const float2 sampleLocationMax = maxBounds.xy * lodScale;
 
     // Sample the corners
     const float d0 = depthPyramidTexture.sample(depthSampler,
@@ -131,6 +149,9 @@ static bool isVisible(constant Frame *frames,
                       constant rasterization_rate_map_data *rasterRateMapData,
                       texture2d<float> depthPyramidTexture) {
     
+    const Frame frame = frames[0];
+    const Camera camera = frame.cameras[0]; // TODO: Stereoscopic views??
+
     // Get the texture size and sampler
     const uint2 textureSize = uint2(depthPyramidTexture.get_width(), depthPyramidTexture.get_height());
     constexpr sampler depthSampler(filter::nearest, mip_filter::nearest, address::clamp_to_edge);
@@ -145,11 +166,11 @@ static bool isVisible(constant Frame *frames,
         const Instance instance = instances[i];
 
         // Check if inside the view frustum
-        if (isInsideViewFrustum(frames, instance)) {
+        if (isInsideViewFrustum(camera, instance)) {
             // Check if the instance passes the depth test
-            if (depthTest(instance, textureSize, depthSampler, depthPyramidTexture)) {
+            //if (depthTest(camera, instance, textureSize, depthSampler, depthPyramidTexture)) {
                 return true;
-            }
+            //}
         }
     }
     

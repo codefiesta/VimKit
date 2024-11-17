@@ -129,9 +129,6 @@ class RenderPassIndirect: RenderPass {
         // End the compute encoding
         computeEncoder.endEncoding()
 
-        // Optimize
-        optimize(descriptor: descriptor)
-
         // Make the offscreen render pass descriptor
         guard let renderPassDescriptor = makeRenderPassDescriptor(),
               let renderEncoder = descriptor.commandBuffer.makeRenderCommandEncoder(descriptor: renderPassDescriptor) else { return }
@@ -286,8 +283,6 @@ class RenderPassIndirect: RenderPass {
             indexType: .uint32,
             indexBuffer: indexBuffer, indexBufferOffset: 0
         )
-
-        reset(descriptor: descriptor)
     }
 
     /// Default resize function
@@ -505,44 +500,44 @@ fileprivate class DepthPyramid {
     ///   - encoder: the encoder to use.
     func generate(depthPyramidTexture: MTLTexture, depthTexture: MTLTexture, encoder: MTLComputeCommandEncoder ) {
         guard let computePipelineState else { return }
+
         encoder.pushDebugGroup(labelDepthPyramidGeneration)
         encoder.setComputePipelineState(computePipelineState)
 
-        var src: MTLTexture? = depthTexture
+        var srcTexture: MTLTexture? = depthTexture
         var startMip = 0
 
         if depthPyramidTexture.label == depthTexture.label {
             let levels = 0..<1
             let slices = 0..<1
-            src = depthPyramidTexture.makeTextureView(pixelFormat: .r32Float, textureType: .type2D, levels: levels, slices: slices)
+            srcTexture = depthPyramidTexture.makeTextureView(pixelFormat: .r32Float, textureType: .type2D, levels: levels, slices: slices)
             startMip = 1
         }
 
-        guard let src else { return }
+        guard let srcTexture else { return }
 
         for i in startMip..<depthPyramidTexture.mipmapLevelCount {
 
             let levels: Range<Int> = i..<i+1
             let slices: Range<Int> = 0..<1
 
-            guard let dest = depthPyramidTexture.makeTextureView(pixelFormat: .r32Float,
+            guard let destinationTexture = depthPyramidTexture.makeTextureView(pixelFormat: .r32Float,
                                                                  textureType: .type2D,
                                                                  levels: levels,
                                                                  slices: slices) else { continue }
-            dest.label = "PyramidMip\(i)"
-            encoder.setTexture(src, index: 0)
-            encoder.setTexture(dest, index: 1)
+            encoder.setTexture(srcTexture, index: 0)
+            encoder.setTexture(destinationTexture, index: 1)
+            encoder.useResource(destinationTexture, usage: .write)
 
-//            encoder.useResource(src, usage: .write)
-//            encoder.useResource(dest, usage: .write)
-
-            var sizes: SIMD4<UInt> = [UInt(src.width), UInt(src.height), .zero, .zero]
+            var sizes: SIMD4<UInt> = [UInt(srcTexture.width), UInt(srcTexture.height), .zero, .zero]
             encoder.setBytes(&sizes, length: MemoryLayout<SIMD4<UInt>>.size, index: .depthPyramidSize)
 
             let threadsPerThreadgroup: MTLSize = .init(width: 8, height: 8, depth: 1)
-            let threadsPerGrid: MTLSize = .init(width: dest.width, height: dest.height, depth: 1)
+
+            let gridSize: MTLSize = .init(width: destinationTexture.width, height: destinationTexture.height, depth: 1)
                 .divideRoundUp(threadsPerThreadgroup)
-            encoder.dispatchThreads(threadsPerGrid, threadsPerThreadgroup: threadsPerThreadgroup)
+
+            encoder.dispatchThreads(gridSize, threadsPerThreadgroup: threadsPerThreadgroup)
         }
         encoder.popDebugGroup()
     }
