@@ -178,6 +178,7 @@ class RenderPassIndirect: RenderPass {
         computeEncoder.setBuffer(colorsBuffer, offset: 0, index: .colors)
         computeEncoder.setBuffer(icb.argumentEncoder, offset: 0, index: .commandBufferContainer)
         computeEncoder.setBuffer(icb.executionRange, offset: 0, index: .executionRange)
+        computeEncoder.setBuffer(descriptor.rasterizationRateMapData, offset: 0, index: .rasterizationRateMapData)
         computeEncoder.setTexture(depthPyramidTexture, index: 0)
 
         // 2) Use Resources
