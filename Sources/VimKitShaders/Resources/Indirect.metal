@@ -24,7 +24,7 @@ static bool isInsideViewFrustum(const Camera camera,
     const float3 minBounds = instance.minBounds;
     const float3 maxBounds = instance.maxBounds;
 
-    // Make the array of corners
+    // Extract the box corners
     const float4 corners[8] = {
         float4(minBounds, 1.0),
         float4(minBounds.x, minBounds.y, maxBounds.z, 1.0),
@@ -77,23 +77,44 @@ static bool depthTest(const Frame frame,
 
     float3 minBounds = instance.minBounds;
     float3 maxBounds = instance.maxBounds;
-    float3 extents = maxBounds - minBounds;
-    float3 center = (maxBounds + minBounds) * 0.5;
-    
-    
-    // Position + Scale the bounding box
-    float4x4 modelMatrix = float4x4(float4(extents.x,0,0,0),
-                               float4(0,extents.y,0,0),
-                               float4(0,0,extents.z,0),
-                               float4(center,1));
     
     float4x4 viewMatrix = camera.viewMatrix;
     float4x4 projectionMatrix = camera.projectionMatrix;
-    float4x4 modelViewProjectionMatrix = projectionMatrix * viewMatrix * modelMatrix;
+    float4x4 projectionViewMatrix = projectionMatrix * viewMatrix;
     
-    minBounds = (modelViewProjectionMatrix * float4(minBounds, 1.0)).xyz;
-    maxBounds = (modelViewProjectionMatrix * float4(maxBounds, 1.0)).xyz;
-    
+    minBounds = (projectionViewMatrix * float4(minBounds, 1.0)).xyz;
+    maxBounds = (projectionViewMatrix * float4(maxBounds, 1.0)).xyz;
+    float3 extents = maxBounds - minBounds;
+
+    /**
+     // Extract the box corners
+     const float4 corners[8] = {
+         float4(minBounds, 1.0),
+         float4(minBounds.x, minBounds.y, maxBounds.z, 1.0),
+         float4(minBounds.x, maxBounds.y, minBounds.z, 1.0),
+         float4(minBounds.x, maxBounds.y, maxBounds.z, 1.0),
+         float4(maxBounds.x, minBounds.y, minBounds.z, 1.0),
+         float4(maxBounds.x, minBounds.y, maxBounds.z, 1.0),
+         float4(maxBounds.x, maxBounds.y, minBounds.z, 1.0),
+         float4(maxBounds, 1.0)
+     };
+
+    float2 inversePhysicalSize = 1.0 / frame.physicalSize;
+    rasterization_rate_map_decoder decoder(*rasterRateMapData);
+
+    for (int i = 0; i < 8; i++) {
+        float3 corner = corners[i].xyz;
+        // Prevent issue with corner behind camera
+        corner.z = max(corner.z, 0.0f);
+        corner.xy = corner.xy * float2(0.5, -0.5) + 0.5;
+        corner = saturate(corner);
+
+        corner.xy = decoder.map_screen_to_physical_coordinates(corner.xy * frame.viewportSize) * inversePhysicalSize;
+        minBounds = min(minBounds, corner);
+        maxBounds = max(maxBounds, corner);
+    }
+    */
+
     // Check the depth buffer
     const float compareValue = minBounds.z;
 
@@ -152,6 +173,8 @@ static bool isVisible(const Frame frame,
                       constant Submesh *submeshes,
                       constant rasterization_rate_map_data *rasterRateMapData,
                       texture2d<float> depthPyramidTexture) {
+
+    const bool performDepthTest = false;
     
     const Camera camera = frame.cameras[0]; // TODO: Stereoscopic views??
 
@@ -170,10 +193,15 @@ static bool isVisible(const Frame frame,
 
         // Check if inside the view frustum
         if (isInsideViewFrustum(camera, instance)) {
+            
             // Check if the instance passes the depth test
-            //if (depthTest(frame, instance, textureSize, depthSampler, rasterRateMapData, depthPyramidTexture)) {
+            if (performDepthTest) {
+                if (depthTest(frame, instance, textureSize, depthSampler, rasterRateMapData, depthPyramidTexture)) {
+                    return true;
+                }
+            } else {
                 return true;
-            //}
+            }
         }
     }
     
