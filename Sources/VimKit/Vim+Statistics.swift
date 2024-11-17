@@ -42,6 +42,17 @@ extension Vim {
         /// The number of commands that were actually executed in the frame (not culled).
         public var executedCommands: Int = .zero
 
+        /// Returns the number of commands that have been prevented from executing (culled).
+        public var culledCommands: Int {
+            totalCommands - executedCommands
+        }
+
+        /// The percentage of commands that have been culled.
+        public var cullingPercentage: Float {
+            guard totalCommands != .zero else { return .zero }
+            return Float(culledCommands) / Float(totalCommands)
+        }
+
         /// Public initializer.
         public init() {}
 

@@ -234,10 +234,7 @@ class RenderPassIndirect: RenderPass {
     ///   - descriptor: the draw descriptor
     ///   - renderEncoder: the render encoder
     private func reset(descriptor: DrawDescriptor) {
-        guard let icb, let geometry else { return }
-        let gridSize = geometry.gridSize
-        let totalCommands = gridSize.width * gridSize.height
-
+        guard let icb else { return }
         if let executedCommandsBuffer = icb.executedCommandsBuffer {
             Task {
                 let range: UnsafeMutableBufferPointer<UInt8> = executedCommandsBuffer.toUnsafeMutableBufferPointer()

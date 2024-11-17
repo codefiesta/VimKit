@@ -313,11 +313,14 @@ kernel void encodeIndirectRenderCommands(uint2 threadPosition [[thread_position_
     
     // If this instanced mesh isn't visible don't issue any draw commands and simply exit
     if (!visible) {
-        executedCommands[index] = 1;
+        // Mark the command as not being executed
+        executedCommands[index] = 0;
         return;
     }
 
-    executedCommands[index] = 0;
+    // Mark the command as being executed
+    executedCommands[index] = 1;
+    
     const uint instanceCount = instancedMesh.instanceCount;
     const uint baseInstance = instancedMesh.baseInstance;
     const Mesh mesh = meshes[instancedMesh.mesh];
