@@ -48,6 +48,8 @@ class RenderPassIndirect: RenderPass {
         var argumentEncoder: MTLBuffer
         var argumentEncoderAlphaMask: MTLBuffer
         var argumentEncoderTransparent: MTLBuffer
+        /// A metal buffer for keep track of executed commands storing a single byte per command.
+        var executedCommandsBuffer: MTLBuffer?
     }
 
     /// The context that provides all of the data we need
@@ -92,7 +94,15 @@ class RenderPassIndirect: RenderPass {
             guard let self, let geometry else { return }
             switch state {
             case .ready:
+
                 let gridSize = geometry.gridSize
+
+                // Update the stats
+                context.vim.stats.instanceCount = geometry.instances.count
+                context.vim.stats.meshCount = geometry.meshes.count
+                context.vim.stats.submeshCount = geometry.submeshes.count
+                context.vim.stats.gridSize = gridSize
+
                 let totalCommands = gridSize.width * gridSize.height
                 debugPrint("􀬨 Building indirect command buffers [\(totalCommands)]")
                 makeIndirectCommandBuffers(totalCommands)
@@ -130,6 +140,9 @@ class RenderPassIndirect: RenderPass {
 
         // End encoding
         renderEncoder.endEncoding()
+
+        // Reset
+        reset(descriptor: descriptor);
     }
 
     /// Performs a draw call with the specified command buffer and render pass descriptor.
@@ -154,6 +167,7 @@ class RenderPassIndirect: RenderPass {
               let computePipelineState,
               let icb,
               let framesBuffer = descriptor.framesBuffer,
+              let executedCommandsBuffer = icb.executedCommandsBuffer,
               let positionsBuffer = geometry.positionsBuffer,
               let normalsBuffer = geometry.normalsBuffer,
               let indexBuffer = geometry.indexBuffer,
@@ -177,13 +191,13 @@ class RenderPassIndirect: RenderPass {
         computeEncoder.setBuffer(materialsBuffer, offset: 0, index: .materials)
         computeEncoder.setBuffer(colorsBuffer, offset: 0, index: .colors)
         computeEncoder.setBuffer(icb.argumentEncoder, offset: 0, index: .commandBufferContainer)
-        computeEncoder.setBuffer(icb.executionRange, offset: 0, index: .executionRange)
+        computeEncoder.setBuffer(executedCommandsBuffer, offset: 0, index: .executedCommands)
         computeEncoder.setBuffer(descriptor.rasterizationRateMapData, offset: 0, index: .rasterizationRateMapData)
         computeEncoder.setTexture(depthPyramidTexture, index: 0)
 
         // 2) Use Resources
         computeEncoder.useResource(icb.commandBuffer, usage: .read)
-        computeEncoder.useResource(icb.executionRange, usage: .write)
+        computeEncoder.useResource(executedCommandsBuffer, usage: .write)
         computeEncoder.useResource(framesBuffer, usage: .read)
         computeEncoder.useResource(materialsBuffer, usage: .read)
         computeEncoder.useResource(instancesBuffer, usage: .read)
@@ -220,11 +234,17 @@ class RenderPassIndirect: RenderPass {
     ///   - descriptor: the draw descriptor
     ///   - renderEncoder: the render encoder
     private func reset(descriptor: DrawDescriptor) {
-        guard let icb, let geometry, let blitEncoder = descriptor.commandBuffer.makeBlitCommandEncoder() else { return }
+        guard let icb, let geometry else { return }
         let gridSize = geometry.gridSize
-        let range = 0..<gridSize.width * gridSize.height
-        blitEncoder.resetCommandsInBuffer(icb.commandBuffer, range: range)
-        blitEncoder.endEncoding()
+        let totalCommands = gridSize.width * gridSize.height
+
+        if let executedCommandsBuffer = icb.executedCommandsBuffer {
+            Task {
+                let range: UnsafeMutableBufferPointer<UInt8> = executedCommandsBuffer.toUnsafeMutableBufferPointer()
+                let count = range.filter{ $0 == 1 }.count
+                context.vim.stats.executedCommands = count
+            }
+        }
     }
 
     /// Optimizes the icb.
@@ -369,6 +389,8 @@ class RenderPassIndirect: RenderPass {
             icbArgumentEncoder.setIndirectCommandBuffer(commandBuffersDepthOnly[i], index: .commandBufferDepthOnly)
         }
 
+        guard let executedCommandsBuffer = device.makeBuffer(length: MemoryLayout<UInt8>.size * totalCommands, options: [.storageModeShared]) else { return }
+
         // Set the struct to hold onto the icb data
         icb = .init(commandBuffer: commandBuffer,
                     commandBufferAlphaMask: commandBufferAlphaMask,
@@ -379,7 +401,9 @@ class RenderPassIndirect: RenderPass {
                     executionRangeCount: executionRangeCount,
                     argumentEncoder: argumentEncoder,
                     argumentEncoderAlphaMask: argumentEncoderAlphaMask,
-                    argumentEncoderTransparent: argumentEncoderTransparent)
+                    argumentEncoderTransparent: argumentEncoderTransparent,
+                    executedCommandsBuffer: executedCommandsBuffer
+        )
     }
 
     /// Makes the depth textures.

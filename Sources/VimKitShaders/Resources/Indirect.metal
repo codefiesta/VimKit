@@ -268,23 +268,25 @@ static void encodeAndDraw(thread render_command &cmd,
 //   - materials: The materials pointer.
 //   - colors: The colors pointer.
 //   - icbContainer: The pointer to the indirect command buffer container.
+//   - executedCommands: The excuted commands buffer that keeps track of culling.
 //   - rasterRateMapData: The raster data map.
 //   - depthPyramidTexture: The depth texture.
 kernel void encodeIndirectRenderCommands(uint2 threadPosition [[thread_position_in_grid]],
-                                   uint2 gridSize [[threads_per_grid]],
-                                   constant float *positions [[buffer(KernelBufferIndexPositions)]],
-                                   constant float *normals [[buffer(KernelBufferIndexNormals)]],
-                                   constant uint32_t *indexBuffer [[buffer(KernelBufferIndexIndexBuffer)]],
-                                   constant Frame *frames [[buffer(KernelBufferIndexFrames)]],
-                                   constant Instance *instances [[buffer(KernelBufferIndexInstances)]],
-                                   constant InstancedMesh *instancedMeshes [[buffer(KernelBufferIndexInstancedMeshes)]],
-                                   constant Mesh *meshes [[buffer(KernelBufferIndexMeshes)]],
-                                   constant Submesh *submeshes [[buffer(KernelBufferIndexSubmeshes)]],
-                                   constant Material *materials [[buffer(KernelBufferIndexMaterials)]],
-                                   constant float4 *colors [[buffer(KernelBufferIndexColors)]],
-                                   device ICBContainer *icbContainer [[buffer(KernelBufferIndexCommandBufferContainer)]],
-                                   constant rasterization_rate_map_data *rasterRateMapData [[buffer(KernelBufferIndexRasterizationRateMapData)]],
-                                   texture2d<float> depthPyramidTexture [[texture(0)]]) {
+                                         uint2 gridSize [[threads_per_grid]],
+                                         constant float *positions [[buffer(KernelBufferIndexPositions)]],
+                                         constant float *normals [[buffer(KernelBufferIndexNormals)]],
+                                         constant uint32_t *indexBuffer [[buffer(KernelBufferIndexIndexBuffer)]],
+                                         constant Frame *frames [[buffer(KernelBufferIndexFrames)]],
+                                         constant Instance *instances [[buffer(KernelBufferIndexInstances)]],
+                                         constant InstancedMesh *instancedMeshes [[buffer(KernelBufferIndexInstancedMeshes)]],
+                                         constant Mesh *meshes [[buffer(KernelBufferIndexMeshes)]],
+                                         constant Submesh *submeshes [[buffer(KernelBufferIndexSubmeshes)]],
+                                         constant Material *materials [[buffer(KernelBufferIndexMaterials)]],
+                                         constant float4 *colors [[buffer(KernelBufferIndexColors)]],
+                                         device ICBContainer *icbContainer [[buffer(KernelBufferIndexCommandBufferContainer)]],
+                                         device uint8_t * executedCommands [[buffer(KernelBufferIndexExecutedCommands)]],
+                                         constant rasterization_rate_map_data *rasterRateMapData [[buffer(KernelBufferIndexRasterizationRateMapData)]],
+                                         texture2d<float> depthPyramidTexture [[texture(0)]]) {
     
     // The x lane provides the max number of submeshes that the mesh can contain
     const uint x = threadPosition.x;
@@ -296,7 +298,7 @@ kernel void encodeIndirectRenderCommands(uint2 threadPosition [[thread_position_
     // Calculate the index of this position in the grid. This is used to
     // get the the render command at this unique index as only one draw call can be issued per thread.
     const uint index = y + (x * height);
-
+    
     const InstancedMesh instancedMesh = instancedMeshes[y];
     const Frame frame = frames[0];
 
@@ -311,9 +313,11 @@ kernel void encodeIndirectRenderCommands(uint2 threadPosition [[thread_position_
     
     // If this instanced mesh isn't visible don't issue any draw commands and simply exit
     if (!visible) {
+        executedCommands[index] = 1;
         return;
     }
 
+    executedCommands[index] = 0;
     const uint instanceCount = instancedMesh.instanceCount;
     const uint baseInstance = instancedMesh.baseInstance;
     const Mesh mesh = meshes[instancedMesh.mesh];
