@@ -148,11 +148,7 @@ static bool depthTest(const Frame frame,
     // Determine the max depth
     float maxDepth = max(max(d0, d1), max(d2, d3));
     
-    if (compareValue >= maxDepth) {
-        return true;
-    }
-
-    return false;
+    return compareValue >= maxDepth;
 }
 
 // Checks if the instanced mesh is visible inside the view frustum and passes the depth test.
@@ -197,9 +193,8 @@ static bool isVisible(const Frame frame,
             // Check if the instance passes the depth test
             if (performDepthTest) {
                 return depthTest(frame, instance, textureSize, depthSampler, rasterRateMapData, depthPyramidTexture);
-            } else {
-                return true;
             }
+            return true;
         }
     }
     
