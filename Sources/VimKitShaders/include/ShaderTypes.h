@@ -66,6 +66,8 @@ typedef struct {
     simd_float2 viewportSize;
     // The physical resolution size used for adjusting between screen and physical space
     simd_float2 physicalSize;
+    // Flag indicating if the indirect command buffers should perform depth testing (frustum testing will always happen).
+    bool enableDepthTesting;
     // Flag indicating if this frame is being rendered in xray mode.
     bool xRay;
 } Frame;

@@ -19,6 +19,9 @@ extension Vim {
         /// A bool used to specify whether xray mode should be applied or not.
         public var xRay: Bool = false
 
+        /// A bool used to specify whether indirect command buffers should perform depth testing or not.
+        public var enableDepthTesting: Bool = false
+
         /// Specifies the rendering cull mode to apply.
         public var cullMode: MTLCullMode = .none
 
