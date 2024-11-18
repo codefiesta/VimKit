@@ -234,6 +234,18 @@ class RenderPassIndirect: RenderPass {
         renderEncoder.setFragmentBuffer(descriptor.rasterizationRateMapData, offset: 0, index: .rasterizationRateMapData)
     }
 
+    /// Execute the commands in the indirect command buffer.
+    /// - Parameters:
+    ///   - descriptor: the draw descriptor to use
+    ///   - renderEncoder: the render encoder to use
+    private func drawIndirect(descriptor: DrawDescriptor, renderEncoder: MTLRenderCommandEncoder) {
+        guard let icb else { return }
+        for i in 0..<icb.indirectRangeCount {
+            let offset = MemoryLayout<MTLIndirectCommandBufferExecutionRange>.size * i
+            renderEncoder.executeCommandsInBuffer(icb.commandBuffer, indirectBuffer: icb.indirectRangeBuffer, offset: offset)
+        }
+    }
+
     /// Resets the commands in the indirect command buffer.
     /// - Parameters:
     ///   - descriptor: the draw descriptor
@@ -243,18 +255,6 @@ class RenderPassIndirect: RenderPass {
         let range = 0..<icb.commandBuffer.size
         blitEncoder.resetCommandsInBuffer(icb.commandBuffer, range: range)
         blitEncoder.endEncoding()
-    }
-
-    /// Collects the culling stats from the icb.
-    private func collect() {
-        guard let icb else { return }
-        if let executedCommandsBuffer = icb.executedCommandsBuffer {
-            Task {
-                let range: UnsafeMutableBufferPointer<UInt8> = executedCommandsBuffer.toUnsafeMutableBufferPointer()
-                let count = range.filter{ $0 == 1 }.count
-                context.vim.stats.executedCommands = count
-            }
-        }
     }
 
     /// Encodes a command that can improve the performance of a range of commands within an indirect command buffer.
@@ -267,15 +267,15 @@ class RenderPassIndirect: RenderPass {
         blitEncoder.endEncoding()
     }
 
-    /// Performs the indirect drawing via icb.
-    /// - Parameters:
-    ///   - descriptor: the draw descriptor to use
-    ///   - renderEncoder: the render encoder to use
-    private func drawIndirect(descriptor: DrawDescriptor, renderEncoder: MTLRenderCommandEncoder) {
+    /// Collects the culling stats from the icb.
+    private func collect() {
         guard let icb else { return }
-        for i in 0..<icb.indirectRangeCount {
-            let offset = MemoryLayout<MTLIndirectCommandBufferExecutionRange>.size * i
-            renderEncoder.executeCommandsInBuffer(icb.commandBuffer, indirectBuffer: icb.indirectRangeBuffer, offset: offset)
+        if let executedCommandsBuffer = icb.executedCommandsBuffer {
+            Task {
+                let range: UnsafeMutableBufferPointer<UInt8> = executedCommandsBuffer.toUnsafeMutableBufferPointer()
+                let count = range.filter{ $0 == 1 }.count
+                context.vim.stats.executedCommands = count
+            }
         }
     }
 
