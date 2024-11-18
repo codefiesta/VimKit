@@ -174,7 +174,7 @@ static bool isVisible(const Frame frame,
                       constant rasterization_rate_map_data *rasterRateMapData,
                       texture2d<float> depthPyramidTexture) {
 
-    const bool performDepthTest = false;
+    const bool performDepthTest = true;
     
     const Camera camera = frame.cameras[0]; // TODO: Stereoscopic views??
 
@@ -196,9 +196,7 @@ static bool isVisible(const Frame frame,
             
             // Check if the instance passes the depth test
             if (performDepthTest) {
-                if (depthTest(frame, instance, textureSize, depthSampler, rasterRateMapData, depthPyramidTexture)) {
-                    return true;
-                }
+                return depthTest(frame, instance, textureSize, depthSampler, rasterRateMapData, depthPyramidTexture);
             } else {
                 return true;
             }
