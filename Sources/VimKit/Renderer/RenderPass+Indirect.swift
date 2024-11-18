@@ -116,7 +116,7 @@ class RenderPassIndirect: RenderPass {
     ///   - descriptor: the draw descriptor
     func willDraw(descriptor: DrawDescriptor) {
 
-        // Reset the commands in the icb
+        // 1) Reset the commands in the icb
         reset(descriptor: descriptor);
 
         guard let depthPyramid,
@@ -124,29 +124,29 @@ class RenderPassIndirect: RenderPass {
               let depthTexture,
               let computeEncoder = descriptor.commandBuffer.makeComputeCommandEncoder() else { return }
 
-        // Generate the depth pyramid
+        // 2) Generate the depth pyramid texture
         depthPyramid.generate(depthPyramidTexture: depthPyramidTexture, depthTexture: depthTexture, encoder: computeEncoder)
 
-        // Encode the buffers onto the comute encoder
+        // 3) Encode the buffers onto the comute encoder
         encode(descriptor: descriptor, computeEncoder: computeEncoder)
 
-        // End the compute encoding
+        // 4) End the compute encoding
         computeEncoder.endEncoding()
 
-        // Optimize the icb commands
+        // 5) Optimize the icb commands (optional but let's do it anyway)
         optimize(descriptor: descriptor)
 
-        // Make the offscreen render pass descriptor
+        // 6) Make the offscreen render pass descriptor
         guard let renderPassDescriptor = makeRenderPassDescriptor(descriptor: descriptor),
               let renderEncoder = descriptor.commandBuffer.makeRenderCommandEncoder(descriptor: renderPassDescriptor) else { return }
 
-        // Draw the geometry occluder offscreen
+        // 7) Draw the geometry occluder offscreen
         drawDepthOffscreen(descriptor: descriptor, renderEncoder: renderEncoder)
 
-        // End encoding
+        // 8) End encoding
         renderEncoder.endEncoding()
 
-        // Collect the stats
+        // 9) Collect the culling stats
         collect()
     }
 
@@ -181,7 +181,8 @@ class RenderPassIndirect: RenderPass {
               let meshesBuffer = geometry.meshesBuffer,
               let submeshesBuffer = geometry.submeshesBuffer,
               let materialsBuffer = geometry.materialsBuffer,
-              let colorsBuffer = geometry.colorsBuffer else { return }
+              let colorsBuffer = geometry.colorsBuffer,
+              let depthPyramidTexture else { return }
 
         // 1) Encode
         computeEncoder.setComputePipelineState(computePipelineState)
@@ -211,6 +212,7 @@ class RenderPassIndirect: RenderPass {
         computeEncoder.useResource(submeshesBuffer, usage: .read)
         computeEncoder.useResource(meshesBuffer, usage: .read)
         computeEncoder.useResource(indexBuffer, usage: .read)
+        computeEncoder.useResource(depthPyramidTexture, usage: .read)
 
         // 3) Dispatch the threads
         let gridSize = geometry.gridSize
@@ -387,9 +389,9 @@ class RenderPassIndirect: RenderPass {
               let argumentEncoderTransparent = device.makeBuffer(length: icbArgumentEncoder.encodedLength) else { return }
 
 
-        var argumentBuffers: [MTLBuffer] = [argumentEncoder, argumentEncoderAlphaMask, argumentEncoderTransparent]
-        var commandBuffers: [MTLIndirectCommandBuffer?] = [commandBuffer, commandBufferAlphaMask, commandBufferTransparent]
-        var commandBuffersDepthOnly: [MTLIndirectCommandBuffer?] = [commandBufferDepthOnly, commandBufferDepthOnlyAlphaMask, nil]
+        let argumentBuffers: [MTLBuffer] = [argumentEncoder, argumentEncoderAlphaMask, argumentEncoderTransparent]
+        let commandBuffers: [MTLIndirectCommandBuffer?] = [commandBuffer, commandBufferAlphaMask, commandBufferTransparent]
+        let commandBuffersDepthOnly: [MTLIndirectCommandBuffer?] = [commandBufferDepthOnly, commandBufferDepthOnlyAlphaMask, nil]
 
         // Encode the buffers
         for (i, argumentBuffer) in argumentBuffers.enumerated() {
@@ -489,7 +491,7 @@ fileprivate class DepthPyramid {
     private let device: MTLDevice
 
     /// The compute pipeline state.
-    var computePipelineState: MTLComputePipelineState?
+    private var computePipelineState: MTLComputePipelineState?
 
     init?(_ device: MTLDevice, _ library: MTLLibrary) {
         self.device = device
@@ -502,7 +504,7 @@ fileprivate class DepthPyramid {
     ///   - depthPyramidTexture: the depth pyramid texture.
     ///   - depthTexture: the depth texture.
     ///   - encoder: the encoder to use.
-    func generate(depthPyramidTexture: MTLTexture, depthTexture: MTLTexture, encoder: MTLComputeCommandEncoder ) {
+    func generate(depthPyramidTexture: MTLTexture, depthTexture: MTLTexture, encoder: MTLComputeCommandEncoder) {
         guard let computePipelineState else { return }
 
         encoder.pushDebugGroup(labelDepthPyramidGeneration)
@@ -529,6 +531,7 @@ fileprivate class DepthPyramid {
                                                                  textureType: .type2D,
                                                                  levels: levels,
                                                                  slices: slices) else { continue }
+            destinationTexture.label = "PyramidLevel\(i)"
             encoder.setTexture(srcTexture, index: 0)
             encoder.setTexture(destinationTexture, index: 1)
             encoder.useResource(destinationTexture, usage: .write)
