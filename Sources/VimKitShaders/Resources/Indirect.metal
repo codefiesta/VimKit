@@ -75,6 +75,7 @@ static bool depthTest(const Frame frame,
     
     const Camera camera = frame.cameras[0];
 
+    // Transform the bounding box
     float3 minBounds = instance.minBounds;
     float3 maxBounds = instance.maxBounds;
     
@@ -84,66 +85,61 @@ static bool depthTest(const Frame frame,
     
     minBounds = (projectionViewMatrix * float4(minBounds, 1.0)).xyz;
     maxBounds = (projectionViewMatrix * float4(maxBounds, 1.0)).xyz;
-    float3 extents = maxBounds - minBounds;
 
-    /**
-     // Extract the box corners
-     const float4 corners[8] = {
-         float4(minBounds, 1.0),
-         float4(minBounds.x, minBounds.y, maxBounds.z, 1.0),
-         float4(minBounds.x, maxBounds.y, minBounds.z, 1.0),
-         float4(minBounds.x, maxBounds.y, maxBounds.z, 1.0),
-         float4(maxBounds.x, minBounds.y, minBounds.z, 1.0),
-         float4(maxBounds.x, minBounds.y, maxBounds.z, 1.0),
-         float4(maxBounds.x, maxBounds.y, minBounds.z, 1.0),
-         float4(maxBounds, 1.0)
-     };
-
+    // Make the raster rate map decoder
     float2 inversePhysicalSize = 1.0 / frame.physicalSize;
     rasterization_rate_map_decoder decoder(*rasterRateMapData);
 
+    // Extract the box corners
+    const float4 corners[8] = {
+        float4(minBounds, 1.0),
+        float4(minBounds.x, minBounds.y, maxBounds.z, 1.0),
+        float4(minBounds.x, maxBounds.y, minBounds.z, 1.0),
+        float4(minBounds.x, maxBounds.y, maxBounds.z, 1.0),
+        float4(maxBounds.x, minBounds.y, minBounds.z, 1.0),
+        float4(maxBounds.x, minBounds.y, maxBounds.z, 1.0),
+        float4(maxBounds.x, maxBounds.y, minBounds.z, 1.0),
+        float4(maxBounds, 1.0)
+    };
+
     for (int i = 0; i < 8; i++) {
+        
         float3 corner = corners[i].xyz;
-        // Prevent issue with corner behind camera
+
         corner.z = max(corner.z, 0.0f);
         corner.xy = corner.xy * float2(0.5, -0.5) + 0.5;
         corner = saturate(corner);
-
-        corner.xy = decoder.map_screen_to_physical_coordinates(corner.xy * frame.viewportSize) * inversePhysicalSize;
+        
+        float2 screenCoordinates = corner.xy * frame.viewportSize;
+        corner.xy = decoder.map_screen_to_physical_coordinates(screenCoordinates) * inversePhysicalSize;
+        
+        if (i == 0) {
+            minBounds = corner;
+            maxBounds = corner;
+        }
+        
         minBounds = min(minBounds, corner);
         maxBounds = max(maxBounds, corner);
     }
-    */
 
     // Check the depth buffer
     const float compareValue = minBounds.z;
 
-    const float2 ext = float2(textureSize) * extents.xy;
+    const float2 ext = float2(textureSize) * (maxBounds - minBounds).xy;
     const uint lod = ceil(log2(max(ext.x, ext.y)));
     
     const uint2 lodSizeInPixels = textureSize & (0xFFFFFFFF << lod);
     const float2 lodScale = float2(textureSize) / float2(lodSizeInPixels);
 
     // Use the min(x,y) and max(x,y) as the sample locations
-    const float2 sampleLocationMin = minBounds.xy * lodScale;
-    const float2 sampleLocationMax = maxBounds.xy * lodScale;
+    const float2 sampleMin = minBounds.xy * lodScale;
+    const float2 sampleMax = maxBounds.xy * lodScale;
 
     // Sample the corners
-    const float d0 = depthPyramidTexture.sample(depthSampler,
-                                                float2(sampleLocationMin.x, sampleLocationMin.y),
-                                                level(lod)).x;
-
-    const float d1 = depthPyramidTexture.sample(depthSampler,
-                                                float2(sampleLocationMin.x, sampleLocationMax.y),
-                                                level(lod)).x;
-    
-    const float d2 = depthPyramidTexture.sample(depthSampler,
-                                                float2(sampleLocationMax.x, sampleLocationMin.y),
-                                                level(lod)).x;
-
-    const float d3 = depthPyramidTexture.sample(depthSampler,
-                                                float2(sampleLocationMax.x, sampleLocationMax.y),
-                                                level(lod)).x;
+    const float d0 = depthPyramidTexture.sample(depthSampler, float2(sampleMin.x, sampleMin.y), level(lod)).x;
+    const float d1 = depthPyramidTexture.sample(depthSampler, float2(sampleMin.x, sampleMax.y), level(lod)).x;
+    const float d2 = depthPyramidTexture.sample(depthSampler, float2(sampleMax.x, sampleMin.y), level(lod)).x;
+    const float d3 = depthPyramidTexture.sample(depthSampler, float2(sampleMax.x, sampleMax.y), level(lod)).x;
 
     // Determine the max depth
     float maxDepth = max(max(d0, d1), max(d2, d3));
@@ -189,8 +185,7 @@ static bool isVisible(const Frame frame,
 
         // Check if inside the view frustum
         if (isInsideViewFrustum(camera, instance)) {
-            
-            // Check if the instance passes the depth test
+            // If depth testing is enabled, check if the instance passes the depth test
             if (performDepthTest) {
                 return depthTest(frame, instance, textureSize, depthSampler, rasterRateMapData, depthPyramidTexture);
             }
