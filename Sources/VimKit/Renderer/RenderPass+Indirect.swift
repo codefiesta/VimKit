@@ -55,6 +55,12 @@ class RenderPassIndirect: RenderPass {
     /// The context that provides all of the data we need
     let context: RendererContext
 
+    /// Boolean flag indicating if indirect command buffers should perform depth occlusion testing or not.
+    /// Frustum testing will always happen
+    open var enableDepthTesting: Bool {
+        context.vim.options.enableDepthTesting
+    }
+
     /// The icb container.
     var icb: ICB?
 
@@ -125,7 +131,9 @@ class RenderPassIndirect: RenderPass {
               let computeEncoder = descriptor.commandBuffer.makeComputeCommandEncoder() else { return }
 
         // 2) Generate the depth pyramid texture
-        depthPyramid.generate(depthPyramidTexture: depthPyramidTexture, depthTexture: depthTexture, encoder: computeEncoder)
+        if enableDepthTesting {
+            depthPyramid.generate(depthPyramidTexture: depthPyramidTexture, depthTexture: depthTexture, encoder: computeEncoder)
+        }
 
         // 3) Encode the buffers onto the comute encoder
         encode(descriptor: descriptor, computeEncoder: computeEncoder)
@@ -136,17 +144,19 @@ class RenderPassIndirect: RenderPass {
         // 5) Optimize the icb commands (optional but let's do it anyway)
         optimize(descriptor: descriptor)
 
-        // 6) Make the offscreen render pass descriptor
-        guard let renderPassDescriptor = makeRenderPassDescriptor(descriptor: descriptor),
-              let renderEncoder = descriptor.commandBuffer.makeRenderCommandEncoder(descriptor: renderPassDescriptor) else { return }
+        if enableDepthTesting {
+            // 6) Make the offscreen render pass descriptor
+            guard let renderPassDescriptor = makeRenderPassDescriptor(descriptor: descriptor),
+                  let renderEncoder = descriptor.commandBuffer.makeRenderCommandEncoder(descriptor: renderPassDescriptor) else { return }
 
-        // 7) Draw the geometry occluder offscreen
-        drawDepthOffscreen(descriptor: descriptor, renderEncoder: renderEncoder)
+            // 7) Draw the geometry occluder offscreen
+            drawDepthOffscreen(descriptor: descriptor, renderEncoder: renderEncoder)
 
-        // 8) End encoding
-        renderEncoder.endEncoding()
+            // 8) End encoding
+            renderEncoder.endEncoding()
+        }
 
-        // 9) Collect the culling stats
+        // 9) Consume the culling results and publish stats
         collect()
     }
 
@@ -269,7 +279,7 @@ class RenderPassIndirect: RenderPass {
         blitEncoder.endEncoding()
     }
 
-    /// Collects the culling stats from the icb.
+    /// Consumes the culling results from the icb and publishes the stats.
     private func collect() {
         guard let icb else { return }
         if let executedCommandsBuffer = icb.executedCommandsBuffer {
