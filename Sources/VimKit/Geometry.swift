@@ -520,9 +520,21 @@ public class Geometry: ObservableObject, @unchecked Sendable {
         return instancedMeshesBuffer!.toUnsafeMutableBufferPointer()
     }()
 
-    /// Calculates the max grid height by determining the max number of submeshes a mesh could possibly contain.
+    /// Calculates the max grid width by determining the max number of submeshes a mesh could possibly contain.
     private lazy var gridWidth: Int = {
-        meshes.map{ $0.submeshes.count }.max() ?? 1
+        meshes.map { $0.submeshes.count }.max() ?? 1
+    }()
+
+    /// Calculates the max grid width of the opaque meshes by determining the max number of submeshes a mesh could possibly contain.
+    public lazy var gridWidthOpaques: Int = {
+        let opaqueMeshes = instancedMeshes.filter { !$0.transparent }.map { $0.mesh }.map { meshes[$0] }
+        return opaqueMeshes.map { $0.submeshes.count }.max() ?? 1
+    }()
+
+    /// Calculates the max grid width of the transparent meshes by determining the max number of submeshes a mesh could possibly contain.
+    public lazy var gridWidthTransparents: Int = {
+        let transparentMeshes = instancedMeshes.filter { $0.transparent }.map { $0.mesh }.map { meshes[$0] }
+        return transparentMeshes.map { $0.submeshes.count }.max() ?? 1
     }()
 
     /// Provides a grid size for executing indirect command buffer commands.
@@ -532,19 +544,33 @@ public class Geometry: ObservableObject, @unchecked Sendable {
         .init(width: gridWidth, height: instancedMeshes.count, depth: 1)
     }()
 
+    /// Provides a grid size for executing indirect command buffer commands on opaque instanced meshes.
+    /// The width is the maximum number of submeshes a mesh could contain.
+    /// The height is the number of opaque instanced meshes.
+    public lazy var gridSizeOpaques: MTLSize = {
+        .init(width: gridWidthOpaques, height: instancedMeshOpaquesCount, depth: 1)
+    }()
+
+    /// Provides a grid size for executing indirect command buffer commands on transparent instanced meshes.
+    /// The width is the maximum number of submeshes a mesh could contain.
+    /// The height is the number of transparent instanced meshes.
+    public lazy var gridSizeTransparents: MTLSize = {
+        .init(width: gridWidthTransparents, height: instancedMeshTransparentsCount, depth: 1)
+    }()
+
     /// Provides a count of opaque instanced meshes.
-    public lazy var opaqueInstancedMeshesCount: Int = {
-        instancedMeshes.filter{ $0.transparent == false }.count
+    public lazy var instancedMeshOpaquesCount: Int = {
+        instancedMeshes.filter { $0.transparent == false }.count
     }()
 
     /// Provides a count of transparent instanced meshes.
-    public lazy var transparentInstancedMeshesCount: Int = {
-        instancedMeshes.filter{ $0.transparent == true }.count
+    public lazy var instancedMeshTransparentsCount: Int = {
+        instancedMeshes.filter { $0.transparent == true }.count
     }()
 
     /// Provides the offset into instanced meshes where the transparent instanced meshes begin.
     /// This vale can be used as the buffer offset by multiplying with `MemoryLayout<InstancedMesh>.size`.
-    public lazy var transparentInstancedMeshesOffset: Int = {
+    public lazy var instancedMeshTransparentsOffset: Int = {
         instancedMeshes.firstIndex { $0.transparent == true } ?? .zero
     }()
 

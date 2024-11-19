@@ -56,6 +56,12 @@ open class Renderer: NSObject {
         device.supportsFamily(.apple4)
     }
 
+    /// Boolean flag indicating if indirect command buffers should perform depth occlusion testing or not.
+    /// Frustum testing will always happen
+    open var enableDepthTesting: Bool {
+        options.enableDepthTesting
+    }
+
     /// Returns the visibility results buffer.
     var visibilityResultBuffer: MTLBuffer? {
         guard let visibility = renderPasses.last as? RenderPassVisibility else {
@@ -166,6 +172,7 @@ extension Renderer {
         framesBufferAddress[0].cameras.0 = camera(0)
         framesBufferAddress[0].viewportSize = viewportSize
         framesBufferAddress[0].physicalSize = physicalSize
+        framesBufferAddress[0].enableDepthTesting = enableDepthTesting
         framesBufferAddress[0].xRay = xRayMode
     }
 

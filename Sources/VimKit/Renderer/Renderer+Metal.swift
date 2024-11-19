@@ -72,13 +72,17 @@ extension Renderer {
     private func makeRasterizationMap() {
 
         guard viewportSize != .zero else { return }
+
         let screenSize: MTLSize = .init(width: Int(viewportSize.x), height: Int(viewportSize.y), depth: .zero)
         let quality: [Float] = [0.3, 0.6, 1.0, 0.6, 0.3]
         let sampleCount: MTLSize = .init(width: 5, height: 5, depth: 0)
+
         let layerDescriptor: MTLRasterizationRateLayerDescriptor = .init(horizontal: quality, vertical: quality)
         layerDescriptor.sampleCount = sampleCount
 
-        let rasterizationRateMapDescriptor: MTLRasterizationRateMapDescriptor = .init(screenSize: screenSize, layer: layerDescriptor, label: labelRasterizationRateMap)
+        let rasterizationRateMapDescriptor: MTLRasterizationRateMapDescriptor = .init(screenSize: screenSize,
+                                                                                      layer: layerDescriptor,
+                                                                                      label: labelRasterizationRateMap)
 
         guard let rasterizationRateMap = device.makeRasterizationRateMap(descriptor: rasterizationRateMapDescriptor) else { return }
 
