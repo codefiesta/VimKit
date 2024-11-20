@@ -11,6 +11,8 @@ import VimKitShaders
 private let labelInstancePickingTexture = "InstancePickingTexture"
 private let labelRasterizationRateMap = "RenderRasterizationMap"
 private let labelRasterizationRateMapData = "RenderRasterizationMapData"
+private let alignedFramesSize = ((MemoryLayout<Frame>.size + 255) / 256) * 256
+private let maxFramesInFlight = 3
 
 extension Renderer {
 
@@ -96,5 +98,81 @@ extension Renderer {
 
         let physicalSize = rasterizationRateMap.physicalSize(layer: 0)
         self.physicalSize = .init(Float(physicalSize.width), Float(physicalSize.height))
+    }
+
+    // MARK: Frames
+
+    /// Makes the frames buffer
+    func makeFramesBuffer() {
+        framesBuffer = device.makeBuffer(length: alignedFramesSize * maxFramesInFlight, options: [.storageModeShared])
+    }
+
+    /// Update the state of our revolving frame buffers before rendering
+    func updateFrameBufferState() {
+        guard let framesBuffer else { return }
+        framesBufferIndex = (framesBufferIndex + 1) % maxFramesInFlight
+        framesBufferOffset = alignedFramesSize * framesBufferIndex
+        framesBufferAddress = framesBuffer.contents()
+            .advanced(by: framesBufferOffset)
+            .assumingMemoryBound(to: Frame.self)
+    }
+
+
+    // MARK: Lights
+
+    //    constant float3 lightDirection = float3(0.25, -0.5, 1);
+    //    constant float lightIntensity = 125.0;
+    //    constant float4 lightColor = float4(0.55, 0.55, 0.4, 1.0);
+    //    constant float4 materialAmbientColor = float4(0.04, 0.04, 0.04, 1.0);
+    //    constant float4 materialSpecularColor = float4(1.0, 1.0, 1.0, 1.0);
+
+    /// Makes a light of the specified type
+    /// - Parameter type:the light type
+    /// - Returns: a new light of the specified type
+    private func light(_ type: LightType) -> Light {
+
+        var position: SIMD3<Float> = .zero
+        var color: SIMD3<Float> = .zero
+        var specularColor: SIMD3<Float> = .zero
+        var radius: Float = .zero
+        var attenuation: SIMD3<Float> = .zero
+        var coneAngle: Float = .zero
+        var coneDirection: SIMD3<Float> = .zero
+        var coneAttenuation: Float = .zero
+
+        switch type {
+        case .sun:
+            position = .init(1, -1, -2)
+            color = .init(1, 1, 1)
+            specularColor = .init(0.6, 0.6, 0.6)
+            attenuation = .init(1, 0, 0)
+        case .spot:
+            break
+        case .point:
+            break
+        case .ambient:
+            color = .init(0.9, 0.9, 0.9)
+        @unknown default:
+            break
+        }
+
+        return .init(position: position,
+                     color: color,
+                     specularColor: specularColor,
+                     radius: radius,
+                     attenuation: attenuation,
+                     coneAngle: coneAngle,
+                     coneDirection: coneDirection,
+                     coneAttenuation: coneAttenuation,
+                     type: type)
+    }
+
+    /// Makes the lights buffer.
+    func makeLightsBuffer() {
+        var lights: [Light] = [
+            light(.sun),
+            //light(.ambient),
+        ]
+        lightsBuffer = device.makeBuffer(bytes: &lights, length: MemoryLayout<Light>.size * lights.count)
     }
 }

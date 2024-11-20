@@ -109,6 +109,7 @@ public extension Renderer {
             renderPassDescriptor: renderPassDescriptor,
             framesBuffer: framesBuffer,
             framesBufferOffset: framesBufferOffset,
+            lightsBuffer: lightsBuffer,
             rasterizationRateMap: rasterizationRateMap,
             rasterizationRateMapData: rasterizationRateMapData,
             visibilityResultBuffer: visibilityResultBuffer,

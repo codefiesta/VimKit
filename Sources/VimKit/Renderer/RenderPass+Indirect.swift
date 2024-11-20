@@ -197,6 +197,7 @@ class RenderPassIndirect: RenderPass {
         // 1) Encode
         computeEncoder.setComputePipelineState(computePipelineState)
         computeEncoder.setBuffer(framesBuffer, offset: descriptor.framesBufferOffset, index: .frames)
+        computeEncoder.setBuffer(descriptor.lightsBuffer, offset: 0, index: .lights)
         computeEncoder.setBuffer(positionsBuffer, offset: 0, index: .positions)
         computeEncoder.setBuffer(normalsBuffer, offset: 0, index: .normals)
         computeEncoder.setBuffer(indexBuffer, offset: 0, index: .indexBuffer)
@@ -263,7 +264,7 @@ class RenderPassIndirect: RenderPass {
     ///   - descriptor: the draw descriptor
     ///   - renderEncoder: the render encoder
     private func reset(descriptor: DrawDescriptor) {
-        guard let icb, let geometry, let blitEncoder = descriptor.commandBuffer.makeBlitCommandEncoder() else { return }
+        guard let icb, let blitEncoder = descriptor.commandBuffer.makeBlitCommandEncoder() else { return }
         let range = 0..<icb.commandBuffer.size
         blitEncoder.resetCommandsInBuffer(icb.commandBuffer, range: range)
         blitEncoder.endEncoding()
@@ -273,7 +274,7 @@ class RenderPassIndirect: RenderPass {
     /// - Parameters:
     ///   - descriptor: the draw descriptor
     private func optimize(descriptor: DrawDescriptor) {
-        guard let icb, let geometry, let blitEncoder = descriptor.commandBuffer.makeBlitCommandEncoder() else { return }
+        guard let icb, let blitEncoder = descriptor.commandBuffer.makeBlitCommandEncoder() else { return }
         let range = 0..<icb.commandBuffer.size
         blitEncoder.optimizeIndirectCommandBuffer(icb.commandBuffer, range: range)
         blitEncoder.endEncoding()
@@ -298,7 +299,6 @@ class RenderPassIndirect: RenderPass {
     private func drawDepthOffscreen(descriptor: DrawDescriptor, renderEncoder: MTLRenderCommandEncoder) {
 
         guard let geometry,
-              let icb,
               let pipelineStateDepthOnly,
               let positionsBuffer = geometry.positionsBuffer,
               let indexBuffer = geometry.indexBuffer else { return }

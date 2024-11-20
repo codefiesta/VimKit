@@ -18,6 +18,8 @@ public struct DrawDescriptor {
     let framesBuffer: MTLBuffer?
     /// The uniforms buffer offset
     let framesBufferOffset: Int
+    /// The lights buffer to use.
+    let lightsBuffer: MTLBuffer?
     /// The rasterization rate map.
     let rasterizationRateMap: MTLRasterizationRateMap?
     /// A metal buffer providing MTLRasterizationRateMapData
