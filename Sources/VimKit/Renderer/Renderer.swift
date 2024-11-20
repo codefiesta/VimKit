@@ -168,13 +168,20 @@ extension Renderer {
     /// Updates the per-frame uniforms from the camera
     private func updateUniforms() {
 
+        // Splat out the lights
+        let lights = (
+            light(.sun),
+            light(.spot),
+            light(.ambient)
+        )
+
         // Frame Camera Data
         framesBufferAddress[0].cameras.0 = camera(0)
         framesBufferAddress[0].viewportSize = viewportSize
         framesBufferAddress[0].physicalSize = physicalSize
         framesBufferAddress[0].enableDepthTesting = enableDepthTesting
         framesBufferAddress[0].xRay = xRayMode
-        framesBufferAddress[0].lights = lights()
+        framesBufferAddress[0].lights = lights
     }
 
     /// Makes the camera for the specified view index.
@@ -199,41 +206,19 @@ extension Renderer {
         )
     }
 
-    /// Makes a splat of lighting sources
-    /// - Returns: a splat of lights that get sent to the shaders.
-    private func lights() -> (Light, Light, Light) {
-        (
-            // Sun
-            .init(position: .zero,
-                  color: .zero,
-                  specularColor: .zero,
-                  radius: .zero,
-                  attenuation: .zero,
-                  coneAngle: .zero,
-                  coneDirection: .zero,
-                  coneAttenuation: .zero,
-                  type: .sun),
-            // Spot
-            .init(position: .zero,
-                  color: .zero,
-                  specularColor: .zero,
-                  radius: .zero,
-                  attenuation: .zero,
-                  coneAngle: .zero,
-                  coneDirection: .zero,
-                  coneAttenuation: .zero,
-                  type: .spot),
-            // Ambient
-            .init(position: .zero,
-                  color: .zero,
-                  specularColor: .zero,
-                  radius: .zero,
-                  attenuation: .zero,
-                  coneAngle: .zero,
-                  coneDirection: .zero,
-                  coneAttenuation: .zero,
-                  type: .ambient)
-        )
+    /// Makes a light of the specified type
+    /// - Parameter type:the light type
+    /// - Returns: a new light of the specified type
+    private func light(_ type: LightType) -> Light {
+        .init(position: .zero,
+              color: .zero,
+              specularColor: .zero,
+              radius: .zero,
+              attenuation: .zero,
+              coneAngle: .zero,
+              coneDirection: .zero,
+              coneAttenuation: .zero,
+              type: type)
     }
 }
 
