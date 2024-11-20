@@ -58,10 +58,33 @@ typedef struct {
     simd_float4 frustumPlanes[6];
 } Camera;
 
+// Enum constants for lighting types
+typedef NS_ENUM(EnumBackingType, LightType) {
+    LightTypeSun = 0,
+    LightTypeSpot = 1,
+    LightTypePoint = 2,
+    LightTypeAmbient = 3
+};
+
+// Holds lighting information
+typedef struct {
+    simd_float3 position;
+    simd_float3 color;
+    simd_float3 specularColor;
+    float radius;
+    simd_float3 attenuation;
+    float coneAngle;
+    simd_float3 coneDirection;
+    float coneAttenuation;
+    LightType type;
+} Light;
+
 // A struct that holds per frame data
 typedef struct {
     // Provides an array of cameras for rendering stereoscopic views
     Camera cameras[2];
+    // Holds the array of lights
+    Light lights[3];
     // The screen viewport size
     simd_float2 viewportSize;
     // The physical resolution size used for adjusting between screen and physical space

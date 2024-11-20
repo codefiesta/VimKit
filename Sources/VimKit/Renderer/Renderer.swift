@@ -174,6 +174,7 @@ extension Renderer {
         framesBufferAddress[0].physicalSize = physicalSize
         framesBufferAddress[0].enableDepthTesting = enableDepthTesting
         framesBufferAddress[0].xRay = xRayMode
+        framesBufferAddress[0].lights = lights()
     }
 
     /// Makes the camera for the specified view index.
@@ -195,6 +196,43 @@ extension Renderer {
             projectionMatrix: camera.projectionMatrix,
             sceneTransform: camera.sceneTransform,
             frustumPlanes: frustumPlanes
+        )
+    }
+
+    /// Makes a splat of lighting sources
+    /// - Returns: a splat of lights that get sent to the shaders.
+    private func lights() -> (Light, Light, Light) {
+        (
+            // Sun
+            .init(position: .zero,
+                  color: .zero,
+                  specularColor: .zero,
+                  radius: .zero,
+                  attenuation: .zero,
+                  coneAngle: .zero,
+                  coneDirection: .zero,
+                  coneAttenuation: .zero,
+                  type: .sun),
+            // Spot
+            .init(position: .zero,
+                  color: .zero,
+                  specularColor: .zero,
+                  radius: .zero,
+                  attenuation: .zero,
+                  coneAngle: .zero,
+                  coneDirection: .zero,
+                  coneAttenuation: .zero,
+                  type: .spot),
+            // Ambient
+            .init(position: .zero,
+                  color: .zero,
+                  specularColor: .zero,
+                  radius: .zero,
+                  attenuation: .zero,
+                  coneAngle: .zero,
+                  coneDirection: .zero,
+                  coneAttenuation: .zero,
+                  type: .ambient)
         )
     }
 }
