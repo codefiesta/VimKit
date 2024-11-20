@@ -142,7 +142,7 @@ extension Renderer {
 
         switch type {
         case .sun:
-            position = .init(1, -1, -2)
+            position = .init(1, -1, 2)
             color = .init(1, 1, 1)
             specularColor = .init(0.6, 0.6, 0.6)
             attenuation = .init(1, 0, 0)
