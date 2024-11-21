@@ -78,6 +78,7 @@ class RenderPassDirect: RenderPass {
         renderEncoder.setVertexBuffer(submeshesBuffer, offset: 0, index: .submeshes)
         renderEncoder.setVertexBuffer(colorsBuffer, offset: 0, index: .colors)
         renderEncoder.setFragmentSamplerState(samplerState, index: 0)
+        renderEncoder.setFragmentBuffer(descriptor.lightsBuffer, offset: 0, index: 0)
 
     }
 

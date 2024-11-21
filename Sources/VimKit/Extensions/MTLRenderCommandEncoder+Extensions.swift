@@ -36,14 +36,4 @@ public extension MTLRenderCommandEncoder {
     func setFragmentBuffer(_ buffer: MTLBuffer?, offset: Int, index: KernelBufferIndex) {
         setFragmentBuffer(buffer, offset: offset, index: index.rawValue)
     }
-//
-//    //
-//    /// Convenience method using BufferIndex enum that sets the buffer data (by copy).
-//    /// - Parameters:
-//    ///   - bytes: the bytes to copy
-//    ///   - length: the byte length
-//    ///   - index: The buffer index enum value
-//    func setFragmentBytes(_ bytes: UnsafeRawPointer, length: Int, index: BufferIndex) {
-//        setFragmentBytes(bytes, length: length, index: index.rawValue)
-//    }
 }
