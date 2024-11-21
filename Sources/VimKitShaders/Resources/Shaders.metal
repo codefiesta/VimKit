@@ -113,6 +113,8 @@ fragment FragmentOut fragmentMain(VertexOut in [[stage_in]],
     float4 baseColor = in.color;
     float glossiness = in.glossiness;
     float3 cameraPosition = in.cameraPosition;
+    float3 cameraDirection = in.cameraDirection;
+    float cameraDistance = in.cameraDistance;
 
     // If the color alpha is zero, discard the fragment
     if (baseColor.w == 0.0) {
@@ -121,7 +123,7 @@ fragment FragmentOut fragmentMain(VertexOut in [[stage_in]],
     
     float3 normal = normalize(in.worldNormal);
     float3 position = in.worldPosition;
-    float4 color = phongLighting(position, normal, baseColor, glossiness, cameraPosition, lights);
+    float4 color = phongLighting(position, normal, baseColor, glossiness, cameraPosition, cameraDirection, cameraDistance, lights);
     
     FragmentOut out;
     

@@ -151,7 +151,7 @@ extension Renderer {
         case .point:
             break
         case .ambient:
-            color = .init(0.9, 0.9, 0.9)
+            color = .init(0.4, 0.4, 0.4)
         @unknown default:
             break
         }
@@ -171,7 +171,7 @@ extension Renderer {
     func makeLightsBuffer() {
         var lights: [Light] = [
             light(.sun),
-            //light(.ambient),
+            light(.ambient),
         ]
         lightsBuffer = device.makeBuffer(bytes: &lights, length: MemoryLayout<Light>.size * lights.count)
     }

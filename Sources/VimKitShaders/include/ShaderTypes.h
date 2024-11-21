@@ -249,6 +249,8 @@ float4 phongLighting(
     float4 baseColor,
     float glossiness,
     float3 cameraPosition,
+    float3 cameraDirection,
+    float cameraDistance,
     constant Light *lights
 );
 

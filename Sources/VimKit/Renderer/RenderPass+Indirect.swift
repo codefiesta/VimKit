@@ -182,6 +182,7 @@ class RenderPassIndirect: RenderPass {
               let computePipelineState,
               let icb,
               let framesBuffer = descriptor.framesBuffer,
+              let lightsBuffer = descriptor.lightsBuffer,
               let executedCommandsBuffer = icb.executedCommandsBuffer,
               let positionsBuffer = geometry.positionsBuffer,
               let normalsBuffer = geometry.normalsBuffer,
@@ -197,7 +198,7 @@ class RenderPassIndirect: RenderPass {
         // 1) Encode
         computeEncoder.setComputePipelineState(computePipelineState)
         computeEncoder.setBuffer(framesBuffer, offset: descriptor.framesBufferOffset, index: .frames)
-        computeEncoder.setBuffer(descriptor.lightsBuffer, offset: 0, index: .lights)
+        computeEncoder.setBuffer(lightsBuffer, offset: 0, index: .lights)
         computeEncoder.setBuffer(positionsBuffer, offset: 0, index: .positions)
         computeEncoder.setBuffer(normalsBuffer, offset: 0, index: .normals)
         computeEncoder.setBuffer(indexBuffer, offset: 0, index: .indexBuffer)
