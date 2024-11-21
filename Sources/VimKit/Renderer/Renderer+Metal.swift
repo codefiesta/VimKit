@@ -127,12 +127,12 @@ extension Renderer {
 
         var position: SIMD3<Float> = .zero
         var color: SIMD3<Float> = .one
-        var specularColor: SIMD3<Float> = .one
-        var radius: Float = .zero
+        let specularColor: SIMD3<Float> = .one
+        let radius: Float = .zero
         var attenuation: SIMD3<Float> = .zero
-        var coneAngle: Float = .zero
-        var coneDirection: SIMD3<Float> = .zero
-        var coneAttenuation: Float = .zero
+        let coneAngle: Float = .zero
+        let coneDirection: SIMD3<Float> = .zero
+        let coneAttenuation: Float = .zero
 
         // TODO: Configure lights from the options
         switch lightType {
