@@ -11,12 +11,6 @@
 
 using namespace metal;
 
-constant float3 lightDirection = float3(0.25, -0.5, 1);
-constant float lightIntensity = 125.0;
-constant float4 lightColor = float4(0.55, 0.55, 0.4, 1.0);
-constant float4 materialAmbientColor = float4(0.04, 0.04, 0.04, 1.0);
-constant float4 materialSpecularColor = float4(1.0, 1.0, 1.0, 1.0);
-
 // The main vertex shader function.
 // - Parameters:
 //   - in: The vertex position + normal data.
@@ -45,18 +39,24 @@ vertex VertexOut vertexMain(VertexIn in [[stage_in]],
     uint instanceIndex = instance.index;
     int colorIndex = instance.colorIndex;
     
-
+    // Matrices
     float4x4 modelMatrix = instance.matrix;
     float4x4 viewMatrix = camera.viewMatrix;
     float4x4 projectionMatrix = camera.projectionMatrix;
     float4x4 modelViewProjectionMatrix = projectionMatrix * viewMatrix * modelMatrix;
     float4x4 modelViewMatrix = viewMatrix * modelMatrix;
+    float3x3 normalMatrix = float3x3(modelMatrix.columns[0].xyz, modelMatrix.columns[1].xyz, modelMatrix.columns[2].xyz);
 
     // Position
+    float4 worldPosition = modelMatrix * in.position;
     out.position = modelViewProjectionMatrix * in.position;
+    out.worldPosition = worldPosition.xyz / worldPosition.w;
     
-    // Pass color information to the fragment shader
+    // Normal
     float3 normal = in.normal.xyz;
+    out.worldNormal = normalMatrix * normal;
+    
+    // Color
     out.glossiness = material.glossiness;
     out.smoothness = material.smoothness;
     out.color = material.rgba;
@@ -82,13 +82,12 @@ vertex VertexOut vertexMain(VertexIn in [[stage_in]],
             out.color = colors[0];
             break;
     }
-
-    // Pass lighting information to the fragment shader
-    out.cameraNormal = (normalize(modelViewMatrix * float4(normal, 0))).xyz;
+    
+    // Camera
+    out.cameraPosition = camera.position;
     out.cameraDirection = float3(0, 0, 0) - (modelViewMatrix * in.position).xyz;
-    out.cameraLightDirection = (viewMatrix * float4(normalize(lightDirection), 0)).xyz;
     out.cameraDistance = length_squared((modelMatrix * in.position).xyz - camera.position);
-
+    
     // Pass the instance index
     out.index = instanceIndex;
 
@@ -101,43 +100,26 @@ vertex VertexOut vertexMain(VertexIn in [[stage_in]],
 //   - texture: the texture.
 //   - colorSampler: The color sampler.
 fragment FragmentOut fragmentMain(VertexOut in [[stage_in]],
+                                  constant Light *lights [[buffer(FragmentBufferIndexLights)]],
                                   texture2d<float, access::sample> texture [[texture(0)]],
                                   sampler colorSampler [[sampler(0)]]) {
 
+    float4 baseColor = in.color;
+    float glossiness = in.glossiness;
+    float3 cameraPosition = in.cameraPosition;
+    float3 cameraDirection = in.cameraDirection;
+    float cameraDistance = in.cameraDistance;
+
     // If the color alpha is zero, discard the fragment
-    if (in.color.w == 0.0) {
+    if (baseColor.w == 0.0) {
         discard_fragment();
     }
-
+    
+    float3 normal = normalize(in.worldNormal);
+    float3 position = in.worldPosition;
+    float4 color = phongLighting(position, normal, baseColor, glossiness, cameraPosition, cameraDirection, cameraDistance, lights);
+    
     FragmentOut out;
-    float4 materialPureColor = in.color * 0.66;
-    
-    float3 normal = normalize(in.cameraNormal);
-    float3 light1 = normalize(in.cameraLightDirection);
-    float3 light2 = normalize(float3(0, 0, 0));
-    
-    float lightDot1 = saturate(dot(normal, light1));
-    float lightDot2 = saturate(dot(normal, light2));
-    
-    float4 directionalLight = lightColor * lightDot1 * in.color;
-    float4 pointLight = (lightColor * min(lightIntensity / sqrt(in.cameraDistance), 0.7)) * lightDot2 * in.color;
-    float4 diffuseColor = directionalLight + pointLight + materialPureColor;
-    
-    // Shininess
-    float4 specularColor = 0.0;
-    if (in.glossiness > 90) {
-        float3 e = normalize(in.cameraDirection);
-        float3 r = -light1 + 2.0 * lightDot1 * normal;
-        float3 r2 = -light1 + 2.0 * lightDot2 * normal;
-        float e_dot_r = saturate(dot(e, r));
-        float e_dot_r2 = saturate(dot(e, r2));
-        float shine = in.glossiness;
-        // combine 2 lights
-        specularColor = materialSpecularColor * lightColor * pow(e_dot_r, shine) + materialSpecularColor * (lightColor * lightIntensity / in.cameraDistance) * pow(e_dot_r2, shine) * 0.5;
-    }
-
-    float4 color = float4(materialAmbientColor + diffuseColor + specularColor);
-    color.a = in.color.a;
     
     out.color = color;
     out.index = in.index;

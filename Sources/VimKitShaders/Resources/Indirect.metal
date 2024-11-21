@@ -211,18 +211,19 @@ static bool isVisible(const Frame frame,
 //   - baseInstance: The starting index of the instances pointer.
 __attribute__((always_inline))
 static void encodeAndDraw(thread render_command &cmd,
-                          constant float *positions [[buffer(KernelBufferIndexPositions)]],
-                          constant float *normals [[buffer(KernelBufferIndexNormals)]],
-                          constant uint32_t *indexBuffer [[buffer(KernelBufferIndexIndexBuffer)]],
-                          constant Frame *frames [[buffer(KernelBufferIndexFrames)]],
-                          constant Instance *instances [[buffer(KernelBufferIndexInstances)]],
-                          constant Material *materials [[buffer(KernelBufferIndexMaterials)]],
-                          constant float4 *colors [[buffer(KernelBufferIndexColors)]],
+                          constant float *positions,
+                          constant float *normals,
+                          constant uint32_t *indexBuffer,
+                          constant Frame *frames,
+                          constant Light *lights,
+                          constant Instance *instances,
+                          constant Material *materials,
+                          constant float4 *colors,
                           uint indexCount,
                           uint instanceCount,
                           uint baseInstance) {
     
-    // Encode the buffers
+    // Encode the vertex buffers
     cmd.set_vertex_buffer(frames, VertexBufferIndexFrames);
     cmd.set_vertex_buffer(positions, VertexBufferIndexPositions);
     cmd.set_vertex_buffer(normals, VertexBufferIndexNormals);
@@ -231,7 +232,8 @@ static void encodeAndDraw(thread render_command &cmd,
     cmd.set_vertex_buffer(colors, VertexBufferIndexColors);
     cmd.set_vertex_buffer(materials, VertexBufferIndexMaterials);
     
-    // TODO: Encode the Fragment Buffers
+    // Encode the fragment buffers
+    cmd.set_fragment_buffer(lights, FragmentBufferIndexLights);
 
     // Execute the draw call
     cmd.draw_indexed_primitives(primitive_type::triangle,
@@ -249,6 +251,7 @@ static void encodeAndDraw(thread render_command &cmd,
 //   - normals: The pointer to the normals.
 //   - indexBuffer: The pointer to the index buffer.
 //   - frames: The frames buffer.
+//   - lights: The lights buffer.
 //   - instances: The instances pointer.
 //   - instancedMeshes: The instanced meshes pointer.
 //   - meshes: The meshes pointer.
@@ -265,6 +268,7 @@ kernel void encodeIndirectRenderCommands(uint2 threadPosition [[thread_position_
                                          constant float *normals [[buffer(KernelBufferIndexNormals)]],
                                          constant uint32_t *indexBuffer [[buffer(KernelBufferIndexIndexBuffer)]],
                                          constant Frame *frames [[buffer(KernelBufferIndexFrames)]],
+                                         constant Light *lights [[buffer(KernelBufferIndexLights)]],
                                          constant Instance *instances [[buffer(KernelBufferIndexInstances)]],
                                          constant InstancedMesh *instancedMeshes [[buffer(KernelBufferIndexInstancedMeshes)]],
                                          constant Mesh *meshes [[buffer(KernelBufferIndexMeshes)]],
@@ -336,6 +340,7 @@ kernel void encodeIndirectRenderCommands(uint2 threadPosition [[thread_position_
                       normals,
                       &indexBuffer[indexBufferOffset],
                       frames,
+                      lights,
                       instances,
                       &materials[materialIndex],
                       colors,

@@ -11,10 +11,6 @@ import MetalKit
 import Spatial
 import VimKitShaders
 
-private let alignedFramesSize = ((MemoryLayout<Frame>.size + 255) / 256) * 256
-private let maxFramesInFlight = 3
-private let maxStatEntries = 100
-
 @MainActor
 open class Renderer: NSObject {
 
@@ -86,10 +82,13 @@ open class Renderer: NSObject {
     open var instancePickingTexture: MTLTexture?
 
     // Frames Buffer
-    open var framesBuffer: MTLBuffer!
+    open var framesBuffer: MTLBuffer?
     open var framesBufferIndex: Int = 0
     open var framesBufferOffset: Int = 0
     open var framesBufferAddress: UnsafeMutablePointer<Frame>!
+
+    // Lights Buffer
+    open var lightsBuffer: MTLBuffer?
 
     // Rasterization
     open var rasterizationRateMap: MTLRasterizationRateMap?
@@ -118,7 +117,7 @@ open class Renderer: NSObject {
     /// The current index of the rotating stat entries.
     private var statsIndex: Int = 0
     /// The rendering stat entries.
-    private var stats = [Stat](repeating: .init(), count: maxStatEntries)
+    private var stats = [Stat](repeating: .init(), count: 100)
 
     /// Common initializer.
     /// - Parameter context: the rendering context
@@ -136,8 +135,9 @@ open class Renderer: NSObject {
         self.renderPasses = renderPasses.compactMap{ $0 }
 
         // Make the frames buffer
-        framesBuffer = device.makeBuffer(length: alignedFramesSize * maxFramesInFlight,
-                                         options: [.storageModeShared])
+        makeFramesBuffer()
+        // Make the lights buffer
+        makeLightsBuffer()
     }
 }
 
@@ -147,8 +147,8 @@ extension Renderer {
 
     /// Update the per-frame rendering state
     public func updatFrameState() {
-        updateDynamicBufferState()
-        updateUniforms()
+        updateFrameBufferState()
+        updateFrame()
 
         // Update the frame state for the render passes
         for (i, _) in renderPasses.enumerated() {
@@ -156,17 +156,8 @@ extension Renderer {
         }
     }
 
-    /// Update the state of our revolving uniform buffers before rendering
-    private func updateDynamicBufferState() {
-        framesBufferIndex = (framesBufferIndex + 1) % maxFramesInFlight
-        framesBufferOffset = alignedFramesSize * framesBufferIndex
-        framesBufferAddress = framesBuffer.contents()
-            .advanced(by: framesBufferOffset)
-            .assumingMemoryBound(to: Frame.self)
-    }
-
-    /// Updates the per-frame uniforms from the camera
-    private func updateUniforms() {
+    /// Updates the per-frame address from the camera
+    private func updateFrame() {
 
         // Frame Camera Data
         framesBufferAddress[0].cameras.0 = camera(0)

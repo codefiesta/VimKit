@@ -728,7 +728,7 @@ extension Geometry {
         }
 
         let commandQueue = device.makeCommandQueue()
-        var instanceCount = instances.count - 1
+        let instanceCount = instances.count - 1
 
         guard !Task.isCancelled,
               let library = MTLContext.makeLibrary(),

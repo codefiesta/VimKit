@@ -58,6 +58,27 @@ typedef struct {
     simd_float4 frustumPlanes[6];
 } Camera;
 
+// Enum constants for lighting types
+typedef NS_ENUM(EnumBackingType, LightType) {
+    LightTypeSun = 0,
+    LightTypeSpot = 1,
+    LightTypePoint = 2,
+    LightTypeAmbient = 3
+};
+
+// Holds lighting information
+typedef struct {
+    LightType lightType;
+    simd_float3 position;
+    simd_float3 color;
+    simd_float3 specularColor;
+    float radius;
+    simd_float3 attenuation;
+    float coneAngle;
+    simd_float3 coneDirection;
+    float coneAttenuation;
+} Light;
+
 // A struct that holds per frame data
 typedef struct {
     // Provides an array of cameras for rendering stereoscopic views
@@ -127,6 +148,11 @@ typedef NS_ENUM(EnumBackingType, VertexBufferIndex) {
     VertexBufferIndexColors = 7,
 };
 
+// Enum constants for the association of a specific buffer index argument passed into the shader fragment function
+typedef NS_ENUM(EnumBackingType, FragmentBufferIndex) {
+    FragmentBufferIndexLights = 0,
+};
+
 // Enum constants for the attribute index of an incoming vertex
 typedef NS_ENUM(EnumBackingType, VertexAttribute) {
     VertexAttributePosition = 0,
@@ -140,16 +166,17 @@ typedef NS_ENUM(EnumBackingType, KernelBufferIndex) {
     KernelBufferIndexNormals = 1,
     KernelBufferIndexIndexBuffer = 2,
     KernelBufferIndexFrames = 3,
-    KernelBufferIndexInstances = 4,
-    KernelBufferIndexInstancedMeshes = 5,
-    KernelBufferIndexMeshes = 6,
-    KernelBufferIndexSubmeshes = 7,
-    KernelBufferIndexMaterials = 8,
-    KernelBufferIndexColors = 9,
-    KernelBufferIndexCommandBufferContainer = 10,
-    KernelBufferIndexExecutedCommands = 11,
-    KernelBufferIndexRasterizationRateMapData = 12,
-    KernelBufferIndexDepthPyramidSize = 13
+    KernelBufferIndexLights = 4,
+    KernelBufferIndexInstances = 5,
+    KernelBufferIndexInstancedMeshes = 6,
+    KernelBufferIndexMeshes = 7,
+    KernelBufferIndexSubmeshes = 8,
+    KernelBufferIndexMaterials = 9,
+    KernelBufferIndexColors = 10,
+    KernelBufferIndexCommandBufferContainer = 11,
+    KernelBufferIndexExecutedCommands = 12,
+    KernelBufferIndexRasterizationRateMapData = 13,
+    KernelBufferIndexDepthPyramidSize = 14
 };
 
 // Enum constants for argument buffer indices
@@ -176,25 +203,27 @@ typedef struct {
 
 // The struct that is passed from the vertex function to the fragment function
 typedef struct {
-    // The position of the vertex
+    // The position of the vertex.
     float4 position [[position]];
-    // The normal from the perspective of the camera
-    float3 cameraNormal;
-    // The directional vector from the perspective of the camera
+    // The world position of the vertex.
+    float3 worldPosition;
+    // The world normal of the vertex.
+    float3 worldNormal;
+    // The camera position in world space.
+    float3 cameraPosition;
+    // The directional vector from the perspective of the camera.
     float3 cameraDirection;
-    // The direction of the light from the position of the camera
-    float3 cameraLightDirection;
-    // The distance from camera to the vertex
+    // The distance from camera to the vertex.
     float cameraDistance;
-    // The material color
+    // The material color.
     float4 color;
-    // The material glossiness
+    // The material glossiness.
     float glossiness;
-    // The material smoothness
+    // The material smoothness.
     float smoothness;
-    // The texture coordinates
+    // The texture coordinates.
     float3 textureCoordinates;
-    // The instance index (-1 indicates a non-selectable or invalid instance)
+    // The instance index (-1 indicates a non-selectable or invalid instance).
     int32_t index;
 } VertexOut;
 
@@ -212,6 +241,18 @@ typedef struct {
     command_buffer commandBuffer [[id(ArgumentBufferIndexCommandBuffer)]];
     command_buffer commandBufferDepthOnly [[id(ArgumentBufferIndexCommandBufferDepthOnly)]];
 } ICBContainer;
+
+// Defines the phong lighting function
+float4 phongLighting(
+    float3 position,
+    float3 normal,
+    float4 baseColor,
+    float glossiness,
+    float3 cameraPosition,
+    float3 cameraDirection,
+    float cameraDistance,
+    constant Light *lights
+);
 
 #endif
 
