@@ -120,12 +120,6 @@ extension Renderer {
 
     // MARK: Lights
 
-    //    constant float3 lightDirection = float3(0.25, -0.5, 1);
-    //    constant float lightIntensity = 125.0;
-    //    constant float4 lightColor = float4(0.55, 0.55, 0.4, 1.0);
-    //    constant float4 materialAmbientColor = float4(0.04, 0.04, 0.04, 1.0);
-    //    constant float4 materialSpecularColor = float4(1.0, 1.0, 1.0, 1.0);
-
     /// Makes a light of the specified type
     /// - Parameter lightType:the light type
     /// - Returns: a new light of the specified type
@@ -140,6 +134,7 @@ extension Renderer {
         var coneDirection: SIMD3<Float> = .zero
         var coneAttenuation: Float = .zero
 
+        // TODO: Configure lights from the options
         switch lightType {
         case .sun:
             position = .init(1, -1, 2)
@@ -171,6 +166,7 @@ extension Renderer {
         var lights: [Light] = [
             light(.sun),
             light(.ambient),
+            light(.point),
         ]
         lightsBuffer = device.makeBuffer(bytes: &lights, length: MemoryLayout<Light>.size * lights.count)
     }
