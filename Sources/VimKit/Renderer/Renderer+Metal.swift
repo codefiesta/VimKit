@@ -166,7 +166,6 @@ extension Renderer {
         var lights: [Light] = [
             light(.sun),
             light(.ambient),
-            light(.point),
         ]
         lightsBuffer = device.makeBuffer(bytes: &lights, length: MemoryLayout<Light>.size * lights.count)
     }
