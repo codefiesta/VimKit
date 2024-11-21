@@ -127,24 +127,23 @@ extension Renderer {
     //    constant float4 materialSpecularColor = float4(1.0, 1.0, 1.0, 1.0);
 
     /// Makes a light of the specified type
-    /// - Parameter type:the light type
+    /// - Parameter lightType:the light type
     /// - Returns: a new light of the specified type
-    private func light(_ type: LightType) -> Light {
+    private func light(_ lightType: LightType) -> Light {
 
         var position: SIMD3<Float> = .zero
-        var color: SIMD3<Float> = .zero
-        var specularColor: SIMD3<Float> = .zero
+        var color: SIMD3<Float> = .one
+        var specularColor: SIMD3<Float> = .one
         var radius: Float = .zero
         var attenuation: SIMD3<Float> = .zero
         var coneAngle: Float = .zero
         var coneDirection: SIMD3<Float> = .zero
         var coneAttenuation: Float = .zero
 
-        switch type {
+        switch lightType {
         case .sun:
             position = .init(1, -1, 2)
-            color = .init(1, 1, 1)
-            specularColor = .init(0.6, 0.6, 0.6)
+            color = .init(0.6, 0.6, 0.4)
             attenuation = .init(1, 0, 0)
         case .spot:
             break
@@ -156,15 +155,15 @@ extension Renderer {
             break
         }
 
-        return .init(position: position,
+        return .init(lightType: lightType,
+                     position: position,
                      color: color,
                      specularColor: specularColor,
                      radius: radius,
                      attenuation: attenuation,
                      coneAngle: coneAngle,
                      coneDirection: coneDirection,
-                     coneAttenuation: coneAttenuation,
-                     type: type)
+                     coneAttenuation: coneAttenuation)
     }
 
     /// Makes the lights buffer.

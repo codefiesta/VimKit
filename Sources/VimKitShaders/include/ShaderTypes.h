@@ -68,6 +68,7 @@ typedef NS_ENUM(EnumBackingType, LightType) {
 
 // Holds lighting information
 typedef struct {
+    LightType lightType;
     simd_float3 position;
     simd_float3 color;
     simd_float3 specularColor;
@@ -76,7 +77,6 @@ typedef struct {
     float coneAngle;
     simd_float3 coneDirection;
     float coneAttenuation;
-    LightType type;
 } Light;
 
 // A struct that holds per frame data

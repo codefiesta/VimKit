@@ -13,9 +13,14 @@ using namespace metal;
 
 // The main phong lighting function.
 // - Parameters:
-//   - normal: The vertex normal.
-//   - position: The vertex position.
-//   - instance_id: The baseInstance parameter passed to the draw call used to map this instance to it's transform data.
+//   - position: The vertex world position.
+//   - normal: The vertex world normal.
+//   - baseColor: The vertex base color
+//   - glossiness: The glossiness (shine)
+//   - cameraPosition: The camera position
+//   - cameraDirection: The camera forward direction
+//   - cameraDistance: The distance from the vertex to the camera position
+//   - lights: The scene lights
 float4 phongLighting(float3 position,
                      float3 normal,
                      float4 baseColor,
@@ -34,84 +39,66 @@ float4 phongLighting(float3 position,
 
     float3 materialSpecularColor = float3(1, 1, 1);
     
-    // SunLight
-    Light light = lights[0];
+    // Loop through the lights and merge the lights
+    // TODO: Pass the light count
+    for (uint i = 0; i < 2; i++) {
 
-    float3 lightDirection = normalize(-light.position);
-    float diffuseIntensity = saturate(-dot(lightDirection, normal));
-    
-    diffuseColor += rgb * light.color * diffuseIntensity;
-    
-    if (diffuseIntensity > 0) {
-        float3 reflection = reflect(lightDirection, normal);
-        float3 viewDirection = normalize(cameraDirection);
-        float specularIntensity = pow(saturate(dot(reflection, viewDirection)), glossiness);
-        specularColor += rgb * light.specularColor * materialSpecularColor * specularIntensity;
+        const Light light = lights[i];
+
+        switch (light.lightType) {
+            case LightTypeSun:
+                {
+                    float3 lightDirection = normalize(-light.position);
+                    float diffuseIntensity = saturate(-dot(lightDirection, normal));
+                    
+                    diffuseColor += light.color * rgb * diffuseIntensity;
+                    
+                    if (diffuseIntensity > 0) {
+                        float3 reflection = reflect(lightDirection, normal);
+                        float3 viewDirection = normalize(cameraPosition);
+                        float specularIntensity = pow(saturate(dot(reflection, viewDirection)), glossiness);
+                        specularColor += light.color * rgb * materialSpecularColor * specularIntensity;
+                    }
+                }
+                break;
+            case LightTypeSpot:
+                {
+                    const float3 worldPosition = position.xyz;
+                    float d = distance(light.position, worldPosition);
+                    float3 lightDirection = normalize(light.position - worldPosition);
+                    float3 coneDirection = normalize(light.coneDirection);
+                    float spotResult = dot(lightDirection, -coneDirection);
+                    
+                    if (spotResult > cos(light.coneAngle)) {
+                        float attenuation = 1.0 / (light.attenuation.x + light.attenuation.y * d + light.attenuation.z * d * d);
+                        attenuation *= pow(spotResult, light.coneAttenuation);
+                        float diffuseIntensity = saturate(dot(lightDirection, normal));
+                        float3 color = light.color * rgb * diffuseIntensity;
+                        color *= attenuation;
+                        diffuseColor += color;
+                    }
+                }
+                break;
+            case LightTypePoint:
+                {
+                    const float3 worldPosition = position.xyz;
+                    float d = distance(light.position, worldPosition);
+                    float3 lightDirection = normalize(light.position - worldPosition);
+                    float attenuation = 1.0 / (light.attenuation.x + light.attenuation.y * d + light.attenuation.z * d * d);
+                    
+                    float diffuseIntensity = saturate(dot(lightDirection, normal));
+                    float3 color = light.color * rgb * diffuseIntensity;
+                    color *= attenuation;
+                    diffuseColor += color;
+                }
+                break;
+            case LightTypeAmbient:
+                {
+                    ambientColor += light.color * rgb;
+                }
+                break;
+        }
     }
-
-    // AmbientLight
-    light = lights[1];
-    ambientColor += light.color * rgb;
-    
-
-//    for (uint i = 0; i < 1; i++) {
-//
-//        const Light light = lights[i];
-//
-//        switch (light.type) {
-//            case LightTypeSun:
-//                {
-//                    float3 lightDirection = normalize(-light.position);
-//                    float diffuseIntensity = saturate(-dot(lightDirection, normal));
-//                    
-//                    diffuseColor += light.color * rgb * diffuseIntensity;
-//                    
-//                    if (diffuseIntensity > 0) {
-//                        float3 reflection = reflect(lightDirection, normal);
-//                        float3 viewDirection = normalize(cameraPosition);
-//                        float specularIntensity = pow(saturate(dot(reflection, viewDirection)), glossiness);
-//                        specularColor += light.specularColor * materialSpecularColor * specularIntensity;
-//                    }
-//                }
-//                break;
-//            case LightTypeSpot:
-//                {
-//                    const float3 worldPosition = position.xyz;
-//                    float d = distance(light.position, worldPosition);
-//                    float3 lightDirection = normalize(light.position - worldPosition);
-//                    float3 coneDirection = normalize(light.coneDirection);
-//                    float spotResult = dot(lightDirection, -coneDirection);
-//                    
-//                    if (spotResult > cos(light.coneAngle)) {
-//                        float attenuation = 1.0 / (light.attenuation.x + light.attenuation.y * d + light.attenuation.z * d * d);
-//                        attenuation *= pow(spotResult, light.coneAttenuation);
-//                        float diffuseIntensity = saturate(dot(lightDirection, normal));
-//                        float3 color = light.color * rgb * diffuseIntensity;
-//                        color *= attenuation;
-//                        diffuseColor += color;
-//                    }
-//                }
-//                break;
-//            case LightTypePoint:
-//                {
-//                    const float3 worldPosition = position.xyz;
-//                    float d = distance(light.position, worldPosition);
-//                    float3 lightDirection = normalize(light.position - worldPosition);
-//                    float attenuation = 1.0 / (light.attenuation.x + light.attenuation.y * d + light.attenuation.z * d * d);
-//                    
-//                    float diffuseIntensity = saturate(dot(lightDirection, normal));
-//                    float3 color = light.color * rgb * diffuseIntensity;
-//                    color *= attenuation;
-//                    diffuseColor += color;
-//                }
-//                break;
-//            case LightTypeAmbient:
-//                {
-//                    ambientColor += light.color;
-//                }
-//                break;
-//        }
-//    }
     
     float3 result = ambientColor + diffuseColor + specularColor;
     return float4(result, alpha);
