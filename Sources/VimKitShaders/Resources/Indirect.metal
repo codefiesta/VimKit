@@ -74,15 +74,15 @@ static bool depthTest(const Frame frame,
                       texture2d<float> depthPyramidTexture) {
     
     const Camera camera = frame.cameras[0];
-
-    // Transform the bounding box
-    float3 minBounds = instance.minBounds;
-    float3 maxBounds = instance.maxBounds;
     
     float4x4 viewMatrix = camera.viewMatrix;
     float4x4 projectionMatrix = camera.projectionMatrix;
     float4x4 projectionViewMatrix = projectionMatrix * viewMatrix;
     
+    float3 minBounds = instance.minBounds;
+    float3 maxBounds = instance.maxBounds;
+
+    // Transform the bounding box
     minBounds = (projectionViewMatrix * float4(minBounds, 1.0)).xyz;
     maxBounds = (projectionViewMatrix * float4(maxBounds, 1.0)).xyz;
 
