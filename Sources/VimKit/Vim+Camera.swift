@@ -168,8 +168,13 @@ extension Vim {
             if let position {
                 self.position = position
             }
+
+            // Avoid gimble lock from shitty camera
+            var upVector = upVector == nil ? .zpositive : upVector!
+            var target = target == upVector ? .ynegative : target
+
             // Construct a new look at matrix
-            transform = .init(position: self.position, target: target, up: .zpositive)
+            transform = .init(position: self.position, target: target, up: upVector)
         }
 
         /// Looks in a directional vector from a position and up vector. If the position is not specified, the current camera position will be used.
