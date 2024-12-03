@@ -168,8 +168,8 @@ extension Vim {
             if let position {
                 self.position = position
             }
-            let direction = normalize(target - self.position)
-            look(in: direction)
+            // Construct a new look at matrix
+            transform = .init(position: self.position, target: target, up: .zpositive)
         }
 
         /// Looks in a directional vector from a position and up vector. If the position is not specified, the current camera position will be used.
@@ -181,9 +181,9 @@ extension Vim {
             if let position {
                 self.position = position
             }
+
             let target = self.position + direction
-            let lookAt: float4x4 = .init(position: self.position, target: target, up: .zpositive)
-            transform = lookAt
+            look(at: target, from: position, upVector: upVector)
         }
 
         /// Translates the position with the specified offsets along the forward facing direction.
