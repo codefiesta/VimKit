@@ -153,22 +153,21 @@ public extension float4x4 {
     /// A more swify representation of identity matrix.
     static let identity = matrix_identity_float4x4
 
-    /// Initializes the matrix with an up vector, position, direction and scale.
+    /// Constructs a right handed look at matrix.
     /// - Parameters:
-    ///   - up: the up vector
-    ///   - position: the matrix translation.
-    ///   - direction: the matrix forward facing direction
-    ///   - scale: the scale factor
-    init(up: SIMD3<Float>, position: SIMD3<Float> = .zero, direction: SIMD3<Float> = .zero, scale: Float = 1.0) {
+    ///   - position: the eye position
+    ///   - target: the target
+    ///   - up: the camera world up
+    init(position: SIMD3<Float>, target: SIMD3<Float>, up: SIMD3<Float>, scale: SIMD3<Float> = .one) {
+
         var temp: float4x4 = .identity
-        var forward = cross(up, .xpositive)
-        if forward == .zero { // Make sure the forward vector doesn't equal 0
-            forward = cross(up, .ypositive)
-        }
-        let right = cross(forward, up)
-        temp.right = right
-        temp.up = up
-        temp.forward = forward
+        let f: SIMD3<Float> = normalize(position - target) // forward
+        let r: SIMD3<Float> = cross(up, f) // right
+        let u: SIMD3<Float> = cross(f, r) // up
+
+        temp.right = r
+        temp.up = u
+        temp.forward = f
         temp.position = position
         temp.scale(scale)
         self.init([temp.columns.0, temp.columns.1, temp.columns.2, temp.columns.3])
@@ -191,6 +190,11 @@ public extension float4x4 {
         columns.0.x *= factor.x
         columns.1.y *= factor.y
         columns.2.z *= factor.z
+    }
+
+    /// Provides the transform scale.
+    var scale: SIMD3<Float> {
+        .init(columns.0.x, columns.1.y, columns.2.z)
     }
 
     /// Provides the right vector.
