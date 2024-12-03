@@ -21,6 +21,7 @@ private let defaultFarZ: Float = 1000.0
 
 extension Vim {
 
+    /// Provides a right-handed 3D camera with Z as the default up axis.
     public class Camera: NSObject, ObservableObject {
 
         /// Holds the camera viewing frustum.
@@ -37,7 +38,6 @@ extension Vim {
         public var transform: float4x4 = .identity
 
         /// The camera projection matrix
-        @Published
         public var projectionMatrix: float4x4 = .identity
 
         /// The view matrix is the matrix that moves everything the opposite
@@ -70,9 +70,24 @@ extension Vim {
             didSet { updateProjection() }
         }
 
+        /// The transform scale.
+        public var scale: SIMD3<Float> {
+            get { transform.scale }
+            set(value) {
+                transform.scale(value)
+            }
+        }
+
+        // MARK: Directional vectors (all derived from the up and direction vectors).
+
         /// Provides the camera right vector.
         public var right: SIMD3<Float> {
             transform.right
+        }
+
+        /// Provides the camera left vector.
+        public var left: SIMD3<Float> {
+            -right
         }
 
         /// Provides the camera up vector.
@@ -83,12 +98,22 @@ extension Vim {
             }
         }
 
+        /// Provides the camera down vector.
+        public var down: SIMD3<Float> {
+            -up
+        }
+
         /// Provides the forward facing direction direction of the camera.
         public var forward: SIMD3<Float> {
             get { transform.forward }
             set(value) {
-                lookAt(direction: value)
+                look(in: value)
             }
+        }
+
+        /// Provides the backward facing direction direction of the camera.
+        public var backward: SIMD3<Float> {
+            -forward
         }
 
         /// Provides the position of the camera in world coordinate space.
@@ -99,31 +124,11 @@ extension Vim {
             }
         }
 
-        /// Inititalizes the camera with a default position, direction, and up vector.
-        /// - Parameters:
-        ///   - position: the camera default position
-        ///   - direction: the camera forward facing direction
-        ///   - up: the camera up vector
-        ///   - scale: the scale
-        public init(_ position: SIMD3<Float> = .zero, _ direction: SIMD3<Float> = .zero, _ up: SIMD3<Float> = .zpositive, _ scale: Float = -1) {
+        /// Common Initializer
+        override public init() {
             super.init()
-            update(position, direction, up, scale)
-        }
-
-        /// Updates the camera with a new position, direction, and up vector. This method should
-        /// be used by observers of the current camera as `.init(...)` calls
-        /// will will cause the subscription to drop.
-        /// - Parameters:
-        ///   - position: the camera default position
-        ///   - direction: the camera forward facing direction
-        ///   - up: the camera up vector
-        ///   - scale: the scale
-        public func update(_ position: SIMD3<Float> = .zero, _ direction: SIMD3<Float> = .zero, _ up: SIMD3<Float> = .zpositive, _ scale: Float = -1) {
-            self.transform = .init(up: up, scale: scale)
+            self.transform = .init(position: .zero, target: .ynegative, up: .zpositive)
             self.sceneTransform = transform
-            self.position = position
-            self.forward = direction
-            updateProjection()
         }
 
         /// Updates the projection matrix when any of the relevant projection values change.
@@ -154,15 +159,36 @@ extension Vim {
             transform.rotate(by: radians)
         }
 
-        /// Sets the camera forward facing direction.
-        /// - Parameter direction: the forward facing direction.
-        public func lookAt(direction: SIMD3<Float>) {
-            guard direction != .zero, var pose = Pose3D(transform) else { return }
-            let up = Vector3D(x: up.x, y: up.y, z: up.z)
-            let forward = Vector3D(x: direction.x, y: direction.y, z: 1)
-            let rotation = Rotation3D(forward: forward, up: up)
-            pose.rotate(by: rotation)
-            transform = pose.matrix.singlePrecision
+        /// Looks at a specifed point from a position and up vector. If the position is not specified, the current camera position will be used.
+        /// - Parameters:
+        ///   - target: The target position to look at.
+        ///   - position: The new position of the camera.
+        ///   - upVector: The new  camera up vector.
+        public func look(at target: SIMD3<Float>, from position: SIMD3<Float>? = nil, upVector: SIMD3<Float>? = nil) {
+            if let position {
+                self.position = position
+            }
+
+            // Avoid gimble lock from shitty camera
+            var upVector = upVector == nil ? .zpositive : upVector!
+            var target = target == upVector ? .ynegative : target
+
+            // Construct a new look at matrix
+            transform = .init(position: self.position, target: target, up: upVector)
+        }
+
+        /// Looks in a directional vector from a position and up vector. If the position is not specified, the current camera position will be used.
+        /// - Parameters:
+        ///   - direction: The directional vector to use.
+        ///   - position: The new position of the camera.
+        ///   - upVector: The new camera up vector.
+        public func look(in direction: SIMD3<Float>, from position: SIMD3<Float>? = nil, upVector: SIMD3<Float>? = nil) {
+            if let position {
+                self.position = position
+            }
+
+            let target = self.position + direction
+            look(at: target, from: position, upVector: upVector)
         }
 
         /// Translates the position with the specified offsets along the forward facing direction.
@@ -188,7 +214,7 @@ extension Vim {
             let result = project(point: point, modelViewMatrix: viewMatrix, projectionMatrix: projectionMatrix, viewport: viewport)
             let x = result.x / displayScale
             let y = (viewportSize.y - result.y) / displayScale
-            return [x, y, result.z]
+            return .init(x: x, y: y, z: result.z)
         }
 
         /// Unprojects a point from the 2D pixel coordinate system to the 3D world coordinate system of the scene.
@@ -207,7 +233,7 @@ extension Vim {
             eyeDirection.w = 0
 
             let worldRayDirection = normalize((viewMatrix.inverse * eyeDirection).xyz)
-            return Geometry.RaycastQuery(origin: position, direction: worldRayDirection)
+            return .init(origin: position, direction: worldRayDirection)
         }
 
         /// Determines if the camera frustum intersects the bounding box.
