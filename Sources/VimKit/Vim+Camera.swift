@@ -37,7 +37,6 @@ extension Vim {
         public var transform: float4x4 = .identity
 
         /// The camera projection matrix
-        @Published
         public var projectionMatrix: float4x4 = .identity
 
         /// The view matrix is the matrix that moves everything the opposite
