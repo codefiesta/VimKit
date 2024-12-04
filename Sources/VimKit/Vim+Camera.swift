@@ -172,8 +172,8 @@ extension Vim {
             }
 
             // Avoid gimble lock from shitty camera
-            var upVector = upVector == nil ? .zpositive : upVector!
-            var target = target == upVector ? .ynegative : target
+            let upVector = upVector == nil ? .zpositive : upVector!
+            let target = target == upVector ? .ynegative : target
 
             // Construct a new look at matrix
             transform = .init(position: self.position, target: target, up: upVector)
