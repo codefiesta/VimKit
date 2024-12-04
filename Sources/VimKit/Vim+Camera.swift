@@ -89,7 +89,7 @@ extension Vim {
 
         /// Provides the camera left vector.
         public var left: SIMD3<Float> {
-            -right
+            right.inverse
         }
 
         /// Provides the camera up vector.
@@ -102,7 +102,7 @@ extension Vim {
 
         /// Provides the camera down vector.
         public var down: SIMD3<Float> {
-            -up
+            up.inverse
         }
 
         /// Provides the forward facing direction direction of the camera.
@@ -115,7 +115,7 @@ extension Vim {
 
         /// Provides the backward facing direction direction of the camera.
         public var backward: SIMD3<Float> {
-            -forward
+            forward.negate
         }
 
         /// Provides the position of the camera in world coordinate space.
@@ -172,8 +172,8 @@ extension Vim {
             }
 
             // Avoid gimble lock from shitty camera
-            var upVector = upVector == nil ? .zpositive : upVector!
-            var target = target == upVector ? .ynegative : target
+            let upVector = upVector == nil ? .zpositive : upVector!
+            let target = target == upVector ? .ynegative : target
 
             // Construct a new look at matrix
             transform = .init(position: self.position, target: target, up: upVector)
@@ -196,11 +196,14 @@ extension Vim {
         /// Translates the position with the specified offsets along the forward facing direction.
         /// - Parameter translation: the translation offset to apply
         public func translate(translation: SIMD3<Float>) {
-            let down = up.inverse
-            let r = down * right
-            let f = down * forward.negate
+
+            // Calculate the translation vector
+            let x = right
+            let y = backward
+            let vector = (normalize(x) * translation.x) + (normalize(y) * translation.y)
+
+            // Update the position
             var p = position
-            let vector = (normalize(r) * translation.x) + (normalize(f) * translation.y)
             p.x += vector.x
             p.y += vector.y
             p.z += translation.z
