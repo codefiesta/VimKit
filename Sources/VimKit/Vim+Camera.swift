@@ -35,7 +35,9 @@ extension Vim {
         /// The transform follows left-handed convention where the postive z-axis points up and the
         /// postive y-axis points away from the eye.
         @Published
-        public var transform: float4x4 = .identity
+        public var transform: float4x4 = .identity {
+            didSet { updateProjection() }
+        }
 
         /// The camera projection matrix
         public var projectionMatrix: float4x4 = .identity
@@ -78,7 +80,7 @@ extension Vim {
             }
         }
 
-        // MARK: Directional vectors (all derived from the up and direction vectors).
+        // MARK: Directional vectors (all derived from the transform up and direction vectors).
 
         /// Provides the camera right vector.
         public var right: SIMD3<Float> {
@@ -159,7 +161,7 @@ extension Vim {
             transform.rotate(by: radians)
         }
 
-        /// Looks at a specifed point from a position and up vector. If the position is not specified, the current camera position will be used.
+        /// Constructs a look at matrix from the target point, the position and up vector. If the position is not specified, the current camera position will be used.
         /// - Parameters:
         ///   - target: The target position to look at.
         ///   - position: The new position of the camera.
@@ -177,7 +179,7 @@ extension Vim {
             transform = .init(position: self.position, target: target, up: upVector)
         }
 
-        /// Looks in a directional vector from a position and up vector. If the position is not specified, the current camera position will be used.
+        /// Constructs a look at matrix from the directional vector, position and up vector. If the position is not specified, the current camera position will be used.
         /// - Parameters:
         ///   - direction: The directional vector to use.
         ///   - position: The new position of the camera.
