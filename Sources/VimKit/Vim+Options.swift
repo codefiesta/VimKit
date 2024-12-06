@@ -20,7 +20,7 @@ extension Vim {
         public var xRay: Bool = false
 
         /// A bool used to specify whether indirect command buffers should perform depth testing or not.
-        public var enableDepthTesting: Bool = false
+        public var enableDepthTesting: Bool = true
 
         /// Specifies the rendering cull mode to apply.
         public var cullMode: MTLCullMode = .none
