@@ -1,5 +1,5 @@
 ![Build](https://github.com/codefiesta/VimKit/actions/workflows/swift.yml/badge.svg)
-![Xcode 16.0+](https://img.shields.io/badge/Xcode-16.0%2B-gold.svg)
+![Xcode 16.1+](https://img.shields.io/badge/Xcode-16.1%2B-gold.svg)
 ![Swift 6.0+](https://img.shields.io/badge/Swift-6.0%2B-tomato.svg)
 ![iOS 18.0+](https://img.shields.io/badge/iOS-18.0%2B-crimson.svg)
 ![visionOS 2.0+](https://img.shields.io/badge/visionOS-2.0%2B-magenta.svg)
@@ -17,7 +17,7 @@ The VimKit package is broken down into 3 seperate modules ([VimKit](#vimkit-1), 
 
 [VIM](https://github.com/vimaec/vim) files are composed of [BFAST](https://github.com/vimaec/bfast) containers that provide the necessary [geometry](https://github.com/vimaec/vim#geometry-buffer), [assets](https://github.com/vimaec/vim/#assets-buffer), [entities](https://github.com/vimaec/vim#entities-buffer), and [strings](https://github.com/vimaec/vim#strings-buffer) buffers used to render and interrogate all of the 3D instances contained in a file. 
 
-Although it is possible to render each [Instance](https://github.com/codefiesta/VimKit/blob/main/Sources/VimKitShaders/include/ShaderTypes.h#L93) individually, VimKit leverages instancing to render all Instance's that share the same Mesh in a single [draw](https://github.com/codefiesta/VimKit/blob/main/Sources/VimKit/Renderer/VimRenderer%2BDrawing.swift) call.
+Although it is possible to render each [Instance](https://github.com/codefiesta/VimKit/blob/main/Sources/VimKitShaders/include/ShaderTypes.h#L104) individually, VimKit leverages instancing to render all Instance's that share the same Mesh in a single [draw](https://github.com/codefiesta/VimKit/blob/main/Sources/VimKit/Renderer/Renderer%2BDrawing.swift) call.
 
 [Geometry.swift](https://github.com/codefiesta/VimKit/blob/main/Sources/VimKit/Geometry.swift) and [ShaderTypes.h](https://github.com/codefiesta/VimKit/blob/main/Sources/VimKitShaders/include/ShaderTypes.h) are the best sources to understand the details of how the geometry, positions, indices and data structures used for rendering are organized.
 
