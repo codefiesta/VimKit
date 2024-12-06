@@ -127,7 +127,8 @@ static bool depthTest(const Frame frame,
 
     const float2 ext = float2(textureSize) * (maxBounds - minBounds).xy;
     const uint lod = ceil(log2(max(ext.x, ext.y)));
-    
+    const level mipLevel = level(lod);
+
     const uint2 lodSizeInPixels = textureSize & (0xFFFFFFFF << lod);
     const float2 lodScale = float2(textureSize) / float2(lodSizeInPixels);
 
@@ -136,10 +137,10 @@ static bool depthTest(const Frame frame,
     const float2 sampleMax = maxBounds.xy * lodScale;
 
     // Sample the corners
-    const float d0 = depthPyramidTexture.sample(depthSampler, float2(sampleMin.x, sampleMin.y), level(lod)).x;
-    const float d1 = depthPyramidTexture.sample(depthSampler, float2(sampleMin.x, sampleMax.y), level(lod)).x;
-    const float d2 = depthPyramidTexture.sample(depthSampler, float2(sampleMax.x, sampleMin.y), level(lod)).x;
-    const float d3 = depthPyramidTexture.sample(depthSampler, float2(sampleMax.x, sampleMax.y), level(lod)).x;
+    const float d0 = depthPyramidTexture.sample(depthSampler, float2(sampleMin.x, sampleMin.y), mipLevel).x;
+    const float d1 = depthPyramidTexture.sample(depthSampler, float2(sampleMin.x, sampleMax.y), mipLevel).x;
+    const float d2 = depthPyramidTexture.sample(depthSampler, float2(sampleMax.x, sampleMin.y), mipLevel).x;
+    const float d3 = depthPyramidTexture.sample(depthSampler, float2(sampleMax.x, sampleMax.y), mipLevel).x;
 
     // Determine the max depth
     float maxDepth = max(max(d0, d1), max(d2, d3));
