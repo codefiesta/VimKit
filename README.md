@@ -40,6 +40,19 @@ Provides the core library for rendering VIM files on [visionOS](https://develope
 ## VimKitShaders
 C Library that provides types and enums shared between [Metal Shaders](https://developer.apple.com/metal/Metal-Shading-Language-Specification.pdf) and Swift.
 
+## Direct and Indirect Rendering
+VimKit supports both Direct Render Passes (draw commands issued on the CPU) and Indirect Render Passes (draw commands issued on the GPU via [Indirect Command Buffers](https://developer.apple.com/documentation/metal/indirect_command_encoding/encoding_indirect_command_buffers_on_the_gpu)).
+
+### Indirect Render Passes (GPU Driven Rendering)
+VimKit provides the ability to perform GPU driven rendering by default on all Apple devices with GPU families of `.apple4` (Apple A11) or greater. If the device supports  *indirect command buffers* (ICB), the render commands are generated on the GPU to maximize parallelization. The following devices support Indirect Command Buffers:
+
+- A Mac from mid-2016 and later with macOS 11 and later
+- An iPad with A11 Bionic and later using iPadOS 14.1 and later
+- An iOS device with A11 Bionic and later using iOS 14.1 and later
+
+In order to maximize GPU and CPU parallelization, the Indirect Render Pass will dispatch a thread grid size of `width x height` where the width == the maximum number of submeshes a mesh can contain and height == the number of instanced meshes the geometry contains. [Metal automaticaly calculates the number of threadgroups](https://developer.apple.com/documentation/metal/compute_passes/calculating_threadgroup_and_grid_sizes) and provides nonuniform threadgroups if the grid size isn’t a multiple of the threadgroup size.
+
+[Indirect.metal](https://github.com/codefiesta/VimKit/blob/main/Sources/VimKitShaders/Resources/Indirect.metal#L265) and [RenderPass+Indirect.swift](https://github.com/codefiesta/VimKit/blob/main/Sources/VimKit/Renderer/RenderPass%2BIndirect.swift) are the best resources to understand how the kernel code issues GPU driven rendering instructions.
 
 ## VisionOS Usage
 The following is an example of the simplest usage of rendering a VIM file on visionOS:
