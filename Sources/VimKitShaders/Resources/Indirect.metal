@@ -125,8 +125,8 @@ static bool depthTest(const Frame frame,
     // Check the depth buffer
     const float compareValue = minBounds.z;
 
-    const float2 ext = float2(textureSize) * (maxBounds - minBounds).xy;
-    const uint lod = ceil(log2(max(ext.x, ext.y)));
+    const float2 extents = float2(textureSize) * (maxBounds - minBounds).xy;
+    const uint lod = ceil(log2(max(extents.x, extents.y)));
     const level mipLevel = level(lod);
 
     const uint2 lodSizeInPixels = textureSize & (0xFFFFFFFF << lod);
