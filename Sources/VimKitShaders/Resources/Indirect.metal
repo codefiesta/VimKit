@@ -87,65 +87,25 @@ static bool depthTest(const Frame frame,
     maxBounds = (projectionViewMatrix * float4(maxBounds, 1.0)).xyz;
 
     // Make the raster rate map decoder
-    float2 inversePhysicalSize = 1.0 / frame.physicalSize;
     rasterization_rate_map_decoder decoder(*rasterRateMapData);
 
-    // Extract the box corners
-    const float4 corners[8] = {
-        float4(minBounds, 1.0),
-        float4(minBounds.x, minBounds.y, maxBounds.z, 1.0),
-        float4(minBounds.x, maxBounds.y, minBounds.z, 1.0),
-        float4(minBounds.x, maxBounds.y, maxBounds.z, 1.0),
-        float4(maxBounds.x, minBounds.y, minBounds.z, 1.0),
-        float4(maxBounds.x, minBounds.y, maxBounds.z, 1.0),
-        float4(maxBounds.x, maxBounds.y, minBounds.z, 1.0),
-        float4(maxBounds, 1.0)
-    };
-
-    for (int i = 0; i < 8; i++) {
-        
-        float3 corner = corners[i].xyz;
-
-        corner.z = max(corner.z, 0.0f);
-        corner.xy = corner.xy * float2(0.5, -0.5) + 0.5;
-        corner = saturate(corner);
-        
-        float2 screenCoordinates = corner.xy * frame.viewportSize;
-        corner.xy = decoder.map_screen_to_physical_coordinates(screenCoordinates) * inversePhysicalSize;
-        
-        if (i == 0) {
-            minBounds = corner;
-            maxBounds = corner;
-        }
-        
-        minBounds = min(minBounds, corner);
-        maxBounds = max(maxBounds, corner);
-    }
-
-    // Check the depth buffer
-    const float compareValue = minBounds.z;
-
-    const float2 extents = float2(textureSize) * (maxBounds - minBounds).xy;
-    const uint lod = ceil(log2(max(extents.x, extents.y)));
-    const level mipLevel = level(lod);
-
-    const uint2 lodSizeInPixels = textureSize & (0xFFFFFFFF << lod);
-    const float2 lodScale = float2(textureSize) / float2(lodSizeInPixels);
-
-    // Use the min(x,y) and max(x,y) as the sample locations
-    const float2 sampleMin = minBounds.xy * lodScale;
-    const float2 sampleMax = maxBounds.xy * lodScale;
-
-    // Sample the corners
-    const float d0 = depthPyramidTexture.sample(depthSampler, float2(sampleMin.x, sampleMin.y), mipLevel).x;
-    const float d1 = depthPyramidTexture.sample(depthSampler, float2(sampleMin.x, sampleMax.y), mipLevel).x;
-    const float d2 = depthPyramidTexture.sample(depthSampler, float2(sampleMax.x, sampleMin.y), mipLevel).x;
-    const float d3 = depthPyramidTexture.sample(depthSampler, float2(sampleMax.x, sampleMax.y), mipLevel).x;
+    // Map the box corners to physical coordinates
+    float2 sampleMin = decoder.map_screen_to_physical_coordinates(minBounds.xy);
+    float2 sampleMax = decoder.map_screen_to_physical_coordinates(maxBounds.xy);
+    
+    // Just use the first level
+    const level mipLevel = level(0);
+    
+    // Sample the box corners
+    const float4 d0 = depthPyramidTexture.sample(depthSampler, sampleMin, mipLevel);
+    const float4 d1 = depthPyramidTexture.sample(depthSampler, float2(sampleMin.x, sampleMax.y), mipLevel);
+    const float4 d2 = depthPyramidTexture.sample(depthSampler, float2(sampleMax.x, sampleMin.y), mipLevel);
+    const float4 d3 = depthPyramidTexture.sample(depthSampler, sampleMax, mipLevel);
 
     // Determine the max depth
-    float maxDepth = max(max(d0, d1), max(d2, d3));
+    float maxDepth = max(max(d0.z, d1.z), max(d2.z, d3.z));
     
-    return compareValue >= maxDepth;
+    return minBounds.z >= maxDepth;
 }
 
 // Checks if the instanced mesh is visible inside the view frustum and passes the depth test.
