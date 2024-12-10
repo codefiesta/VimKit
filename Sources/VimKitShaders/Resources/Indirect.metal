@@ -103,9 +103,10 @@ static bool depthTest(const Frame frame,
     const float4 d3 = depthPyramidTexture.sample(depthSampler, sampleMax, mipLevel);
 
     // Determine the max depth
+    float maxValue = max(minBounds.z, maxBounds.z);
     float maxDepth = max(max(d0.z, d1.z), max(d2.z, d3.z));
     
-    return minBounds.z >= maxDepth;
+    return maxValue >= maxDepth;
 }
 
 // Checks if the instanced mesh is visible inside the view frustum and passes the depth test.
