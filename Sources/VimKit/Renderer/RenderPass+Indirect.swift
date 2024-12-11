@@ -156,8 +156,6 @@ class RenderPassIndirect: RenderPass {
             renderEncoder.endEncoding()
         }
 
-        // 9) Consume the culling results and publish stats
-        collect()
     }
 
     /// Performs a draw call with the specified command buffer and render pass descriptor.
@@ -171,6 +169,9 @@ class RenderPassIndirect: RenderPass {
 
         // Make the draw calls
         drawIndirect(descriptor: descriptor, renderEncoder: renderEncoder)
+
+        // Consume the culling results and publish stats
+        collect()
     }
 
     /// Encodes the buffer data into the compute encoder.
@@ -306,6 +307,7 @@ class RenderPassIndirect: RenderPass {
 
         renderEncoder.setRenderPipelineState(pipelineStateDepthOnly)
         renderEncoder.setDepthStencilState(depthStencilState)
+        renderEncoder.setCullMode(.back)
         renderEncoder.setTriangleFillMode(fillMode)
 
         // Setup the per frame buffers to pass to the GPU
