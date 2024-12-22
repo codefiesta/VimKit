@@ -64,11 +64,6 @@ class RenderPassIndirect: RenderPass {
     /// The icb container.
     var icb: ICB?
 
-    /// Depth testing
-    private var depthPyramid: DepthPyramid?
-    private var depthTexture: MTLTexture?
-    private var depthPyramidTexture: MTLTexture?
-
     /// The compute pipeline state.
     private var computeFunction: MTLFunction?
     private var computePipelineState: MTLComputePipelineState?
@@ -92,7 +87,6 @@ class RenderPassIndirect: RenderPass {
         self.pipelineStateDepthOnly = makeDepthOnlyPipelineState(library)
         self.depthStencilState = makeDepthStencilState()
         self.samplerState = makeSamplerState()
-        self.depthPyramid = DepthPyramid(device, library)
         makeComputePipelineState(library)
 
         context.vim.geometry?.$state.sink { [weak self] state in
@@ -125,37 +119,16 @@ class RenderPassIndirect: RenderPass {
         // 1) Reset the commands in the icb
         reset(descriptor: descriptor);
 
-        guard let depthPyramid,
-              let depthPyramidTexture,
-              let depthTexture,
-              let computeEncoder = descriptor.commandBuffer.makeComputeCommandEncoder() else { return }
+        guard let computeEncoder = descriptor.commandBuffer.makeComputeCommandEncoder() else { return }
 
-        // 2) Generate the depth pyramid texture
-        if enableDepthTesting {
-            depthPyramid.generate(depthPyramidTexture: depthPyramidTexture, depthTexture: depthTexture, encoder: computeEncoder)
-        }
-
-        // 3) Encode the buffers onto the comute encoder
+        // 2) Encode the buffers onto the comute encoder
         encode(descriptor: descriptor, computeEncoder: computeEncoder)
 
-        // 4) End the compute encoding
+        // 3) End the compute encoding
         computeEncoder.endEncoding()
 
-        // 5) Optimize the icb commands (optional but let's do it anyway)
+        // 4) Optimize the icb commands (optional but let's do it anyway)
         optimize(descriptor: descriptor)
-
-        if enableDepthTesting {
-            // 6) Make the offscreen render pass descriptor
-            guard let renderPassDescriptor = makeRenderPassDescriptor(descriptor: descriptor),
-                  let renderEncoder = descriptor.commandBuffer.makeRenderCommandEncoder(descriptor: renderPassDescriptor) else { return }
-
-            // 7) Draw the geometry occluder offscreen
-            drawDepthOffscreen(descriptor: descriptor, renderEncoder: renderEncoder)
-
-            // 8) End encoding
-            renderEncoder.endEncoding()
-        }
-
     }
 
     /// Performs a draw call with the specified command buffer and render pass descriptor.
@@ -184,6 +157,7 @@ class RenderPassIndirect: RenderPass {
               let icb,
               let framesBuffer = descriptor.framesBuffer,
               let lightsBuffer = descriptor.lightsBuffer,
+              let depthTexture = descriptor.depthTexture,
               let executedCommandsBuffer = icb.executedCommandsBuffer,
               let positionsBuffer = geometry.positionsBuffer,
               let normalsBuffer = geometry.normalsBuffer,
@@ -193,8 +167,7 @@ class RenderPassIndirect: RenderPass {
               let meshesBuffer = geometry.meshesBuffer,
               let submeshesBuffer = geometry.submeshesBuffer,
               let materialsBuffer = geometry.materialsBuffer,
-              let colorsBuffer = geometry.colorsBuffer,
-              let depthPyramidTexture else { return }
+              let colorsBuffer = geometry.colorsBuffer else { return }
 
         // 1) Encode
         computeEncoder.setComputePipelineState(computePipelineState)
@@ -211,8 +184,7 @@ class RenderPassIndirect: RenderPass {
         computeEncoder.setBuffer(colorsBuffer, offset: 0, index: .colors)
         computeEncoder.setBuffer(icb.argumentEncoder, offset: 0, index: .commandBufferContainer)
         computeEncoder.setBuffer(executedCommandsBuffer, offset: 0, index: .executedCommands)
-        computeEncoder.setBuffer(descriptor.rasterizationRateMapData, offset: 0, index: .rasterizationRateMapData)
-        computeEncoder.setTexture(depthPyramidTexture, index: 0)
+        computeEncoder.setTexture(depthTexture, index: 0)
 
         // 2) Use Resources
         computeEncoder.useResource(icb.commandBuffer, usage: .read)
@@ -225,7 +197,7 @@ class RenderPassIndirect: RenderPass {
         computeEncoder.useResource(submeshesBuffer, usage: .read)
         computeEncoder.useResource(meshesBuffer, usage: .read)
         computeEncoder.useResource(indexBuffer, usage: .read)
-        computeEncoder.useResource(depthPyramidTexture, usage: .read)
+        computeEncoder.useResource(depthTexture, usage: .read)
 
         // 3) Dispatch the threads
         let gridSize = geometry.gridSize
@@ -246,7 +218,6 @@ class RenderPassIndirect: RenderPass {
         renderEncoder.setCullMode(options.cullMode)
         renderEncoder.setDepthStencilState(depthStencilState)
         renderEncoder.setTriangleFillMode(fillMode)
-        renderEncoder.setFragmentBuffer(descriptor.rasterizationRateMapData, offset: 0, index: .rasterizationRateMapData)
     }
 
     /// Execute the commands in the indirect command buffer.
@@ -320,14 +291,6 @@ class RenderPassIndirect: RenderPass {
             indexType: .uint32,
             indexBuffer: indexBuffer, indexBufferOffset: 0
         )
-    }
-
-    /// Default resize function
-    /// - Parameters:
-    ///   - viewportSize: the viewport size
-    ///   - physicalSize: the physical size
-    func resize(viewportSize: SIMD2<Float>, physicalSize: SIMD2<Float>) {
-        makeTextures(physicalSize)
     }
 
     /// Makes a depth only pipeline state
@@ -430,52 +393,6 @@ class RenderPassIndirect: RenderPass {
         )
     }
 
-    /// Makes the depth textures.
-    private func makeTextures(_ physicalSize: SIMD2<Float>) {
-        guard physicalSize != .zero else { return }
-
-        let width = Int(physicalSize.x)
-        let height = Int(physicalSize.y)
-
-        // Depth Texture
-        let depthTextureDescriptor = MTLTextureDescriptor.texture2DDescriptor(
-            pixelFormat: .depth32Float,
-            width: width,
-            height: height,
-            mipmapped: false)
-        depthTextureDescriptor.storageMode = .private
-        depthTextureDescriptor.usage = [.renderTarget, .shaderRead]
-
-        depthTexture = device.makeTexture(descriptor: depthTextureDescriptor)
-        depthTexture?.label = labelTextureDepth
-
-        // Depth Pyramid Texture
-        let depthPyramidTextureDescriptor = MTLTextureDescriptor.texture2DDescriptor(
-            pixelFormat: .r32Float,
-            width: width / 2,
-            height: height / 2,
-            mipmapped: true)
-        depthPyramidTextureDescriptor.storageMode = .private
-        depthPyramidTextureDescriptor.usage = [.shaderRead, .shaderWrite, .pixelFormatView]
-        depthPyramidTexture = device.makeTexture(descriptor: depthPyramidTextureDescriptor)
-        depthPyramidTexture?.label = labelTextureDepthPyramid
-    }
-
-    /// Builds an offscreen render pass descriptor.
-    /// - Returns: the offscreen render pass descriptor
-    private func makeRenderPassDescriptor(descriptor: DrawDescriptor) -> MTLRenderPassDescriptor? {
-
-        let renderPassDescriptor = MTLRenderPassDescriptor()
-
-        // Depth attachment
-        renderPassDescriptor.depthAttachment.texture = depthTexture
-        renderPassDescriptor.depthAttachment.clearDepth = 1.0
-        renderPassDescriptor.depthAttachment.loadAction = .clear
-        renderPassDescriptor.depthAttachment.storeAction = .store
-        renderPassDescriptor.rasterizationRateMap = descriptor.rasterizationRateMap
-        return renderPassDescriptor
-    }
-
     /// Makes the execution range buffer.
     /// - Parameter totalCommands: the total amount of commands the indirect command buffer supports.
     /// - Returns: a new metal buffer with contents of MTLIndirectCommandBufferExecutionRange
@@ -495,77 +412,5 @@ class RenderPassIndirect: RenderPass {
         let length = MemoryLayout<MTLIndirectCommandBufferExecutionRange>.size * executionRanges.count
         let buffer = device.makeBuffer(bytes: &executionRanges, length: length, options: [.storageModeShared])
         return (executionRanges.count, buffer)
-    }
-}
-
-@MainActor
-fileprivate class DepthPyramid {
-
-    private let device: MTLDevice
-
-    /// The compute pipeline state.
-    private var computePipelineState: MTLComputePipelineState?
-
-    init?(_ device: MTLDevice, _ library: MTLLibrary) {
-        self.device = device
-        self.computePipelineState = makeComputePipelineState(library)
-    }
-
-    /// Generates the depth pyramid texture from the specified depth texture.
-    /// Supports both being the same texture.
-    /// - Parameters:
-    ///   - depthPyramidTexture: the depth pyramid texture.
-    ///   - depthTexture: the depth texture.
-    ///   - encoder: the encoder to use.
-    func generate(depthPyramidTexture: MTLTexture, depthTexture: MTLTexture, encoder: MTLComputeCommandEncoder) {
-        guard let computePipelineState else { return }
-
-        encoder.pushDebugGroup(labelDepthPyramidGeneration)
-        encoder.setComputePipelineState(computePipelineState)
-
-        var srcTexture: MTLTexture? = depthTexture
-        var startMip = 0
-
-        if depthPyramidTexture.label == depthTexture.label {
-            let levels = 0..<1
-            let slices = 0..<1
-            srcTexture = depthPyramidTexture.makeTextureView(pixelFormat: .r32Float, textureType: .type2D, levels: levels, slices: slices)
-            startMip = 1
-        }
-
-        guard let srcTexture else { return }
-
-        for i in startMip..<depthPyramidTexture.mipmapLevelCount {
-
-            let levels: Range<Int> = i..<i+1
-            let slices: Range<Int> = 0..<1
-
-            guard let destinationTexture = depthPyramidTexture.makeTextureView(pixelFormat: .r32Float,
-                                                                 textureType: .type2D,
-                                                                 levels: levels,
-                                                                 slices: slices) else { continue }
-            destinationTexture.label = "PyramidLevel\(i)"
-            encoder.setTexture(srcTexture, index: 0)
-            encoder.setTexture(destinationTexture, index: 1)
-            encoder.useResource(destinationTexture, usage: .write)
-
-            var sizes: SIMD4<UInt> = [UInt(srcTexture.width), UInt(srcTexture.height), .zero, .zero]
-            encoder.setBytes(&sizes, length: MemoryLayout<SIMD4<UInt>>.size, index: .depthPyramidSize)
-
-            let threadsPerThreadgroup: MTLSize = .init(width: 8, height: 8, depth: 1)
-
-            let gridSize: MTLSize = .init(width: destinationTexture.width, height: destinationTexture.height, depth: 1)
-                .divideRoundUp(threadsPerThreadgroup)
-
-            encoder.dispatchThreads(gridSize, threadsPerThreadgroup: threadsPerThreadgroup)
-        }
-        encoder.popDebugGroup()
-    }
-
-    /// Makes the compute pipeline state.
-    /// - Parameter library: the metal library
-    private func makeComputePipelineState(_ library: MTLLibrary) -> MTLComputePipelineState? {
-        guard let function = library.makeFunction(name: functionNameDepthPyramid) else { return nil }
-        return try? device.makeComputePipelineState(function: function)
     }
 }

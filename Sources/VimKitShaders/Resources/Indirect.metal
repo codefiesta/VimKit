@@ -62,16 +62,14 @@ static bool isInsideViewFrustum(const Camera camera,
 //   - instance: The instance to check.
 //   - textureSize: The texture size.
 //   - depthSampler: The depth sampler.
-//   - rasterRateMapData: The rasterization rate map data.
-//   - depthPyramidTexture: The depth pyramid texture.
+//   - depthTexture: The depth texture.
 // - Returns: true if the instance passes the depth test
 __attribute__((always_inline))
 static bool depthTest(const Frame frame,
                       const Instance instance,
                       const uint2 textureSize,
                       const sampler depthSampler,
-                      constant rasterization_rate_map_data *rasterRateMapData,
-                      texture2d<float> depthPyramidTexture) {
+                      texture2d<float> depthTexture) {
     
     const Camera camera = frame.cameras[0];
     
@@ -79,34 +77,30 @@ static bool depthTest(const Frame frame,
     float4x4 projectionMatrix = camera.projectionMatrix;
     float4x4 projectionViewMatrix = projectionMatrix * viewMatrix;
     
-    float3 minBounds = instance.minBounds;
-    float3 maxBounds = instance.maxBounds;
-
     // Transform the bounding box
-    minBounds = (projectionViewMatrix * float4(minBounds, 1.0)).xyz;
-    maxBounds = (projectionViewMatrix * float4(maxBounds, 1.0)).xyz;
-
-    // Make the raster rate map decoder
-    rasterization_rate_map_decoder decoder(*rasterRateMapData);
-
-    // Map the box corners to physical coordinates
-    float2 sampleMin = decoder.map_screen_to_physical_coordinates(minBounds.xy);
-    float2 sampleMax = decoder.map_screen_to_physical_coordinates(maxBounds.xy);
-    
-    // Just use the first level
-    const level mipLevel = level(0);
+    float4 minBounds = projectionViewMatrix * float4(instance.minBounds, 1.0);
+    float4 maxBounds = projectionViewMatrix * float4(instance.maxBounds, 1.0);
     
     // Sample the box corners
-    const float4 d0 = depthPyramidTexture.sample(depthSampler, sampleMin, mipLevel);
-    const float4 d1 = depthPyramidTexture.sample(depthSampler, float2(sampleMin.x, sampleMax.y), mipLevel);
-    const float4 d2 = depthPyramidTexture.sample(depthSampler, float2(sampleMax.x, sampleMin.y), mipLevel);
-    const float4 d3 = depthPyramidTexture.sample(depthSampler, sampleMax, mipLevel);
+    float2 clipMin = minBounds.xy / minBounds.w;
+    float2 clipMax = maxBounds.xy / maxBounds.w;
 
-    // Determine the max depth
-    float maxValue = max(minBounds.z, maxBounds.z);
-    float maxDepth = max(max(d0.z, d1.z), max(d2.z, d3.z));
+    float2 screenCoordinatesMin = clipMin * 0.5f + 0.5f;
+    float2 screenCoordinatesMax = clipMax * 0.5f + 0.5f;
+
+    float2 c0 = screenCoordinatesMin * frame.viewportSize;
+    float2 c1 = float2(screenCoordinatesMin.x, screenCoordinatesMax.y) * frame.viewportSize;
+    float2 c2 = float2(screenCoordinatesMax.x, screenCoordinatesMin.y) * frame.viewportSize;
+    float2 c3 = screenCoordinatesMax * frame.viewportSize;
     
-    return maxValue >= maxDepth;
+    const float4 d0 = depthTexture.sample(depthSampler, c0);
+    const float4 d1 = depthTexture.sample(depthSampler, c1);
+    const float4 d2 = depthTexture.sample(depthSampler, c2);
+    const float4 d3 = depthTexture.sample(depthSampler, c3);
+    
+    float compareValue = minBounds.z;
+    float depthValue = max(max(d0.r, d1.r), max(d2.r, d3.r));
+    return compareValue >= depthValue;
 }
 
 // Checks if the instanced mesh is visible inside the view frustum and passes the depth test.
@@ -116,8 +110,7 @@ static bool depthTest(const Frame frame,
 //   - instances: The instances pointer.
 //   - meshes: The meshes pointer.
 //   - submeshes: The submeshes pointer.
-//   - rasterRateMapData: The rasterization rate map data.
-//   - depthPyramidTexture: The depth pyramid texture.
+//   - depthTexture: The depth texture.
 // - Returns: true if the instanced mesh is inside the view frustum and passes the depth test
 __attribute__((always_inline))
 static bool isVisible(const Frame frame,
@@ -125,17 +118,16 @@ static bool isVisible(const Frame frame,
                       constant Instance *instances,
                       constant Mesh *meshes,
                       constant Submesh *submeshes,
-                      constant rasterization_rate_map_data *rasterRateMapData,
-                      texture2d<float> depthPyramidTexture) {
+                      texture2d<float> depthTexture) {
 
     const bool performDepthTest = frame.enableDepthTesting;
     
     const Camera camera = frame.cameras[0]; // TODO: Stereoscopic views??
 
     // Get the texture size and sampler
-    const uint2 textureSize = uint2(depthPyramidTexture.get_width(), depthPyramidTexture.get_height());
+    const uint2 textureSize = uint2(depthTexture.get_width(), depthTexture.get_height());
     constexpr sampler depthSampler(filter::nearest, mip_filter::nearest, address::clamp_to_edge);
-
+    
     const int lowerBound = (int) instancedMesh.baseInstance;
     const int upperBound = lowerBound + (int) instancedMesh.instanceCount;
 
@@ -149,7 +141,7 @@ static bool isVisible(const Frame frame,
         if (isInsideViewFrustum(camera, instance)) {
             // If depth testing is enabled, check if the instance passes the depth test
             if (performDepthTest) {
-                return depthTest(frame, instance, textureSize, depthSampler, rasterRateMapData, depthPyramidTexture);
+                return depthTest(frame, instance, textureSize, depthSampler, depthTexture);
             }
             return true;
         }
@@ -221,9 +213,8 @@ static void encodeAndDraw(thread render_command &cmd,
 //   - materials: The materials pointer.
 //   - colors: The colors pointer.
 //   - icbContainer: The pointer to the indirect command buffer container.
-//   - executedCommands: The excuted commands buffer that keeps track of culling.
-//   - rasterRateMapData: The raster data map.
-//   - depthPyramidTexture: The depth texture.
+//   - executedCommands: The excuted commands buffer that keeps track of culling results.
+//   - depthTexture: The depth texture.
 kernel void encodeIndirectRenderCommands(uint2 threadPosition [[thread_position_in_grid]],
                                          uint2 gridSize [[threads_per_grid]],
                                          constant float *positions [[buffer(KernelBufferIndexPositions)]],
@@ -239,8 +230,7 @@ kernel void encodeIndirectRenderCommands(uint2 threadPosition [[thread_position_
                                          constant float4 *colors [[buffer(KernelBufferIndexColors)]],
                                          device ICBContainer *icbContainer [[buffer(KernelBufferIndexCommandBufferContainer)]],
                                          device uint8_t * executedCommands [[buffer(KernelBufferIndexExecutedCommands)]],
-                                         constant rasterization_rate_map_data *rasterRateMapData [[buffer(KernelBufferIndexRasterizationRateMapData)]],
-                                         texture2d<float> depthPyramidTexture [[texture(0)]]) {
+                                         texture2d<float> depthTexture [[texture(0)]]) {
     
     // The x lane provides the max number of submeshes that the mesh can contain
     const uint x = threadPosition.x;
@@ -262,8 +252,7 @@ kernel void encodeIndirectRenderCommands(uint2 threadPosition [[thread_position_
                              instances,
                              meshes,
                              submeshes,
-                             rasterRateMapData,
-                             depthPyramidTexture);
+                             depthTexture);
     
     // If this instanced mesh isn't visible don't issue any draw commands and simply exit
     if (!visible) {

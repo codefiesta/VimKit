@@ -20,14 +20,10 @@ public struct DrawDescriptor {
     let framesBufferOffset: Int
     /// The lights buffer to use.
     let lightsBuffer: MTLBuffer?
-    /// The rasterization rate map.
-    let rasterizationRateMap: MTLRasterizationRateMap?
-    /// A metal buffer providing MTLRasterizationRateMapData
-    let rasterizationRateMapData: MTLBuffer?
+    /// The depth texture
+    let depthTexture: MTLTexture?
     /// The current  visibility write buffer which samples passing the depth and stencil tests are counted.
     let visibilityResultBuffer: MTLBuffer?
-    /// Provides a subset of instanced mesh indexes that have returned true from the occlusion query.
-    let visibilityResults: [Int]
 }
 
 @MainActor

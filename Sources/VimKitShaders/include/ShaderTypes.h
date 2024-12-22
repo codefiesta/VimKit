@@ -174,9 +174,7 @@ typedef NS_ENUM(EnumBackingType, KernelBufferIndex) {
     KernelBufferIndexMaterials = 9,
     KernelBufferIndexColors = 10,
     KernelBufferIndexCommandBufferContainer = 11,
-    KernelBufferIndexExecutedCommands = 12,
-    KernelBufferIndexRasterizationRateMapData = 13,
-    KernelBufferIndexDepthPyramidSize = 14
+    KernelBufferIndexExecutedCommands = 12
 };
 
 // Enum constants for argument buffer indices

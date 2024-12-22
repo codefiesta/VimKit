@@ -92,17 +92,17 @@ class RenderPassDirect: RenderPass {
 
         renderEncoder.pushDebugGroup(labelGeometryDebugGroupName)
 
+        let results = visibilityResults(geometry)
         let start = Date.now
 
         // Draw the instanced meshes
-        for i in descriptor.visibilityResults {
+        for i in results {
             guard abs(start.timeIntervalSinceNow) < frameTimeLimit else { break }
             let instanced = geometry.instancedMeshes[i]
             drawInstanced(instanced, renderEncoder: renderEncoder)
         }
         renderEncoder.popDebugGroup()
     }
-
 
     /// Draws an instanced mesh.
     /// - Parameters:
@@ -147,5 +147,13 @@ class RenderPassDirect: RenderPass {
                                             baseVertex: 0,
                                             baseInstance: baseInstance
         )
+    }
+
+    /// Query the bvh tree for frustum intersection results.
+    /// - Parameter geometry: the geometry to query
+    /// - Returns: a set of instanced meshes that are visibile within the view frustum
+    private func visibilityResults(_ geometry: Geometry) -> Set<Int> {
+        guard let bvh = geometry.bvh else { return .init() }
+        return bvh.intersectionResults(camera: camera)
     }
 }
