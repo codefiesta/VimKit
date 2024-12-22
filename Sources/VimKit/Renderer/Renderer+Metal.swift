@@ -37,8 +37,6 @@ extension Renderer {
         renderPassDescriptor?.colorAttachments[1].loadAction = .clear
         renderPassDescriptor?.colorAttachments[1].storeAction = .store
 
-        // Visibility Results
-        renderPassDescriptor?.visibilityResultBuffer = visibilityResultBuffer
         return renderPassDescriptor
     }
 

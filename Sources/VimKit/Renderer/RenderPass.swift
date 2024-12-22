@@ -22,8 +22,6 @@ public struct DrawDescriptor {
     let lightsBuffer: MTLBuffer?
     /// The depth texture
     let depthTexture: MTLTexture?
-    /// The current  visibility write buffer which samples passing the depth and stencil tests are counted.
-    let visibilityResultBuffer: MTLBuffer?
 }
 
 @MainActor

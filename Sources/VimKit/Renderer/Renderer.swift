@@ -121,8 +121,7 @@ open class Renderer: NSObject {
         // Make the render passes
         let renderPasses: [RenderPass?] = [
             supportsIndirectCommandBuffers ? RenderPassIndirect(context) : RenderPassDirect(context),
-            RenderPassSkycube(context),
-            supportsIndirectCommandBuffers ? nil : RenderPassVisibility(context)
+            RenderPassSkycube(context)
         ]
         self.renderPasses = renderPasses.compactMap { $0 }
         self.lights = [light(.sun), light(.ambient)]

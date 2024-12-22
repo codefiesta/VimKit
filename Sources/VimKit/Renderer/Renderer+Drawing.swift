@@ -110,8 +110,7 @@ public extension Renderer {
             framesBuffer: framesBuffer,
             framesBufferOffset: framesBufferOffset,
             lightsBuffer: lightsBuffer,
-            depthTexture: depthTexture,
-            visibilityResultBuffer: visibilityResultBuffer)
+            depthTexture: depthTexture)
     }
 
     /// Gathers and publishes rendering stats.
