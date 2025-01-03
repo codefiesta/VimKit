@@ -199,6 +199,8 @@ extension RenderPass {
     func makeSamplerState() -> MTLSamplerState? {
         let samplerDescriptor = MTLSamplerDescriptor()
         samplerDescriptor.normalizedCoordinates = true
+        samplerDescriptor.sAddressMode = .repeat
+        samplerDescriptor.tAddressMode = .repeat
         samplerDescriptor.minFilter = .linear
         samplerDescriptor.magFilter = .linear
         samplerDescriptor.mipFilter = .linear

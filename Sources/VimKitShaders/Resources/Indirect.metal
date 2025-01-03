@@ -61,14 +61,14 @@ static bool isInsideViewFrustum(const Camera camera,
 //   - camera: The per frame data.
 //   - instance: The instance to check.
 //   - textureSize: The texture size.
-//   - depthSampler: The depth sampler.
+//   - textureSampler: The texture sampler.
 //   - depthTexture: The depth texture.
 // - Returns: true if the instance passes the depth test
 __attribute__((always_inline))
 static bool depthTest(const Frame frame,
                       const Instance instance,
                       const uint2 textureSize,
-                      const sampler depthSampler,
+                      const sampler textureSampler,
                       texture2d<float> depthTexture) {
     
     const Camera camera = frame.cameras[0];
@@ -93,10 +93,10 @@ static bool depthTest(const Frame frame,
     float2 c2 = float2(screenCoordinatesMax.x, screenCoordinatesMin.y) * frame.viewportSize;
     float2 c3 = screenCoordinatesMax * frame.viewportSize;
     
-    const float4 d0 = depthTexture.sample(depthSampler, c0);
-    const float4 d1 = depthTexture.sample(depthSampler, c1);
-    const float4 d2 = depthTexture.sample(depthSampler, c2);
-    const float4 d3 = depthTexture.sample(depthSampler, c3);
+    const float4 d0 = depthTexture.sample(textureSampler, c0);
+    const float4 d1 = depthTexture.sample(textureSampler, c1);
+    const float4 d2 = depthTexture.sample(textureSampler, c2);
+    const float4 d3 = depthTexture.sample(textureSampler, c3);
     
     float compareValue = minBounds.z;
     float depthValue = max(max(d0.r, d1.r), max(d2.r, d3.r));
@@ -110,6 +110,7 @@ static bool depthTest(const Frame frame,
 //   - instances: The instances pointer.
 //   - meshes: The meshes pointer.
 //   - submeshes: The submeshes pointer.
+//   - textureSampler: The texture sampler.
 //   - depthTexture: The depth texture.
 // - Returns: true if the instanced mesh is inside the view frustum and passes the depth test
 __attribute__((always_inline))
@@ -118,6 +119,7 @@ static bool isVisible(const Frame frame,
                       constant Instance *instances,
                       constant Mesh *meshes,
                       constant Submesh *submeshes,
+                      sampler textureSampler,
                       texture2d<float> depthTexture) {
 
     const bool performDepthTest = frame.enableDepthTesting;
@@ -126,7 +128,6 @@ static bool isVisible(const Frame frame,
 
     // Get the texture size and sampler
     const uint2 textureSize = uint2(depthTexture.get_width(), depthTexture.get_height());
-    constexpr sampler depthSampler(filter::nearest, mip_filter::nearest, address::clamp_to_edge);
     
     const int lowerBound = (int) instancedMesh.baseInstance;
     const int upperBound = lowerBound + (int) instancedMesh.instanceCount;
@@ -141,7 +142,7 @@ static bool isVisible(const Frame frame,
         if (isInsideViewFrustum(camera, instance)) {
             // If depth testing is enabled, check if the instance passes the depth test
             if (performDepthTest) {
-                return depthTest(frame, instance, textureSize, depthSampler, depthTexture);
+                return depthTest(frame, instance, textureSize, textureSampler, depthTexture);
             }
             return true;
         }
@@ -214,6 +215,7 @@ static void encodeAndDraw(thread render_command &cmd,
 //   - colors: The colors pointer.
 //   - icbContainer: The pointer to the indirect command buffer container.
 //   - executedCommands: The excuted commands buffer that keeps track of culling results.
+//   - textureSampler: The texture sampler.
 //   - depthTexture: The depth texture.
 kernel void encodeIndirectRenderCommands(uint2 threadPosition [[thread_position_in_grid]],
                                          uint2 gridSize [[threads_per_grid]],
@@ -230,6 +232,7 @@ kernel void encodeIndirectRenderCommands(uint2 threadPosition [[thread_position_
                                          constant float4 *colors [[buffer(KernelBufferIndexColors)]],
                                          device ICBContainer *icbContainer [[buffer(KernelBufferIndexCommandBufferContainer)]],
                                          device uint8_t * executedCommands [[buffer(KernelBufferIndexExecutedCommands)]],
+                                         sampler textureSampler [[sampler(0)]],
                                          texture2d<float> depthTexture [[texture(0)]]) {
     
     // The x lane provides the max number of submeshes that the mesh can contain
@@ -252,6 +255,7 @@ kernel void encodeIndirectRenderCommands(uint2 threadPosition [[thread_position_
                              instances,
                              meshes,
                              submeshes,
+                             textureSampler,
                              depthTexture);
     
     // If this instanced mesh isn't visible don't issue any draw commands and simply exit

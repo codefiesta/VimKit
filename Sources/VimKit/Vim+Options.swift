@@ -23,7 +23,7 @@ extension Vim {
         public var enableDepthTesting: Bool = true
 
         /// Specifies the rendering cull mode to apply.
-        public var cullMode: MTLCullMode = .back
+        public var cullMode: MTLCullMode = .none
 
         /// Haze in the sky. 0 is a clear - 1 spreads the sun’s color
         public var turbidity: Float = 1.0

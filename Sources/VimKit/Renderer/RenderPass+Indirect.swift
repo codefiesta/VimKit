@@ -184,6 +184,7 @@ class RenderPassIndirect: RenderPass {
         computeEncoder.setBuffer(colorsBuffer, offset: 0, index: .colors)
         computeEncoder.setBuffer(icb.argumentEncoder, offset: 0, index: .commandBufferContainer)
         computeEncoder.setBuffer(executedCommandsBuffer, offset: 0, index: .executedCommands)
+        computeEncoder.setSamplerState(samplerState, index: 0)
         computeEncoder.setTexture(depthTexture, index: 0)
 
         // 2) Use Resources
