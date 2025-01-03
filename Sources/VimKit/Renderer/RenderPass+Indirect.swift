@@ -214,9 +214,9 @@ class RenderPassIndirect: RenderPass {
     private func encode(descriptor: DrawDescriptor, renderEncoder: MTLRenderCommandEncoder) {
         guard let pipelineState else { return }
         renderEncoder.setRenderPipelineState(pipelineState)
+        renderEncoder.setDepthStencilState(depthStencilState)
         renderEncoder.setFrontFacing(.counterClockwise)
         renderEncoder.setCullMode(options.cullMode)
-        renderEncoder.setDepthStencilState(depthStencilState)
         renderEncoder.setTriangleFillMode(fillMode)
     }
 
