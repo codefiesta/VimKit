@@ -69,10 +69,10 @@ static bool isInsideViewFrustum(const Camera camera,
 // - Returns: true if the instance passes the contribution & depth test
 __attribute__((always_inline))
 static bool isInstanceVisible(const Frame frame,
-                      const Instance instance,
-                      const uint2 textureSize,
-                      const sampler textureSampler,
-                      texture2d<float> depthTexture) {
+                              const Instance instance,
+                              const uint2 textureSize,
+                              const sampler textureSampler,
+                              texture2d<float> depthTexture) {
     
     const Camera camera = frame.cameras[0];
     
@@ -87,26 +87,26 @@ static bool isInstanceVisible(const Frame frame,
     // Contribution culling (remove instances that are too small to contribute significantly to the final image)
     float3 boxMin = minBounds.xyz / minBounds.w;
     float3 boxMax = maxBounds.xyz / maxBounds.w;
-
+    
     float length = boxMax.x - boxMin.x;
     float width = boxMax.y - boxMin.y;
     float height = boxMax.z - boxMin.z;
     float area = abs(2 * (length * width + width * height + height * length));
-
+    
     if (area < MIN_CONTRIBUTION_AREA) {
         return false;
     }
     
     // Depth Culling
     float2 sampleMin = minBounds.xy;
-    float2 sampleMax = minBounds.xy;
-    
+    float2 sampleMax = maxBounds.xy;
+
     // Sample the corners
     const float4 d0 = depthTexture.sample(textureSampler, sampleMin);
     const float4 d1 = depthTexture.sample(textureSampler, float2(sampleMin.x, sampleMax.y));
     const float4 d2 = depthTexture.sample(textureSampler, float2(sampleMax.x, sampleMin.y));
     const float4 d3 = depthTexture.sample(textureSampler, sampleMax);
-    
+
     float compareValue = minBounds.z;
     float depthValue = max(max(d0.x, d1.x), max(d2.x, d3.x));
     return compareValue >= depthValue;
@@ -124,12 +124,12 @@ static bool isInstanceVisible(const Frame frame,
 // - Returns: true if the instanced mesh is inside the view frustum and passes the depth test
 __attribute__((always_inline))
 static bool isInstancedMeshVisible(const Frame frame,
-                      const InstancedMesh instancedMesh,
-                      constant Instance *instances,
-                      constant Mesh *meshes,
-                      constant Submesh *submeshes,
-                      sampler textureSampler,
-                      texture2d<float> depthTexture) {
+                                   const InstancedMesh instancedMesh,
+                                   constant Instance *instances,
+                                   constant Mesh *meshes,
+                                   constant Submesh *submeshes,
+                                   sampler textureSampler,
+                                   texture2d<float> depthTexture) {
 
     const bool performDepthTest = frame.enableDepthTesting;
     
