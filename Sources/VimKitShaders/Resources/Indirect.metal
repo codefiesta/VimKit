@@ -123,7 +123,7 @@ static bool depthTest(const Frame frame,
 //   - depthTexture: The depth texture.
 // - Returns: true if the instanced mesh is inside the view frustum and passes the depth test
 __attribute__((always_inline))
-static bool isVisible(const Frame frame,
+static bool isInstancedMeshVisible(const Frame frame,
                       const InstancedMesh instancedMesh,
                       constant Instance *instances,
                       constant Mesh *meshes,
@@ -151,7 +151,7 @@ static bool isVisible(const Frame frame,
         if (isInsideViewFrustum(camera, instance)) {
             // If depth testing is enabled, check if the instance passes the depth test
             if (performDepthTest) {
-                return depthTest(frame, instance, textureSize, textureSampler, depthTexture);
+                return isInstanceVisible(frame, instance, textureSize, textureSampler, depthTexture);
             }
             return true;
         }
@@ -259,7 +259,7 @@ kernel void encodeIndirectRenderCommands(uint2 threadPosition [[thread_position_
     const Frame frame = frames[0];
 
     // Perform depth testing to check if the instanced mesh should be occluded or not
-    bool visible = isVisible(frame,
+    bool visible = isInstancedMeshVisible(frame,
                              instancedMesh,
                              instances,
                              meshes,
