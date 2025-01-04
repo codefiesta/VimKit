@@ -9,6 +9,9 @@
 #include "../include/ShaderTypes.h"
 using namespace metal;
 
+// The min area size used for contribution culling.
+constant float MIN_CONTRIBUTION_AREA = 0.00001f;
+
 // Checks if the instance is inside the view frustum.
 // - Parameters:
 //   - camera: The per frame camera data.
@@ -81,25 +84,31 @@ static bool depthTest(const Frame frame,
     float4 minBounds = projectionViewMatrix * float4(instance.minBounds, 1.0);
     float4 maxBounds = projectionViewMatrix * float4(instance.maxBounds, 1.0);
     
-    // Sample the box corners
-    float2 clipMin = minBounds.xy / minBounds.w;
-    float2 clipMax = maxBounds.xy / maxBounds.w;
+    // Contribution culling (remove instances that are too small to contribute significantly to the final image)
+    float3 boxMin = minBounds.xyz / minBounds.w;
+    float3 boxMax = maxBounds.xyz / maxBounds.w;
 
-    float2 screenCoordinatesMin = clipMin * 0.5f + 0.5f;
-    float2 screenCoordinatesMax = clipMax * 0.5f + 0.5f;
+    float length = boxMax.x - boxMin.x;
+    float width = boxMax.y - boxMin.y;
+    float height = boxMax.z - boxMin.z;
+    float area = abs(2 * (length * width + width * height + height * length));
 
-    float2 c0 = screenCoordinatesMin * frame.viewportSize;
-    float2 c1 = float2(screenCoordinatesMin.x, screenCoordinatesMax.y) * frame.viewportSize;
-    float2 c2 = float2(screenCoordinatesMax.x, screenCoordinatesMin.y) * frame.viewportSize;
-    float2 c3 = screenCoordinatesMax * frame.viewportSize;
+    if (area < MIN_CONTRIBUTION_AREA) {
+        return false;
+    }
     
-    const float4 d0 = depthTexture.sample(textureSampler, c0);
-    const float4 d1 = depthTexture.sample(textureSampler, c1);
-    const float4 d2 = depthTexture.sample(textureSampler, c2);
-    const float4 d3 = depthTexture.sample(textureSampler, c3);
+    // Depth Culling
+    float2 sampleMin = minBounds.xy;
+    float2 sampleMax = minBounds.xy;
+    
+    // Sample the corners
+    const float4 d0 = depthTexture.sample(textureSampler, sampleMin);
+    const float4 d1 = depthTexture.sample(textureSampler, float2(sampleMin.x, sampleMax.y));
+    const float4 d2 = depthTexture.sample(textureSampler, float2(sampleMax.x, sampleMin.y));
+    const float4 d3 = depthTexture.sample(textureSampler, sampleMax);
     
     float compareValue = minBounds.z;
-    float depthValue = max(max(d0.r, d1.r), max(d2.r, d3.r));
+    float depthValue = max(max(d0.x, d1.x), max(d2.x, d3.x));
     return compareValue >= depthValue;
 }
 
