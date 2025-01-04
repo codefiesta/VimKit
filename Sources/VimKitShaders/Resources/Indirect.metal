@@ -59,16 +59,16 @@ static bool isInsideViewFrustum(const Camera camera,
     return true;
 }
 
-// Checks if the instance passes the depth test.
+// Checks if the instance is visible by performing contribution and depth testing.
 // - Parameters:
 //   - camera: The per frame data.
 //   - instance: The instance to check.
 //   - textureSize: The texture size.
 //   - textureSampler: The texture sampler.
 //   - depthTexture: The depth texture.
-// - Returns: true if the instance passes the depth test
+// - Returns: true if the instance passes the contribution & depth test
 __attribute__((always_inline))
-static bool depthTest(const Frame frame,
+static bool isInstanceVisible(const Frame frame,
                       const Instance instance,
                       const uint2 textureSize,
                       const sampler textureSampler,
