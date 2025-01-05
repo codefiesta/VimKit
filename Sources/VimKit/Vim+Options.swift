@@ -22,6 +22,10 @@ extension Vim {
         /// A bool used to specify whether indirect command buffers should perform depth testing or not.
         public var enableDepthTesting: Bool = true
 
+        /// A bool used to specify whether indirect command buffers should perform area
+        /// contribution culling (remove instances that are too small to contribute significantly to the final image)
+        public var enableContributionTesting: Bool = true
+
         /// Specifies the rendering cull mode to apply.
         public var cullMode: MTLCullMode = .none
 

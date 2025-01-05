@@ -85,17 +85,21 @@ static bool isInstanceVisible(const Frame frame,
     float4 maxBounds = projectionViewMatrix * float4(instance.maxBounds, 1.0);
     
     // Contribution culling (remove instances that are too small to contribute significantly to the final image)
-    float3 boxMin = minBounds.xyz / minBounds.w;
-    float3 boxMax = maxBounds.xyz / maxBounds.w;
-    
-    float length = boxMax.x - boxMin.x;
-    float width = boxMax.y - boxMin.y;
-    float height = boxMax.z - boxMin.z;
-    float area = abs(2 * (length * width + width * height + height * length));
-    
-    if (area < MIN_CONTRIBUTION_AREA) {
-        return false;
+    if (frame.enableContributionTesting) {
+        float3 boxMin = minBounds.xyz / minBounds.w;
+        float3 boxMax = maxBounds.xyz / maxBounds.w;
+        
+        float length = boxMax.x - boxMin.x;
+        float width = boxMax.y - boxMin.y;
+        float height = boxMax.z - boxMin.z;
+        float area = abs(2 * (length * width + width * height + height * length));
+        
+        if (area < MIN_CONTRIBUTION_AREA) {
+            return false;
+        }
     }
+    
+    return true;
     
     // Depth Culling
     float2 sampleMin = minBounds.xy;

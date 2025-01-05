@@ -58,6 +58,11 @@ open class Renderer: NSObject {
         options.enableDepthTesting
     }
 
+    /// Boolean flag indicating if indirect command buffers should perform area contribution occlusion testing or not.
+    open var enableContributionTesting: Bool {
+        options.enableContributionTesting
+    }
+
     /// Returns the visibility results buffer.
     var visibilityResultBuffer: MTLBuffer? {
         guard let visibility = renderPasses.last as? RenderPassVisibility else {
@@ -156,6 +161,7 @@ extension Renderer {
         framesBufferAddress[0].viewportSize = viewportSize
         framesBufferAddress[0].physicalSize = physicalSize
         framesBufferAddress[0].enableDepthTesting = enableDepthTesting
+        framesBufferAddress[0].enableContributionTesting = enableContributionTesting
         framesBufferAddress[0].xRay = xRayMode
     }
 

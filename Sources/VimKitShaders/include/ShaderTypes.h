@@ -89,6 +89,9 @@ typedef struct {
     simd_float2 physicalSize;
     // Flag indicating if the indirect command buffers should perform depth testing (frustum testing will always happen).
     bool enableDepthTesting;
+    // Flag indicating if the indirect command buffers should perform area
+    // contribution culling (remove instances that are too small to contribute significantly to the final image)
+    bool enableContributionTesting;
     // Flag indicating if this frame is being rendered in xray mode.
     bool xRay;
 } Frame;
