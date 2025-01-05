@@ -74,6 +74,8 @@ static bool isInstanceVisible(const Frame frame,
                               const sampler textureSampler,
                               texture2d<float> depthTexture) {
     
+    const bool enableDepthTesting = frame.enableDepthTesting;
+    const bool enableContributionTesting = frame.enableContributionTesting;
     const Camera camera = frame.cameras[0];
     
     float4x4 viewMatrix = camera.viewMatrix;
@@ -85,7 +87,7 @@ static bool isInstanceVisible(const Frame frame,
     float4 maxBounds = projectionViewMatrix * float4(instance.maxBounds, 1.0);
     
     // Contribution culling (remove instances that are too small to contribute significantly to the final image)
-    if (frame.enableContributionTesting) {
+    if (enableContributionTesting) {
         float3 boxMin = minBounds.xyz / minBounds.w;
         float3 boxMax = maxBounds.xyz / maxBounds.w;
         
@@ -99,21 +101,23 @@ static bool isInstanceVisible(const Frame frame,
         }
     }
     
-    return true;
+    // Depth z culling (eliminate instances that are behind other instances)
+    if (enableDepthTesting) {
+        float2 sampleMin = minBounds.xy;
+        float2 sampleMax = maxBounds.xy;
+
+        // Sample the corners
+        const float4 d0 = depthTexture.sample(textureSampler, sampleMin);
+        const float4 d1 = depthTexture.sample(textureSampler, float2(sampleMin.x, sampleMax.y));
+        const float4 d2 = depthTexture.sample(textureSampler, float2(sampleMax.x, sampleMin.y));
+        const float4 d3 = depthTexture.sample(textureSampler, sampleMax);
+
+        float compareValue = minBounds.z;
+        float depthValue = max(max(d0.x, d1.x), max(d2.x, d3.x));
+        return compareValue >= depthValue;
+    }
     
-    // Depth Culling
-    float2 sampleMin = minBounds.xy;
-    float2 sampleMax = maxBounds.xy;
-
-    // Sample the corners
-    const float4 d0 = depthTexture.sample(textureSampler, sampleMin);
-    const float4 d1 = depthTexture.sample(textureSampler, float2(sampleMin.x, sampleMax.y));
-    const float4 d2 = depthTexture.sample(textureSampler, float2(sampleMax.x, sampleMin.y));
-    const float4 d3 = depthTexture.sample(textureSampler, sampleMax);
-
-    float compareValue = minBounds.z;
-    float depthValue = max(max(d0.x, d1.x), max(d2.x, d3.x));
-    return compareValue >= depthValue;
+    return true;
 }
 
 // Checks if the instanced mesh is visible inside the view frustum and passes the depth test.
@@ -134,8 +138,6 @@ static bool isInstancedMeshVisible(const Frame frame,
                                    constant Submesh *submeshes,
                                    sampler textureSampler,
                                    texture2d<float> depthTexture) {
-
-    const bool performDepthTest = frame.enableDepthTesting;
     
     const Camera camera = frame.cameras[0]; // TODO: Stereoscopic views??
 
@@ -153,11 +155,7 @@ static bool isInstancedMeshVisible(const Frame frame,
 
         // Check if inside the view frustum
         if (isInsideViewFrustum(camera, instance)) {
-            // If depth testing is enabled, check if the instance passes the depth test
-            if (performDepthTest) {
-                return isInstanceVisible(frame, instance, textureSize, textureSampler, depthTexture);
-            }
-            return true;
+            return isInstanceVisible(frame, instance, textureSize, textureSampler, depthTexture);
         }
     }
     
