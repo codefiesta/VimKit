@@ -9,9 +9,6 @@
 #include "../include/ShaderTypes.h"
 using namespace metal;
 
-// The min area size used for contribution culling.
-constant float MIN_CONTRIBUTION_AREA = 0.00001f;
-
 // Checks if the instance is inside the view frustum.
 // - Parameters:
 //   - camera: The per frame camera data.
@@ -96,7 +93,7 @@ static bool isInstanceVisible(const Frame frame,
         float height = boxMax.z - boxMin.z;
         float area = abs(2 * (length * width + width * height + height * length));
         
-        if (area < MIN_CONTRIBUTION_AREA) {
+        if (area < frame.minContributionArea) {
             return false;
         }
     }

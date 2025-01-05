@@ -92,6 +92,8 @@ typedef struct {
     // Flag indicating if the indirect command buffers should perform area
     // contribution culling (remove instances that are too small to contribute significantly to the final image)
     bool enableContributionTesting;
+    // The minimum area size used for contribution culling.
+    float minContributionArea;
     // Flag indicating if this frame is being rendered in xray mode.
     bool xRay;
 } Frame;
