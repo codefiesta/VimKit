@@ -4,7 +4,7 @@
 //
 //  Created by Kevin McKee
 //
-
+import Combine
 import MetalKit
 import VimKitShaders
 
@@ -26,6 +26,9 @@ class RenderPassDirect: RenderPass {
     var depthStencilState: MTLDepthStencilState?
     var samplerState: MTLSamplerState?
 
+    /// Combine subscribers.
+    var subscribers = Set<AnyCancellable>()
+
     /// The max time to render a frame.
     var frameTimeLimit: TimeInterval = 0.3
 
@@ -37,6 +40,25 @@ class RenderPassDirect: RenderPass {
         self.pipelineState = makeRenderPipelineState(context, vertexDescriptor, labelPipeline, functionNameVertex, functionNameFragment)
         self.depthStencilState = makeDepthStencilState()
         self.samplerState = makeSamplerState()
+
+        context.vim.geometry?.$state.sink { [weak self] state in
+            guard let self, let geometry else { return }
+            switch state {
+            case .ready:
+
+                let gridSize = geometry.gridSize
+
+                // Update the stats
+                context.vim.stats.instanceCount = geometry.instances.count
+                context.vim.stats.meshCount = geometry.meshes.count
+                context.vim.stats.submeshCount = geometry.submeshes.count
+                context.vim.stats.gridSize = gridSize
+
+            case .indexing, .loading, .unknown, .error:
+                break
+            }
+        }.store(in: &subscribers)
+
     }
 
     /// Performs a draw call with the specified command buffer and render pass descriptor.
