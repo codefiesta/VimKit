@@ -52,14 +52,6 @@ open class Renderer: NSObject {
         device.supportsFamily(.apple4)
     }
 
-    /// Returns the visibility results buffer.
-    var visibilityResultBuffer: MTLBuffer? {
-        guard let visibility = renderPasses.last as? RenderPassVisibility else {
-            return nil
-        }
-        return visibility.currentVisibilityResultBuffer
-    }
-
     /// The array of render passes used to draw.
     open var renderPasses = [RenderPass]()
 

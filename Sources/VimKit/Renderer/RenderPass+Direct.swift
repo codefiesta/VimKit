@@ -14,6 +14,7 @@ private let labelInstancePickingTexture = "InstancePickingTexture"
 private let labelPipeline = "RenderPassDirectPipeline"
 private let labelRenderEncoder = "RenderEncoderDirect"
 private let labelGeometryDebugGroupName = "Geometry"
+private let minFrustumCullingThreshold = 1024
 
 /// Provides a direct render pass.
 class RenderPassDirect: RenderPass {
@@ -152,8 +153,12 @@ class RenderPassDirect: RenderPass {
     /// Query the bvh tree for frustum intersection results.
     /// - Parameter geometry: the geometry to query
     /// - Returns: a set of instanced meshes that are visibile within the view frustum
-    private func visibilityResults(_ geometry: Geometry) -> Set<Int> {
+    private func visibilityResults(_ geometry: Geometry) -> [Int] {
         guard let bvh = geometry.bvh else { return .init() }
-        return bvh.intersectionResults(camera: camera)
+        if minFrustumCullingThreshold <= geometry.instancedMeshes.count {
+            return bvh.intersectionResults(camera: camera).sorted()
+        } else {
+            return Array(0..<geometry.instancedMeshes.count)
+        }
     }
 }
