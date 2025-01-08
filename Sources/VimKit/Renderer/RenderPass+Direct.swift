@@ -4,7 +4,7 @@
 //
 //  Created by Kevin McKee
 //
-
+import Combine
 import MetalKit
 import VimKitShaders
 
@@ -14,6 +14,7 @@ private let labelInstancePickingTexture = "InstancePickingTexture"
 private let labelPipeline = "RenderPassDirectPipeline"
 private let labelRenderEncoder = "RenderEncoderDirect"
 private let labelGeometryDebugGroupName = "Geometry"
+private let minFrustumCullingThreshold = 1024
 
 /// Provides a direct render pass.
 class RenderPassDirect: RenderPass {
@@ -24,6 +25,9 @@ class RenderPassDirect: RenderPass {
     var pipelineState: MTLRenderPipelineState?
     var depthStencilState: MTLDepthStencilState?
     var samplerState: MTLSamplerState?
+
+    /// Combine subscribers.
+    var subscribers = Set<AnyCancellable>()
 
     /// The max time to render a frame.
     var frameTimeLimit: TimeInterval = 0.3
@@ -36,6 +40,25 @@ class RenderPassDirect: RenderPass {
         self.pipelineState = makeRenderPipelineState(context, vertexDescriptor, labelPipeline, functionNameVertex, functionNameFragment)
         self.depthStencilState = makeDepthStencilState()
         self.samplerState = makeSamplerState()
+
+        context.vim.geometry?.$state.sink { [weak self] state in
+            guard let self, let geometry else { return }
+            switch state {
+            case .ready:
+
+                let gridSize = geometry.gridSize
+
+                // Update the stats
+                context.vim.stats.instanceCount = geometry.instances.count
+                context.vim.stats.meshCount = geometry.meshes.count
+                context.vim.stats.submeshCount = geometry.submeshes.count
+                context.vim.stats.gridSize = gridSize
+
+            case .indexing, .loading, .unknown, .error:
+                break
+            }
+        }.store(in: &subscribers)
+
     }
 
     /// Performs a draw call with the specified command buffer and render pass descriptor.
@@ -92,17 +115,17 @@ class RenderPassDirect: RenderPass {
 
         renderEncoder.pushDebugGroup(labelGeometryDebugGroupName)
 
+        let results = visibilityResults(geometry)
         let start = Date.now
 
         // Draw the instanced meshes
-        for i in descriptor.visibilityResults {
+        for i in results {
             guard abs(start.timeIntervalSinceNow) < frameTimeLimit else { break }
             let instanced = geometry.instancedMeshes[i]
             drawInstanced(instanced, renderEncoder: renderEncoder)
         }
         renderEncoder.popDebugGroup()
     }
-
 
     /// Draws an instanced mesh.
     /// - Parameters:
@@ -147,5 +170,17 @@ class RenderPassDirect: RenderPass {
                                             baseVertex: 0,
                                             baseInstance: baseInstance
         )
+    }
+
+    /// Query the bvh tree for frustum intersection results.
+    /// - Parameter geometry: the geometry to query
+    /// - Returns: a set of instanced meshes that are visibile within the view frustum
+    private func visibilityResults(_ geometry: Geometry) -> [Int] {
+        guard let bvh = geometry.bvh else { return .init() }
+        if minFrustumCullingThreshold <= geometry.instancedMeshes.count {
+            return bvh.intersectionResults(camera: camera).sorted()
+        } else {
+            return Array(0..<geometry.instancedMeshes.count)
+        }
     }
 }

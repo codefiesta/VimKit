@@ -20,14 +20,8 @@ public struct DrawDescriptor {
     let framesBufferOffset: Int
     /// The lights buffer to use.
     let lightsBuffer: MTLBuffer?
-    /// The rasterization rate map.
-    let rasterizationRateMap: MTLRasterizationRateMap?
-    /// A metal buffer providing MTLRasterizationRateMapData
-    let rasterizationRateMapData: MTLBuffer?
-    /// The current  visibility write buffer which samples passing the depth and stencil tests are counted.
-    let visibilityResultBuffer: MTLBuffer?
-    /// Provides a subset of instanced mesh indexes that have returned true from the occlusion query.
-    let visibilityResults: [Int]
+    /// The depth texture
+    let depthTexture: MTLTexture?
 }
 
 @MainActor
@@ -205,6 +199,8 @@ extension RenderPass {
     func makeSamplerState() -> MTLSamplerState? {
         let samplerDescriptor = MTLSamplerDescriptor()
         samplerDescriptor.normalizedCoordinates = true
+        samplerDescriptor.sAddressMode = .repeat
+        samplerDescriptor.tAddressMode = .repeat
         samplerDescriptor.minFilter = .linear
         samplerDescriptor.magFilter = .linear
         samplerDescriptor.mipFilter = .linear

@@ -18,14 +18,14 @@ using namespace metal;
 //   - frames: The frames buffer.
 //   - instances: The instances pointer.
 //   - materials: The materials pointer.
-//   - identifiers: The identifier data the holds the mesh and submesh indices that are currently being rendered.
-vertex VertexOut vertexVisibilityTest(VertexIn in [[stage_in]],
-                                      ushort amp_id [[amplification_id]],
-                                      uint vertex_id [[vertex_id]],
-                                      uint instance_id [[instance_id]],
-                                      constant Frame *frames [[buffer(VertexBufferIndexFrames)]],
-                                      constant Instance *instances [[buffer(VertexBufferIndexInstances)]],
-                                      constant Material *materials [[buffer(VertexBufferIndexMaterials)]]) {
+[[vertex]]
+VertexOut vertexVisibilityTest(VertexIn in [[stage_in]],
+                               ushort amp_id [[amplification_id]],
+                               uint vertex_id [[vertex_id]],
+                               uint instance_id [[instance_id]],
+                               constant Frame *frames [[buffer(VertexBufferIndexFrames)]],
+                               constant Instance *instances [[buffer(VertexBufferIndexInstances)]],
+                               constant Material *materials [[buffer(VertexBufferIndexMaterials)]]) {
 
     VertexOut out;
     const Instance instance = instances[instance_id];

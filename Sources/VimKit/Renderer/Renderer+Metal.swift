@@ -8,6 +8,7 @@
 import MetalKit
 import VimKitShaders
 
+private let labelDepthTexture = "DepthTexture"
 private let labelInstancePickingTexture = "InstancePickingTexture"
 private let labelRasterizationRateMap = "RenderRasterizationMap"
 private let labelRasterizationRateMapData = "RenderRasterizationMapData"
@@ -17,23 +18,25 @@ private let maxFramesInFlight = 3
 extension Renderer {
 
     /// Builds a render pass descriptor from the destination provider's (MTKView) current render pass descriptor.
-    /// - Parameters:
-    ///   - visibilityResultBuffer: the visibility result write buffer
-    func makeRenderPassDescriptor(_ visibilityResultBuffer: MTLBuffer? = nil) -> MTLRenderPassDescriptor? {
+    func makeRenderPassDescriptor() -> MTLRenderPassDescriptor? {
 
         // Use the render pass descriptor from the MTKView
         let renderPassDescriptor = context.destinationProvider.currentRenderPassDescriptor
+
+        // Depth Texture Attachment
+        renderPassDescriptor?.depthAttachment.texture = depthTexture
+        renderPassDescriptor?.depthAttachment.loadAction = .clear
+        renderPassDescriptor?.depthAttachment.storeAction = .store
+        renderPassDescriptor?.depthAttachment.clearDepth = 1.0
+
+        // Stencil Attachment (Depth + Stencil Attachment need to be the same)
+        renderPassDescriptor?.stencilAttachment.texture = depthTexture
 
         // Instance Picking Texture Attachment
         renderPassDescriptor?.colorAttachments[1].texture = instancePickingTexture
         renderPassDescriptor?.colorAttachments[1].loadAction = .clear
         renderPassDescriptor?.colorAttachments[1].storeAction = .store
 
-        // Depth attachment
-        renderPassDescriptor?.depthAttachment.clearDepth = 1.0
-
-        // Visibility Results
-        renderPassDescriptor?.visibilityResultBuffer = visibilityResultBuffer
         return renderPassDescriptor
     }
 
@@ -44,9 +47,6 @@ extension Renderer {
 
         // Rebuild the textures.
         makeTextures()
-
-        // Make the rasterizarion map data
-        makeRasterizationMap()
 
         // Inform the render passes that the view has been resized
         for (i, _) in renderPasses.enumerated() {
@@ -62,42 +62,28 @@ extension Renderer {
         let width = Int(viewportSize.x)
         let height = Int(viewportSize.y)
 
-        // Instance Picking Texture
-        let instancePickingTextureDescriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .r32Sint, width: width, height: height, mipmapped: false)
-        instancePickingTextureDescriptor.usage = .renderTarget
+        // Depth Texture
+        let depthTextureDescriptor = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: .depth32Float_stencil8,
+            width: width,
+            height: height,
+            mipmapped: false
+        )
+        depthTextureDescriptor.storageMode = .private
+        depthTextureDescriptor.usage = [.renderTarget, .shaderRead]
+        depthTexture = device.makeTexture(descriptor: depthTextureDescriptor)
+        depthTexture?.label = labelDepthTexture
 
+        // Instance Picking Texture
+        let instancePickingTextureDescriptor = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: .r32Sint,
+            width: width,
+            height: height,
+            mipmapped: false
+        )
+        instancePickingTextureDescriptor.usage = .renderTarget
         instancePickingTexture = device.makeTexture(descriptor: instancePickingTextureDescriptor)
         instancePickingTexture?.label = labelInstancePickingTexture
-    }
-
-    /// Makes the rasterization map data.
-    private func makeRasterizationMap() {
-
-        guard viewportSize != .zero else { return }
-
-        let screenSize: MTLSize = .init(width: Int(viewportSize.x), height: Int(viewportSize.y), depth: .zero)
-        let quality: [Float] = [0.3, 0.6, 1.0, 0.6, 0.3]
-        let sampleCount: MTLSize = .init(width: 5, height: 5, depth: 0)
-
-        let layerDescriptor: MTLRasterizationRateLayerDescriptor = .init(horizontal: quality, vertical: quality)
-        layerDescriptor.sampleCount = sampleCount
-
-        let rasterizationRateMapDescriptor: MTLRasterizationRateMapDescriptor = .init(screenSize: screenSize,
-                                                                                      layer: layerDescriptor,
-                                                                                      label: labelRasterizationRateMap)
-
-        guard let rasterizationRateMap = device.makeRasterizationRateMap(descriptor: rasterizationRateMapDescriptor) else { return }
-
-        self.rasterizationRateMap = rasterizationRateMap
-        let bufferLength = rasterizationRateMap.parameterDataSizeAndAlign.size
-        guard let rasterizationRateMapData = device.makeBuffer(length: bufferLength, options: []) else { return }
-        rasterizationRateMapData.label = labelRasterizationRateMapData
-
-        self.rasterizationRateMapData = rasterizationRateMapData
-        rasterizationRateMap.copyParameterData(buffer: rasterizationRateMapData, offset: 0)
-
-        let physicalSize = rasterizationRateMap.physicalSize(layer: 0)
-        self.physicalSize = .init(Float(physicalSize.width), Float(physicalSize.height))
     }
 
     // MARK: Frames
@@ -123,7 +109,7 @@ extension Renderer {
     /// Makes a light of the specified type
     /// - Parameter lightType:the light type
     /// - Returns: a new light of the specified type
-    private func light(_ lightType: LightType) -> Light {
+    func light(_ lightType: LightType) -> Light {
 
         var position: SIMD3<Float> = .zero
         var color: SIMD3<Float> = .one
@@ -163,10 +149,6 @@ extension Renderer {
 
     /// Makes the lights buffer.
     func makeLightsBuffer() {
-        var lights: [Light] = [
-            light(.sun),
-            light(.ambient),
-        ]
         lightsBuffer = device.makeBuffer(bytes: &lights, length: MemoryLayout<Light>.size * lights.count)
     }
 }

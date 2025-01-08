@@ -15,9 +15,10 @@ using namespace metal;
 //   - in: The vertex position data.
 //   - amp_id: The index into the uniforms array used for stereoscopic views in visionOS.
 //   - frames: The frames buffer.
-vertex VertexOut vertexSkycube(VertexIn in [[stage_in]],
-                               ushort amp_id [[amplification_id]],
-                               constant Frame *frames [[buffer(VertexBufferIndexFrames)]]) {
+[[vertex]]
+VertexOut vertexSkycube(VertexIn in [[stage_in]],
+                        ushort amp_id [[amplification_id]],
+                        constant Frame *frames [[buffer(VertexBufferIndexFrames)]]) {
     
     const Frame frame = frames[0];
     const Camera camera = frame.cameras[amp_id];
@@ -42,9 +43,10 @@ vertex VertexOut vertexSkycube(VertexIn in [[stage_in]],
 //   - in: the data passed from the vertex function.
 //   - cubeTexture: the cube texture.
 //   - colorSampler: The color sampler.
-fragment FragmentOut fragmentSkycube(VertexOut in [[stage_in]],
-                                     texturecube<float> cubeTexture [[texture(0)]],
-                                     sampler colorSampler [[sampler(0)]]) {
+[[fragment]]
+FragmentOut fragmentSkycube(VertexOut in [[stage_in]],
+                            texturecube<float> cubeTexture [[texture(0)]],
+                            sampler colorSampler [[sampler(0)]]) {
     FragmentOut out;
     float4 color = cubeTexture.sample(colorSampler, in.textureCoordinates);
     out.color = color;

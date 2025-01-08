@@ -52,28 +52,6 @@ open class Renderer: NSObject {
         device.supportsFamily(.apple4)
     }
 
-    /// Boolean flag indicating if indirect command buffers should perform depth occlusion testing or not.
-    /// Frustum testing will always happen
-    open var enableDepthTesting: Bool {
-        options.enableDepthTesting
-    }
-
-    /// Returns the visibility results buffer.
-    var visibilityResultBuffer: MTLBuffer? {
-        guard let visibility = renderPasses.last as? RenderPassVisibility else {
-            return nil
-        }
-        return visibility.currentVisibilityResultBuffer
-    }
-
-    /// Returns the subset of instanced mesh indexes that have returned true from the occlusion query.
-    var currentVisibleResults: [Int] {
-        guard let visibility = renderPasses.last as? RenderPassVisibility else {
-            return .init()
-        }
-        return visibility.currentVisibleResults
-    }
-
     /// The array of render passes used to draw.
     open var renderPasses = [RenderPass]()
 
@@ -81,18 +59,18 @@ open class Renderer: NSObject {
     open var commandQueue: MTLCommandQueue!
     open var instancePickingTexture: MTLTexture?
 
-    // Frames Buffer
+    /// Frames Buffer
     open var framesBuffer: MTLBuffer?
     open var framesBufferIndex: Int = 0
     open var framesBufferOffset: Int = 0
     open var framesBufferAddress: UnsafeMutablePointer<Frame>!
 
-    // Lights Buffer
+    /// Lights Buffer
+    open var lights = [Light]()
     open var lightsBuffer: MTLBuffer?
 
-    // Rasterization
-    open var rasterizationRateMap: MTLRasterizationRateMap?
-    open var rasterizationRateMapData: MTLBuffer?
+    /// Depth testing
+    open var depthTexture: MTLTexture?
 
     /// Combine Subscribers which drive rendering events
     open var subscribers = Set<AnyCancellable>()
@@ -129,10 +107,10 @@ open class Renderer: NSObject {
         // Make the render passes
         let renderPasses: [RenderPass?] = [
             supportsIndirectCommandBuffers ? RenderPassIndirect(context) : RenderPassDirect(context),
-            RenderPassSkycube(context),
-            supportsIndirectCommandBuffers ? nil : RenderPassVisibility(context)
+            RenderPassSkycube(context)
         ]
-        self.renderPasses = renderPasses.compactMap{ $0 }
+        self.renderPasses = renderPasses.compactMap { $0 }
+        self.lights = [light(.sun), light(.ambient)]
 
         // Make the frames buffer
         makeFramesBuffer()
@@ -163,7 +141,9 @@ extension Renderer {
         framesBufferAddress[0].cameras.0 = camera(0)
         framesBufferAddress[0].viewportSize = viewportSize
         framesBufferAddress[0].physicalSize = physicalSize
-        framesBufferAddress[0].enableDepthTesting = enableDepthTesting
+        framesBufferAddress[0].enableDepthTesting = options.enableDepthTesting
+        framesBufferAddress[0].enableContributionTesting = options.enableContributionTesting
+        framesBufferAddress[0].minContributionArea = options.minContributionArea
         framesBufferAddress[0].xRay = xRayMode
     }
 

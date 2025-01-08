@@ -13,16 +13,17 @@ using namespace metal;
 // - Parameters:
 //   - in: The vertex position data.
 //   - amp_id: The index into the uniforms array used for stereoscopic views in visionOS.
-//   - instance_id: The baseInstance parameter passed to the draw call used to map this instance to it's transform data.
+//   - vertex_id: The per-vertex identifier.
 //   - frames: The frames buffer.
 //   - modelMatrix: The shape transform data
 //   - color: The shape color.
-vertex VertexOut vertexShape(VertexIn in [[stage_in]],
-                             ushort amp_id [[amplification_id]],
-                             uint vertex_id [[vertex_id]],
-                             constant Frame *frames [[ buffer(VertexBufferIndexFrames) ]],
-                             constant float4x4 &modelMatrix [[buffer(VertexBufferIndexInstances)]],
-                             constant float4 &color [[buffer(VertexBufferIndexColors)]]) {
+[[vertex]]
+VertexOut vertexShape(VertexIn in [[stage_in]],
+                      ushort amp_id [[amplification_id]],
+                      uint vertex_id [[vertex_id]],
+                      constant Frame *frames [[ buffer(VertexBufferIndexFrames) ]],
+                      constant float4x4 &modelMatrix [[buffer(VertexBufferIndexInstances)]],
+                      constant float4 &color [[buffer(VertexBufferIndexColors)]]) {
     VertexOut out;
     const Frame frame = frames[0];
     const Camera camera = frame.cameras[amp_id];
@@ -42,6 +43,7 @@ vertex VertexOut vertexShape(VertexIn in [[stage_in]],
 // The shape fragment shader function.
 // - Parameters:
 //   - in: the data passed from the vertex function.
-fragment float4 fragmentShape(VertexOut in [[stage_in]]) {
+[[fragment]]
+float4 fragmentShape(VertexOut in [[stage_in]]) {
     return in.color;
 }
