@@ -13,7 +13,7 @@ using namespace metal;
 // - Parameters:
 //   - in: The vertex position data.
 //   - amp_id: The index into the uniforms array used for stereoscopic views in visionOS.
-//   - instance_id: The baseInstance parameter passed to the draw call used to map this instance to it's transform data.
+//   - vertex_id: The per-vertex identifier.
 //   - frames: The frames buffer.
 //   - modelMatrix: The shape transform data
 //   - color: The shape color.

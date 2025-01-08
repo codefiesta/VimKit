@@ -19,12 +19,13 @@ using namespace metal;
 //   - normals: The pointer to the normals that will be updated with the computed values.
 //   - positionsCount: The count of positions.
 //   - indicesCount: The count of indices.
-kernel void computeVertexNormals(device const float *positions,
-                                 device const uint32_t *indices,
-                                 device float3 *faceNormals,
-                                 device float *normals,
-                                 constant int &positionsCount,
-                                 constant int &indicesCount) {
+[[kernel]]
+void computeVertexNormals(device const float *positions,
+                          device const uint32_t *indices,
+                          device float3 *faceNormals,
+                          device float *normals,
+                          constant int &positionsCount,
+                          constant int &indicesCount) {
     
     const int verticesCount = positionsCount / 3;
     
@@ -60,12 +61,13 @@ kernel void computeVertexNormals(device const float *positions,
 //   - meshes: The pointer to the mesh data.
 //   - submeshes: The pointer to the submesh data.
 //   - tid: The thread position in the grid being executed.
-kernel void computeBoundingBoxes(device const float *positions,
-                                 device const uint32_t *indices,
-                                 device Instance *instances,
-                                 device const Mesh *meshes,
-                                 device const Submesh *submeshes,
-                                 uint2 tid [[thread_position_in_grid]]) {
+[[kernel]]
+void computeBoundingBoxes(device const float *positions,
+                          device const uint32_t *indices,
+                          device Instance *instances,
+                          device const Mesh *meshes,
+                          device const Submesh *submeshes,
+                          uint2 tid [[thread_position_in_grid]]) {
     
     const uint i = tid.x;
 

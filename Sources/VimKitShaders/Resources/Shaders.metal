@@ -15,10 +15,10 @@ using namespace metal;
 // - Parameters:
 //   - in: The vertex position + normal data.
 //   - amp_id: The index into the uniforms array used for stereoscopic views in visionOS.
+//   - vertex_id: The per-vertex identifier.
 //   - instance_id: The baseInstance parameter passed to the draw call used to map this instance to it's transform data.
 //   - frames: The frames buffer.
 //   - instances: The instances pointer.
-//   - submeshes: The submeshes pointer.
 //   - materials: The materials pointer.
 //   - colors: The colors pointer used to apply custom color profiles to instances.
 [[vertex]]

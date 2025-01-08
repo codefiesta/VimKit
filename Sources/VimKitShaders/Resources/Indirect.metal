@@ -225,23 +225,24 @@ static void encodeAndDraw(thread render_command &cmd,
 //   - executedCommands: The excuted commands buffer that keeps track of culling results.
 //   - textureSampler: The texture sampler.
 //   - depthTexture: The depth texture.
-kernel void encodeIndirectRenderCommands(uint2 threadPosition [[thread_position_in_grid]],
-                                         uint2 gridSize [[threads_per_grid]],
-                                         constant float *positions [[buffer(KernelBufferIndexPositions)]],
-                                         constant float *normals [[buffer(KernelBufferIndexNormals)]],
-                                         constant uint32_t *indexBuffer [[buffer(KernelBufferIndexIndexBuffer)]],
-                                         constant Frame *frames [[buffer(KernelBufferIndexFrames)]],
-                                         constant Light *lights [[buffer(KernelBufferIndexLights)]],
-                                         constant Instance *instances [[buffer(KernelBufferIndexInstances)]],
-                                         constant InstancedMesh *instancedMeshes [[buffer(KernelBufferIndexInstancedMeshes)]],
-                                         constant Mesh *meshes [[buffer(KernelBufferIndexMeshes)]],
-                                         constant Submesh *submeshes [[buffer(KernelBufferIndexSubmeshes)]],
-                                         constant Material *materials [[buffer(KernelBufferIndexMaterials)]],
-                                         constant float4 *colors [[buffer(KernelBufferIndexColors)]],
-                                         device ICBContainer *icbContainer [[buffer(KernelBufferIndexCommandBufferContainer)]],
-                                         device uint8_t * executedCommands [[buffer(KernelBufferIndexExecutedCommands)]],
-                                         sampler textureSampler [[sampler(0)]],
-                                         texture2d<float> depthTexture [[texture(0)]]) {
+[[kernel]]
+void encodeIndirectRenderCommands(uint2 threadPosition [[thread_position_in_grid]],
+                                  uint2 gridSize [[threads_per_grid]],
+                                  constant float *positions [[buffer(KernelBufferIndexPositions)]],
+                                  constant float *normals [[buffer(KernelBufferIndexNormals)]],
+                                  constant uint32_t *indexBuffer [[buffer(KernelBufferIndexIndexBuffer)]],
+                                  constant Frame *frames [[buffer(KernelBufferIndexFrames)]],
+                                  constant Light *lights [[buffer(KernelBufferIndexLights)]],
+                                  constant Instance *instances [[buffer(KernelBufferIndexInstances)]],
+                                  constant InstancedMesh *instancedMeshes [[buffer(KernelBufferIndexInstancedMeshes)]],
+                                  constant Mesh *meshes [[buffer(KernelBufferIndexMeshes)]],
+                                  constant Submesh *submeshes [[buffer(KernelBufferIndexSubmeshes)]],
+                                  constant Material *materials [[buffer(KernelBufferIndexMaterials)]],
+                                  constant float4 *colors [[buffer(KernelBufferIndexColors)]],
+                                  device ICBContainer *icbContainer [[buffer(KernelBufferIndexCommandBufferContainer)]],
+                                  device uint8_t * executedCommands [[buffer(KernelBufferIndexExecutedCommands)]],
+                                  sampler textureSampler [[sampler(0)]],
+                                  texture2d<float> depthTexture [[texture(0)]]) {
     
     // The x lane provides the max number of submeshes that the mesh can contain
     const uint x = threadPosition.x;
