@@ -18,7 +18,6 @@ using namespace metal;
 //   - frames: The frames buffer.
 //   - instances: The instances pointer.
 //   - materials: The materials pointer.
-//   - identifiers: The identifier data the holds the mesh and submesh indices that are currently being rendered.
 [[vertex]]
 VertexOut vertexVisibilityTest(VertexIn in [[stage_in]],
                                ushort amp_id [[amplification_id]],
