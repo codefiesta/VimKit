@@ -21,14 +21,15 @@ using namespace metal;
 //   - submeshes: The submeshes pointer.
 //   - materials: The materials pointer.
 //   - colors: The colors pointer used to apply custom color profiles to instances.
-vertex VertexOut vertexMain(VertexIn in [[stage_in]],
-                            ushort amp_id [[amplification_id]],
-                            uint vertex_id [[vertex_id]],
-                            uint instance_id [[instance_id]],
-                            constant Frame *frames [[buffer(VertexBufferIndexFrames)]],
-                            constant Instance *instances [[buffer(VertexBufferIndexInstances)]],
-                            constant Material *materials [[buffer(VertexBufferIndexMaterials)]],
-                            constant float4 *colors [[buffer(VertexBufferIndexColors)]]) {
+[[vertex]]
+VertexOut vertexMain(VertexIn in [[stage_in]],
+                     ushort amp_id [[amplification_id]],
+                     uint vertex_id [[vertex_id]],
+                     uint instance_id [[instance_id]],
+                     constant Frame *frames [[buffer(VertexBufferIndexFrames)]],
+                     constant Instance *instances [[buffer(VertexBufferIndexInstances)]],
+                     constant Material *materials [[buffer(VertexBufferIndexMaterials)]],
+                     constant float4 *colors [[buffer(VertexBufferIndexColors)]]) {
 
     VertexOut out;
     const Instance instance = instances[instance_id];
@@ -99,10 +100,11 @@ vertex VertexOut vertexMain(VertexIn in [[stage_in]],
 //   - in: the data passed from the vertex function.
 //   - texture: the texture.
 //   - colorSampler: The color sampler.
-fragment FragmentOut fragmentMain(VertexOut in [[stage_in]],
-                                  constant Light *lights [[buffer(FragmentBufferIndexLights)]],
-                                  texture2d<float, access::sample> texture [[texture(0)]],
-                                  sampler colorSampler [[sampler(0)]]) {
+[[fragment]]
+FragmentOut fragmentMain(VertexOut in [[stage_in]],
+                         constant Light *lights [[buffer(FragmentBufferIndexLights)]],
+                         texture2d<float, access::sample> texture [[texture(0)]],
+                         sampler colorSampler [[sampler(0)]]) {
 
     float4 baseColor = in.color;
     float glossiness = in.glossiness;
