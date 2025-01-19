@@ -69,7 +69,7 @@ static bool isInstanceVisible(const Frame frame,
                               const Instance instance,
                               const uint2 textureSize,
                               const sampler textureSampler,
-                              texture2d<float> depthTexture) {
+                              depth2d<float> depthTexture) {
     
     const bool enableDepthTesting = frame.enableDepthTesting;
     const bool enableContributionTesting = frame.enableContributionTesting;
@@ -104,13 +104,13 @@ static bool isInstanceVisible(const Frame frame,
         float2 sampleMax = maxBounds.xy;
 
         // Sample the corners
-        const float4 d0 = depthTexture.sample(textureSampler, sampleMin);
-        const float4 d1 = depthTexture.sample(textureSampler, float2(sampleMin.x, sampleMax.y));
-        const float4 d2 = depthTexture.sample(textureSampler, float2(sampleMax.x, sampleMin.y));
-        const float4 d3 = depthTexture.sample(textureSampler, sampleMax);
+        const float d0 = depthTexture.sample(textureSampler, sampleMin);
+        const float d1 = depthTexture.sample(textureSampler, float2(sampleMin.x, sampleMax.y));
+        const float d2 = depthTexture.sample(textureSampler, float2(sampleMax.x, sampleMin.y));
+        const float d3 = depthTexture.sample(textureSampler, sampleMax);
 
         float compareValue = minBounds.z;
-        float depthValue = max(max(d0.x, d1.x), max(d2.x, d3.x));
+        float depthValue = max(max(d0, d1), max(d2, d3));
         return compareValue >= depthValue;
     }
     
@@ -134,7 +134,7 @@ static bool isInstancedMeshVisible(const Frame frame,
                                    constant Mesh *meshes,
                                    constant Submesh *submeshes,
                                    sampler textureSampler,
-                                   texture2d<float> depthTexture) {
+                                   depth2d<float> depthTexture) {
     
     const Camera camera = frame.cameras[0]; // TODO: Stereoscopic views??
 
@@ -242,7 +242,7 @@ void encodeIndirectRenderCommands(uint2 threadPosition [[thread_position_in_grid
                                   device ICBContainer *icbContainer [[buffer(KernelBufferIndexCommandBufferContainer)]],
                                   device uint8_t * executedCommands [[buffer(KernelBufferIndexExecutedCommands)]],
                                   sampler textureSampler [[sampler(0)]],
-                                  texture2d<float> depthTexture [[texture(0)]]) {
+                                  depth2d<float> depthTexture [[texture(0)]]) {
     
     // The x lane provides the max number of submeshes that the mesh can contain
     const uint x = threadPosition.x;

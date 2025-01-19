@@ -20,7 +20,7 @@ extension Vim {
         public var xRay: Bool = false
 
         /// A bool used to specify whether indirect command buffers should perform depth testing or not.
-        public var enableDepthTesting: Bool = false
+        public var enableDepthTesting: Bool = true
 
         /// A bool used to specify whether indirect command buffers should perform area
         /// contribution culling (remove instances that are too small to contribute significantly to the final image)
