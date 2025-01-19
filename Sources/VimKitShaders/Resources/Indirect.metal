@@ -56,6 +56,18 @@ static bool isInsideViewFrustum(const Camera camera,
     return true;
 }
 
+// Calculates the texture coordinates for the specified position.
+// - Parameters:
+//   - frame: The per frame data.
+//   - position: The position.
+__attribute__((always_inline))
+static float2 textureCoordinates(const Frame frame,
+                                 const float4 position) {
+    float2 clip = position.xy / position.w;
+    float2 screenCoords = clip * 0.5f + 0.5f;
+    return screenCoords * frame.viewportSize;
+}
+
 // Checks if the instance is visible by performing contribution and depth testing.
 // - Parameters:
 //   - camera: The per frame data.
@@ -100,8 +112,8 @@ static bool isInstanceVisible(const Frame frame,
     
     // Depth z culling (eliminate instances that are behind other instances)
     if (enableDepthTesting) {
-        float2 sampleMin = minBounds.xy;
-        float2 sampleMax = maxBounds.xy;
+        float2 sampleMin = textureCoordinates(frame, minBounds);
+        float2 sampleMax = textureCoordinates(frame, maxBounds);
 
         // Sample the corners
         const float d0 = depthTexture.sample(textureSampler, sampleMin);
