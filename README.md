@@ -17,7 +17,7 @@ The VimKit package is broken down into 3 seperate modules ([VimKit](#vimkit-1), 
 
 [VIM](https://github.com/vimaec/vim) files are composed of [BFAST](https://github.com/vimaec/bfast) containers that provide the necessary [geometry](https://github.com/vimaec/vim#geometry-buffer), [assets](https://github.com/vimaec/vim/#assets-buffer), [entities](https://github.com/vimaec/vim#entities-buffer), and [strings](https://github.com/vimaec/vim#strings-buffer) buffers used to render and interrogate all of the 3D instances contained in a file. 
 
-Although it is possible to render each [Instance](https://github.com/codefiesta/VimKit/blob/main/Sources/VimKitShaders/include/ShaderTypes.h#L104) individually, VimKit leverages instancing to render all Instance's that share the same Mesh in a single [draw](https://github.com/codefiesta/VimKit/blob/main/Sources/VimKit/Renderer/Renderer%2BDrawing.swift) call.
+Although it is possible to render each [Instance](https://github.com/codefiesta/VimKit/blob/main/Sources/VimKitShaders/include/ShaderTypes.h#L109) individually, VimKit leverages instancing to render all Instance's that share the same Mesh in a single [draw](https://github.com/codefiesta/VimKit/blob/main/Sources/VimKit/Renderer/Renderer%2BDrawing.swift) call.
 
 [Geometry.swift](https://github.com/codefiesta/VimKit/blob/main/Sources/VimKit/Geometry.swift) and [ShaderTypes.h](https://github.com/codefiesta/VimKit/blob/main/Sources/VimKitShaders/include/ShaderTypes.h) are the best sources to understand the details of how the geometry, positions, indices and data structures used for rendering are organized.
 
@@ -53,7 +53,7 @@ VimKit provides the ability to perform GPU driven rendering by default on all Ap
 
 In order to maximize GPU and CPU parallelization, the Indirect Render Pass will dispatch a thread grid size of `width x height` where the width == the maximum number of submeshes a mesh can contain and height == the number of instanced meshes the geometry contains. [Metal automaticaly calculates the number of threadgroups](https://developer.apple.com/documentation/metal/compute_passes/calculating_threadgroup_and_grid_sizes) and provides nonuniform threadgroups if the grid size isn’t a multiple of the threadgroup size.
 
-[Indirect.metal](https://github.com/codefiesta/VimKit/blob/main/Sources/VimKitShaders/Resources/Indirect.metal#L265) and [RenderPass+Indirect.swift](https://github.com/codefiesta/VimKit/blob/main/Sources/VimKit/Renderer/RenderPass%2BIndirect.swift) are the best resources to understand how the kernel code issues rendering instructions on the GPU.
+[Indirect.metal](https://github.com/codefiesta/VimKit/blob/main/Sources/VimKitShaders/Resources/Indirect.metal#L229) and [RenderPass+Indirect.swift](https://github.com/codefiesta/VimKit/blob/main/Sources/VimKit/Renderer/RenderPass%2BIndirect.swift) are the best resources to understand how the kernel code issues rendering instructions on the GPU.
 
 ## VisionOS Usage
 The following is an example of the simplest usage of rendering a VIM file on visionOS:

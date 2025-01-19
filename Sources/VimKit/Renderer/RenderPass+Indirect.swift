@@ -138,7 +138,12 @@ class RenderPassIndirect: RenderPass {
 
         // Make the draw calls
         drawIndirect(descriptor: descriptor, renderEncoder: renderEncoder)
+    }
 
+    /// Performs post draw commands.
+    /// - Parameters:
+    ///   - descriptor: the draw descriptor to use
+    func didDraw(descriptor: DrawDescriptor) {
         // Consume the culling results and publish stats
         collect()
     }
