@@ -93,10 +93,12 @@ class RenderPassIndirect: RenderPass {
                 let gridSize = geometry.gridSize
 
                 // Update the stats
-                context.vim.stats.instanceCount = geometry.instances.count
-                context.vim.stats.meshCount = geometry.meshes.count
-                context.vim.stats.submeshCount = geometry.submeshes.count
-                context.vim.stats.gridSize = gridSize
+                Task { @MainActor in
+                    context.vim.stats.instanceCount = geometry.instances.count
+                    context.vim.stats.meshCount = geometry.meshes.count
+                    context.vim.stats.submeshCount = geometry.submeshes.count
+                    context.vim.stats.gridSize = gridSize
+                }
 
                 let totalCommands = gridSize.width * gridSize.height
                 debugPrint("􀬨 Building indirect command buffers [\(totalCommands)]")

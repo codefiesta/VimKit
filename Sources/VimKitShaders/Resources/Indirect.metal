@@ -112,18 +112,30 @@ static bool isInstanceVisible(const Frame frame,
     
     // Depth z culling (eliminate instances that are behind other instances)
     if (enableDepthTesting) {
-        float2 sampleMin = textureCoordinates(frame, minBounds);
-        float2 sampleMax = textureCoordinates(frame, maxBounds);
+        
+        // Extract the box corners
+        const float4 corners[8] = {
+            minBounds,
+            projectionViewMatrix * float4(instance.minBounds.x, instance.minBounds.y, instance.maxBounds.z, 1.0),
+            projectionViewMatrix * float4(instance.minBounds.x, instance.maxBounds.y, instance.minBounds.z, 1.0),
+            projectionViewMatrix * float4(instance.minBounds.x, instance.maxBounds.y, instance.maxBounds.z, 1.0),
+            projectionViewMatrix * float4(instance.maxBounds.x, instance.minBounds.y, instance.minBounds.z, 1.0),
+            projectionViewMatrix * float4(instance.maxBounds.x, instance.minBounds.y, instance.maxBounds.z, 1.0),
+            projectionViewMatrix * float4(instance.maxBounds.x, instance.maxBounds.y, instance.minBounds.z, 1.0),
+            maxBounds
+        };
 
-        // Sample the corners
-        const float d0 = depthTexture.sample(textureSampler, sampleMin);
-        const float d1 = depthTexture.sample(textureSampler, float2(sampleMin.x, sampleMax.y));
-        const float d2 = depthTexture.sample(textureSampler, float2(sampleMax.x, sampleMin.y));
-        const float d3 = depthTexture.sample(textureSampler, sampleMax);
-
-        float compareValue = minBounds.z;
-        float depthValue = max(max(d0, d1), max(d2, d3));
-        return compareValue >= depthValue;
+        for (int i = 0; i < 8; i++) {
+            const float4 corner = corners[i];
+            const float2 sampleCoords = textureCoordinates(frame, corner);
+            const float depthSample = depthTexture.sample(textureSampler, sampleCoords);
+            float depthValue = corner.z / corner.w;
+            if (depthValue >= depthSample) {
+                return true;
+            }
+        }
+        
+        return false;
     }
     
     return true;
@@ -161,10 +173,12 @@ static bool isInstancedMeshVisible(const Frame frame,
     for (int i = lowerBound; i < upperBound; i++) {
         
         const Instance instance = instances[i];
+        const bool insideFrustum = isInsideViewFrustum(camera, instance);
 
-        // Check if inside the view frustum
-        if (isInsideViewFrustum(camera, instance)) {
-            return isInstanceVisible(frame, instance, textureSize, textureSampler, depthTexture);
+        if (insideFrustum) {
+            // Check if the instance passes the depth & contribution test
+            const bool isVisible = isInstanceVisible(frame, instance, textureSize, textureSampler, depthTexture);
+            if (isVisible) { return true; }
         }
     }
     
