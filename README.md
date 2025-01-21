@@ -53,7 +53,7 @@ VimKit provides the ability to perform GPU driven rendering by default on all Ap
 
 In order to maximize GPU and CPU parallelization, the Indirect Render Pass will dispatch a thread grid size of `width x height` where the width == the maximum number of submeshes a mesh can contain and height == the number of instanced meshes the geometry contains. [Metal automaticaly calculates the number of threadgroups](https://developer.apple.com/documentation/metal/compute_passes/calculating_threadgroup_and_grid_sizes) and provides nonuniform threadgroups if the grid size isn’t a multiple of the threadgroup size.
 
-[Indirect.metal](https://github.com/codefiesta/VimKit/blob/main/Sources/VimKitShaders/Resources/Indirect.metal#L229) and [RenderPass+Indirect.swift](https://github.com/codefiesta/VimKit/blob/main/Sources/VimKit/Renderer/RenderPass%2BIndirect.swift) are the best resources to understand how the kernel code issues rendering instructions on the GPU.
+[Indirect.metal](https://github.com/codefiesta/VimKit/blob/main/Sources/VimKitShaders/Resources/Indirect.metal#L256) and [RenderPass+Indirect.swift](https://github.com/codefiesta/VimKit/blob/main/Sources/VimKit/Renderer/RenderPass%2BIndirect.swift) are the best resources to understand how the kernel code issues rendering instructions on the GPU.
 
 ## VisionOS Usage
 The following is an example of the simplest usage of rendering a VIM file on visionOS:
