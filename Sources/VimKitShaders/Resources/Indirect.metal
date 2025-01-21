@@ -267,7 +267,7 @@ void encodeIndirectRenderCommands(uint2 threadPosition [[thread_position_in_grid
                                   constant Material *materials [[buffer(KernelBufferIndexMaterials)]],
                                   constant float4 *colors [[buffer(KernelBufferIndexColors)]],
                                   device ICBContainer *icbContainer [[buffer(KernelBufferIndexCommandBufferContainer)]],
-                                  device uint8_t * executedCommands [[buffer(KernelBufferIndexExecutedCommands)]],
+                                  device uint8_t *executedCommands [[buffer(KernelBufferIndexExecutedCommands)]],
                                   sampler textureSampler [[sampler(0)]],
                                   depth2d<float> depthTexture [[texture(0)]]) {
     
