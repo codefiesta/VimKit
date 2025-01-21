@@ -56,6 +56,18 @@ static bool isInsideViewFrustum(const Camera camera,
     return true;
 }
 
+// Calculates the texture coordinates for the specified position.
+// - Parameters:
+//   - frame: The per frame data.
+//   - position: The position.
+__attribute__((always_inline))
+static float2 textureCoordinates(const Frame frame,
+                                 const float4 position) {
+    float2 clip = position.xy / position.w;
+    float2 screenCoords = clip * 0.5f + 0.5f;
+    return screenCoords * frame.viewportSize;
+}
+
 // Checks if the instance is visible by performing contribution and depth testing.
 // - Parameters:
 //   - camera: The per frame data.
@@ -69,7 +81,7 @@ static bool isInstanceVisible(const Frame frame,
                               const Instance instance,
                               const uint2 textureSize,
                               const sampler textureSampler,
-                              texture2d<float> depthTexture) {
+                              depth2d<float> depthTexture) {
     
     const bool enableDepthTesting = frame.enableDepthTesting;
     const bool enableContributionTesting = frame.enableContributionTesting;
@@ -79,12 +91,13 @@ static bool isInstanceVisible(const Frame frame,
     float4x4 projectionMatrix = camera.projectionMatrix;
     float4x4 projectionViewMatrix = projectionMatrix * viewMatrix;
     
-    // Transform the bounding box
-    float4 minBounds = projectionViewMatrix * float4(instance.minBounds, 1.0);
-    float4 maxBounds = projectionViewMatrix * float4(instance.maxBounds, 1.0);
-    
     // Contribution culling (remove instances that are too small to contribute significantly to the final image)
     if (enableContributionTesting) {
+
+        // Transform the bounding box
+        float4 minBounds = projectionViewMatrix * float4(instance.minBounds, 1.0);
+        float4 maxBounds = projectionViewMatrix * float4(instance.maxBounds, 1.0);
+
         float3 boxMin = minBounds.xyz / minBounds.w;
         float3 boxMax = maxBounds.xyz / maxBounds.w;
         
@@ -100,18 +113,30 @@ static bool isInstanceVisible(const Frame frame,
     
     // Depth z culling (eliminate instances that are behind other instances)
     if (enableDepthTesting) {
-        float2 sampleMin = minBounds.xy;
-        float2 sampleMax = maxBounds.xy;
+        
+        // Extract the box corners
+        const float4 corners[8] = {
+            float4(instance.minBounds, 1.0),
+            float4(instance.minBounds.x, instance.minBounds.y, instance.maxBounds.z, 1.0),
+            float4(instance.minBounds.x, instance.maxBounds.y, instance.minBounds.z, 1.0),
+            float4(instance.minBounds.x, instance.maxBounds.y, instance.maxBounds.z, 1.0),
+            float4(instance.maxBounds.x, instance.minBounds.y, instance.minBounds.z, 1.0),
+            float4(instance.maxBounds.x, instance.minBounds.y, instance.maxBounds.z, 1.0),
+            float4(instance.maxBounds.x, instance.maxBounds.y, instance.minBounds.z, 1.0),
+            float4(instance.maxBounds, 1.0)
+        };
 
-        // Sample the corners
-        const float4 d0 = depthTexture.sample(textureSampler, sampleMin);
-        const float4 d1 = depthTexture.sample(textureSampler, float2(sampleMin.x, sampleMax.y));
-        const float4 d2 = depthTexture.sample(textureSampler, float2(sampleMax.x, sampleMin.y));
-        const float4 d3 = depthTexture.sample(textureSampler, sampleMax);
-
-        float compareValue = minBounds.z;
-        float depthValue = max(max(d0.x, d1.x), max(d2.x, d3.x));
-        return compareValue >= depthValue;
+        for (int i = 0; i < 8; i++) {
+            const float4 corner = projectionViewMatrix * corners[i];
+            const float2 sampleCoords = textureCoordinates(frame, corner);
+            const float depthSample = depthTexture.sample(textureSampler, sampleCoords);
+            float depthValue = corner.z / corner.w;
+            if (depthValue >= depthSample) {
+                return true;
+            }
+        }
+        
+        return false;
     }
     
     return true;
@@ -134,7 +159,7 @@ static bool isInstancedMeshVisible(const Frame frame,
                                    constant Mesh *meshes,
                                    constant Submesh *submeshes,
                                    sampler textureSampler,
-                                   texture2d<float> depthTexture) {
+                                   depth2d<float> depthTexture) {
     
     const Camera camera = frame.cameras[0]; // TODO: Stereoscopic views??
 
@@ -149,10 +174,12 @@ static bool isInstancedMeshVisible(const Frame frame,
     for (int i = lowerBound; i < upperBound; i++) {
         
         const Instance instance = instances[i];
+        const bool insideFrustum = isInsideViewFrustum(camera, instance);
 
-        // Check if inside the view frustum
-        if (isInsideViewFrustum(camera, instance)) {
-            return isInstanceVisible(frame, instance, textureSize, textureSampler, depthTexture);
+        if (insideFrustum) {
+            // Check if the instance passes the depth & contribution test
+            const bool isVisible = isInstanceVisible(frame, instance, textureSize, textureSampler, depthTexture);
+            if (isVisible) { return true; }
         }
     }
     
@@ -242,7 +269,7 @@ void encodeIndirectRenderCommands(uint2 threadPosition [[thread_position_in_grid
                                   device ICBContainer *icbContainer [[buffer(KernelBufferIndexCommandBufferContainer)]],
                                   device uint8_t * executedCommands [[buffer(KernelBufferIndexExecutedCommands)]],
                                   sampler textureSampler [[sampler(0)]],
-                                  texture2d<float> depthTexture [[texture(0)]]) {
+                                  depth2d<float> depthTexture [[texture(0)]]) {
     
     // The x lane provides the max number of submeshes that the mesh can contain
     const uint x = threadPosition.x;
