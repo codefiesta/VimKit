@@ -119,7 +119,18 @@ FragmentOut fragmentMain(VertexOut in [[stage_in]],
     
     float3 normal = normalize(in.worldNormal);
     float3 position = in.worldPosition;
-    float4 color = phongLighting(position, normal, baseColor, glossiness, cameraPosition, cameraDirection, cameraDistance, lights);
+    uint lightCount = 2;
+
+    // Calculate the vertex color with the phong lighting function
+    float4 color = phongLighting(position,
+                                 normal,
+                                 baseColor,
+                                 glossiness,
+                                 cameraPosition,
+                                 cameraDirection,
+                                 cameraDistance,
+                                 lightCount,
+                                 lights);
     
     FragmentOut out;
     

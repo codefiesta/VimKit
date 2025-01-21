@@ -246,15 +246,15 @@ typedef struct {
 } ICBContainer;
 
 // Defines the phong lighting function
-float4 phongLighting(
-    float3 position,
-    float3 normal,
-    float4 baseColor,
-    float glossiness,
-    float3 cameraPosition,
-    float3 cameraDirection,
-    float cameraDistance,
-    constant Light *lights
+float4 phongLighting(float3 position,
+                     float3 normal,
+                     float4 baseColor,
+                     float glossiness,
+                     float3 cameraPosition,
+                     float3 cameraDirection,
+                     float cameraDistance,
+                     uint lightCount,
+                     constant Light *lights
 );
 
 #endif

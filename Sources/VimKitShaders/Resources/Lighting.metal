@@ -20,6 +20,7 @@ using namespace metal;
 //   - cameraPosition: The camera position
 //   - cameraDirection: The camera forward direction
 //   - cameraDistance: The distance from the vertex to the camera position
+//   - lightCount: The number of lights contained inside the light buffer
 //   - lights: The scene lights
 float4 phongLighting(float3 position,
                      float3 normal,
@@ -28,6 +29,7 @@ float4 phongLighting(float3 position,
                      float3 cameraPosition,
                      float3 cameraDirection,
                      float cameraDistance,
+                     uint lightCount,
                      constant Light *lights) {
     
     const float3 rgb = baseColor.xyz;
@@ -40,8 +42,7 @@ float4 phongLighting(float3 position,
     float3 materialSpecularColor = float3(1, 1, 1);
     
     // Loop through the lights and merge the lights
-    // TODO: Pass the light count
-    for (uint i = 0; i < 2; i++) {
+    for (uint i = 0; i < lightCount; i++) {
 
         const Light light = lights[i];
 
