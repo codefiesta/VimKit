@@ -141,6 +141,7 @@ extension Renderer {
         framesBufferAddress[0].cameras.0 = camera(0)
         framesBufferAddress[0].viewportSize = viewportSize
         framesBufferAddress[0].physicalSize = physicalSize
+        framesBufferAddress[0].lightCount = lights.count
         framesBufferAddress[0].enableDepthTesting = options.enableDepthTesting
         framesBufferAddress[0].enableContributionTesting = options.enableContributionTesting
         framesBufferAddress[0].minContributionArea = options.minContributionArea

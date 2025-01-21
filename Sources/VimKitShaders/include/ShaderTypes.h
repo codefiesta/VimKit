@@ -87,6 +87,8 @@ typedef struct {
     simd_float2 viewportSize;
     // The physical resolution size used for adjusting between screen and physical space
     simd_float2 physicalSize;
+    // The number of lights contained inside the lights buffer.
+    size_t lightCount;
     // Flag indicating if the indirect command buffers should perform depth testing (frustum testing will always happen).
     bool enableDepthTesting;
     // Flag indicating if the indirect command buffers should perform area
@@ -226,6 +228,8 @@ typedef struct {
     float smoothness;
     // The texture coordinates.
     float3 textureCoordinates;
+    // The number of lights.
+    uint lightCount;
     // The instance index (-1 indicates a non-selectable or invalid instance).
     int32_t index;
 } VertexOut;

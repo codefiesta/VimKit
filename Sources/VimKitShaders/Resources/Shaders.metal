@@ -62,6 +62,9 @@ VertexOut vertexMain(VertexIn in [[stage_in]],
     out.smoothness = material.smoothness;
     out.color = material.rgba;
     
+    // Lights
+    out.lightCount = frame.lightCount;
+    
     // XRay the object
     if (frame.xRay) {
         float grayscale = 0.299 * material.rgba.x + 0.587 * material.rgba.y + 0.114 * material.rgba.z;
@@ -119,7 +122,7 @@ FragmentOut fragmentMain(VertexOut in [[stage_in]],
     
     float3 normal = normalize(in.worldNormal);
     float3 position = in.worldPosition;
-    uint lightCount = 2;
+    uint lightCount = in.lightCount;
 
     // Calculate the vertex color with the phong lighting function
     float4 color = phongLighting(position,
