@@ -91,12 +91,13 @@ static bool isInstanceVisible(const Frame frame,
     float4x4 projectionMatrix = camera.projectionMatrix;
     float4x4 projectionViewMatrix = projectionMatrix * viewMatrix;
     
-    // Transform the bounding box
-    float4 minBounds = projectionViewMatrix * float4(instance.minBounds, 1.0);
-    float4 maxBounds = projectionViewMatrix * float4(instance.maxBounds, 1.0);
-    
     // Contribution culling (remove instances that are too small to contribute significantly to the final image)
     if (enableContributionTesting) {
+
+        // Transform the bounding box
+        float4 minBounds = projectionViewMatrix * float4(instance.minBounds, 1.0);
+        float4 maxBounds = projectionViewMatrix * float4(instance.maxBounds, 1.0);
+
         float3 boxMin = minBounds.xyz / minBounds.w;
         float3 boxMax = maxBounds.xyz / maxBounds.w;
         
@@ -115,18 +116,18 @@ static bool isInstanceVisible(const Frame frame,
         
         // Extract the box corners
         const float4 corners[8] = {
-            minBounds,
-            projectionViewMatrix * float4(instance.minBounds.x, instance.minBounds.y, instance.maxBounds.z, 1.0),
-            projectionViewMatrix * float4(instance.minBounds.x, instance.maxBounds.y, instance.minBounds.z, 1.0),
-            projectionViewMatrix * float4(instance.minBounds.x, instance.maxBounds.y, instance.maxBounds.z, 1.0),
-            projectionViewMatrix * float4(instance.maxBounds.x, instance.minBounds.y, instance.minBounds.z, 1.0),
-            projectionViewMatrix * float4(instance.maxBounds.x, instance.minBounds.y, instance.maxBounds.z, 1.0),
-            projectionViewMatrix * float4(instance.maxBounds.x, instance.maxBounds.y, instance.minBounds.z, 1.0),
-            maxBounds
+            float4(instance.minBounds, 1.0),
+            float4(instance.minBounds.x, instance.minBounds.y, instance.maxBounds.z, 1.0),
+            float4(instance.minBounds.x, instance.maxBounds.y, instance.minBounds.z, 1.0),
+            float4(instance.minBounds.x, instance.maxBounds.y, instance.maxBounds.z, 1.0),
+            float4(instance.maxBounds.x, instance.minBounds.y, instance.minBounds.z, 1.0),
+            float4(instance.maxBounds.x, instance.minBounds.y, instance.maxBounds.z, 1.0),
+            float4(instance.maxBounds.x, instance.maxBounds.y, instance.minBounds.z, 1.0),
+            float4(instance.maxBounds, 1.0)
         };
 
         for (int i = 0; i < 8; i++) {
-            const float4 corner = corners[i];
+            const float4 corner = projectionViewMatrix * corners[i];
             const float2 sampleCoords = textureCoordinates(frame, corner);
             const float depthSample = depthTexture.sample(textureSampler, sampleCoords);
             float depthValue = corner.z / corner.w;
