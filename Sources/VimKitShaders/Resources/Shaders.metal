@@ -71,7 +71,8 @@ VertexOut vertexMain(VertexIn in [[stage_in]],
         float alpha = material.rgba.w * 0.1;
         out.color = float4(grayscale, grayscale, grayscale, alpha);
     }
-        
+    
+    // Instance state
     switch (instance.state) {
         case InstanceStateDefault:
             // If the color override is set, pluck the color from the colors buffer
@@ -85,6 +86,10 @@ VertexOut vertexMain(VertexIn in [[stage_in]],
         case InstanceStateSelected:
             out.color = colors[0];
             break;
+    }
+    
+    // Clip Plane
+    if (frame.enableClipPlanes) {
     }
     
     // Camera
@@ -115,9 +120,13 @@ FragmentOut fragmentMain(VertexOut in [[stage_in]],
     float3 cameraDirection = in.cameraDirection;
     float cameraDistance = in.cameraDistance;
 
-    // If the color alpha is zero, discard the fragment
+    
+    FragmentOut out;
+    
+    // Discard the fragment if the color alpha is zero or the vertex is clipped
     if (baseColor.w == 0.0) {
         discard_fragment();
+        return out;
     }
     
     float3 normal = normalize(in.worldNormal);
@@ -134,8 +143,6 @@ FragmentOut fragmentMain(VertexOut in [[stage_in]],
                                  cameraDistance,
                                  lightCount,
                                  lights);
-    
-    FragmentOut out;
     
     out.color = color;
     out.index = in.index;

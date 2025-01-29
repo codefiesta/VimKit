@@ -142,6 +142,7 @@ extension Renderer {
         framesBufferAddress[0].viewportSize = viewportSize
         framesBufferAddress[0].physicalSize = physicalSize
         framesBufferAddress[0].lightCount = lights.count
+        framesBufferAddress[0].enableClipPlanes = options.enableClipPlanes
         framesBufferAddress[0].enableDepthTesting = options.enableDepthTesting
         framesBufferAddress[0].enableContributionTesting = options.enableContributionTesting
         framesBufferAddress[0].minContributionArea = options.minContributionArea
@@ -161,12 +162,21 @@ extension Renderer {
                              camera.frustum.planes[4],
                              camera.frustum.planes[5])
 
+        // Splat out the clip planes
+        let clipPlanes = (camera.clipPlanes[0],
+                          camera.clipPlanes[1],
+                          camera.clipPlanes[2],
+                          camera.clipPlanes[3],
+                          camera.clipPlanes[4],
+                          camera.clipPlanes[5])
+
         return .init(
             position: camera.position,
             viewMatrix: camera.viewMatrix,
             projectionMatrix: camera.projectionMatrix,
             sceneTransform: camera.sceneTransform,
-            frustumPlanes: frustumPlanes
+            frustumPlanes: frustumPlanes,
+            clipPlanes: clipPlanes
         )
     }
 }
