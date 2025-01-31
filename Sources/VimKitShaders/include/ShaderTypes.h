@@ -211,7 +211,8 @@ typedef struct {
 typedef struct {
     // The position of the vertex.
     float4 position [[position]];
-    // The distance to the clip planes
+    // The distances from the vertex to the clip planes.
+    // A positive value indicates a vertex is on one side of the plane, and a negative value on the other.
     float clipDistance [[clip_distance]] [6];
     // The world position of the vertex.
     float3 worldPosition [[user(worldPosition)]];

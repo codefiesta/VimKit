@@ -81,7 +81,7 @@ VertexOut vertexMain(VertexIn in [[stage_in]],
             }
             break;
         case InstanceStateHidden:
-            out.color = float4(0, 0, 0, 0);
+            out.clipDistance[0] = -1.0f;
             break;
         case InstanceStateSelected:
             out.color = colors[0];
@@ -133,7 +133,7 @@ FragmentOut fragmentMain(FragmentIn in [[stage_in]],
     
     FragmentOut out;
     
-    // Discard the fragment if the color alpha is zero or the vertex is clipped
+    // Discard the fragment if the color alpha is zero
     if (baseColor.w == 0.0) {
         discard_fragment();
         return out;
