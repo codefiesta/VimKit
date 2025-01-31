@@ -98,7 +98,7 @@ VertexOut vertexMain(VertexIn in [[stage_in]],
             continue;
         }
         // Calculate the distance to the clip plane
-        const float clipDistance = (dot(plane.xyz, worldPosition.xyz) + plane.w);
+        const float clipDistance = -dot(plane.xyz, worldPosition.xyz) + plane.w;
         out.clipDistance[i] = clipDistance;
     }
     

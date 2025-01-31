@@ -165,7 +165,7 @@ typedef NS_ENUM(EnumBackingType, FragmentBufferIndex) {
 typedef NS_ENUM(EnumBackingType, VertexAttribute) {
     VertexAttributePosition = 0,
     VertexAttributeNormal = 1,
-    VertexAttributeUv = 2
+    VertexAttributeTextureCoordinate = 2
 };
 
 // Enum constants for kernel compute function buffer indices
@@ -204,7 +204,7 @@ using namespace metal;
 typedef struct {
     float4 position [[attribute(VertexAttributePosition)]];
     float3 normal [[attribute(VertexAttributeNormal)]];
-    float2 uv [[attribute(VertexAttributeUv)]];
+    float2 textureCoordinate [[attribute(VertexAttributeTextureCoordinate)]];
 } VertexIn;
 
 // The struct that is passed from the vertex function to the fragment function

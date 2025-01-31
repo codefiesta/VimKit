@@ -58,14 +58,14 @@ static bool isInsideViewFrustumAndClipPlanes(const Camera camera,
         // Skip the plane if it's not valid
         if (isinf(clipPlane.w)) { continue; }
 
-        if (dot(clipPlane, corners[0]) < 0 &&
-            dot(clipPlane, corners[1]) < 0 &&
-            dot(clipPlane, corners[2]) < 0 &&
-            dot(clipPlane, corners[3]) < 0 &&
-            dot(clipPlane, corners[4]) < 0 &&
-            dot(clipPlane, corners[5]) < 0 &&
-            dot(clipPlane, corners[6]) < 0 &&
-            dot(clipPlane, corners[7]) < 0) {
+        if (-dot(clipPlane.xyz, corners[0].xyz) + clipPlane.w < 0 &&
+            -dot(clipPlane.xyz, corners[1].xyz) + clipPlane.w < 0 &&
+            -dot(clipPlane.xyz, corners[2].xyz) + clipPlane.w < 0 &&
+            -dot(clipPlane.xyz, corners[3].xyz) + clipPlane.w < 0 &&
+            -dot(clipPlane.xyz, corners[4].xyz) + clipPlane.w < 0 &&
+            -dot(clipPlane.xyz, corners[5].xyz) + clipPlane.w < 0 &&
+            -dot(clipPlane.xyz, corners[6].xyz) + clipPlane.w < 0 &&
+            -dot(clipPlane.xyz, corners[7].xyz) + clipPlane.w < 0) {
             // Not visible - all corners returned negative
             return false;
         }

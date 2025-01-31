@@ -60,13 +60,11 @@ class RenderPassShapes: RenderPass {
     private func encode(descriptor: DrawDescriptor, renderEncoder: MTLRenderCommandEncoder) {
 
         guard let pipelineState, let normalsBuffer = geometry?.normalsBuffer else { return }
-        renderEncoder.pushDebugGroup(labelPipeline)
         renderEncoder.setRenderPipelineState(pipelineState)
         renderEncoder.setDepthStencilState(depthStencilState)
 
         // Setup the per frame buffers to pass to the GPU
         renderEncoder.setVertexBuffer(descriptor.framesBuffer, offset: descriptor.framesBufferOffset, index: .frames)
-        renderEncoder.setVertexBuffer(normalsBuffer, offset: 0, index: .normals) // Not used but we are sharing the same vertex descriptor
     }
 
     /// Draws all valid clip planes.
@@ -95,6 +93,8 @@ class RenderPassShapes: RenderPass {
 
         var color = color
         var transform = transform
+
+        renderEncoder.pushDebugGroup(labelPipeline)
 
         // Set the buffers to pass to the GPU
         renderEncoder.setVertexBytes(&color, length: MemoryLayout<SIMD4<Float>>.size, index: .colors)
@@ -167,13 +167,17 @@ class RenderPassShapes: RenderPass {
 
         var transform = transform
 
+        // Set the plane position
+        transform.position = plane.xyz * plane.w
+
         // Scale the bounds of the plane to the model bounds
         if scaleToBounds, let bounds = context.vim.geometry?.bounds {
             transform.scale(bounds.extents)
         }
 
-        // Set the plane position
-        transform.position = plane.xyz * plane.w
+        // Multiply the transform by the scene transform (most likely z-up)
+        // TODO: Rethink this so we are performing this on the GPU instead of CPU
+        transform *= camera.sceneTransform
         // Rotate the plane around it's normal axis by 180° (expressed in radians)
         transform.rotate(around: plane.xyz, by: Float.pi / 2)
         // Draw the plane using the plane mesh
@@ -210,11 +214,26 @@ class RenderPassShapes: RenderPass {
               let cylinderMesh = try? MTKMesh(mesh: cylinder, device: device),
               let planeMesh = try? MTKMesh(mesh: plane, device: device),
               let sphereMesh = try? MTKMesh(mesh: sphere, device: device) else { return }
+        
         self.boxMesh = boxMesh
         self.cylinderMesh = cylinderMesh
         self.planeMesh = planeMesh
         self.sphereMesh = sphereMesh
-
     }
 
+    /// Makes the default metal vertex descriptor
+    /// - Returns: the default metal vertex descriptor
+    func makeVertexDescriptor() -> MTLVertexDescriptor {
+        let vertexDescriptor = MTLVertexDescriptor()
+
+        // Positions
+        vertexDescriptor.attributes[.position].format = .float3
+        vertexDescriptor.attributes[.position].bufferIndex = VertexAttribute.position.rawValue
+        vertexDescriptor.attributes[.position].offset = 0
+
+        // Descriptor Layouts
+        vertexDescriptor.layouts[.positions].stride = MemoryLayout<Float>.size * 8
+
+        return vertexDescriptor
+    }
 }
