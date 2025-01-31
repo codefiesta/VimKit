@@ -27,6 +27,9 @@ extension Vim {
         /// Holds the camera viewing frustum.
         public var frustum: Frustum = .init()
 
+        /// The clipping planes to apply.
+        public var clipPlanes = [SIMD4<Float>](repeating: .invalid, count: 6)
+
         /// Holds our scene rotation transform which is used to
         /// convert from other cameras (such as ARKit or VisionPro).
         public var sceneTransform: float4x4 = .identity

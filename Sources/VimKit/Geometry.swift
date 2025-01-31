@@ -63,10 +63,8 @@ public class Geometry: ObservableObject, @unchecked Sendable {
     /// The Geometry Bounding Volume Hierarchy
     var bvh: BVH?
 
-    /// Convenience method to return the model bounds.
-    var bounds: MDLAxisAlignedBoundingBox? {
-        bvh?.bounds
-    }
+    /// Return the model bounds.
+    var bounds: MDLAxisAlignedBoundingBox = .zero
 
     /// The data container
     private let bfast: BFast
@@ -760,6 +758,16 @@ extension Geometry {
         computeEncoder.endEncoding()
         commandBuffer.commit()
         commandBuffer.waitUntilCompleted()
+
+        // For now, just loop through the instances on the CPU to calculate the world bounds
+        // In the future we could do this on the GPU but juice really isn't worth the squeeze
+        var minMounds: SIMD3<Float> = .zero
+        var maxMounds: SIMD3<Float> = .zero
+        for instance in instances {
+            minMounds = min(instance.boundingBox.minBounds, minMounds)
+            maxMounds = max(instance.boundingBox.maxBounds, maxMounds)
+        }
+        bounds = .init(maxBounds: maxMounds, minBounds: minMounds)
     }
 
     /// Calculates the bounding box for the specified instance.

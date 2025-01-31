@@ -107,6 +107,7 @@ open class Renderer: NSObject {
         // Make the render passes
         let renderPasses: [RenderPass?] = [
             supportsIndirectCommandBuffers ? RenderPassIndirect(context) : RenderPassDirect(context),
+            RenderPassShapes(context),
             RenderPassSkycube(context)
         ]
         self.renderPasses = renderPasses.compactMap { $0 }
@@ -161,12 +162,21 @@ extension Renderer {
                              camera.frustum.planes[4],
                              camera.frustum.planes[5])
 
+        // Splat out the clip planes
+        let clipPlanes = (camera.clipPlanes[0],
+                          camera.clipPlanes[1],
+                          camera.clipPlanes[2],
+                          camera.clipPlanes[3],
+                          camera.clipPlanes[4],
+                          camera.clipPlanes[5])
+
         return .init(
             position: camera.position,
             viewMatrix: camera.viewMatrix,
             projectionMatrix: camera.projectionMatrix,
             sceneTransform: camera.sceneTransform,
-            frustumPlanes: frustumPlanes
+            frustumPlanes: frustumPlanes,
+            clipPlanes: clipPlanes
         )
     }
 }

@@ -35,6 +35,12 @@ VertexOut vertexSkycube(VertexIn in [[stage_in]],
     out.position = position;
     out.textureCoordinates = in.position.xyz;
     out.index = -1; // Denotes an invalid selection
+    
+    // Don't apply any clip distances to the skycube
+    for (int i = 0; i < 6; i++) {
+        out.clipDistance[i] = 0.0f;
+    }
+
     return out;
 }
 
@@ -44,7 +50,7 @@ VertexOut vertexSkycube(VertexIn in [[stage_in]],
 //   - cubeTexture: the cube texture.
 //   - colorSampler: The color sampler.
 [[fragment]]
-FragmentOut fragmentSkycube(VertexOut in [[stage_in]],
+FragmentOut fragmentSkycube(FragmentIn in [[stage_in]],
                             texturecube<float> cubeTexture [[texture(0)]],
                             sampler colorSampler [[sampler(0)]]) {
     FragmentOut out;

@@ -15,8 +15,8 @@ using namespace metal;
 //   - instance: The instance to check if inside the view frustum.
 // - Returns: true if the instance is inside the view frustum, otherwise false
 __attribute__((always_inline))
-static bool isInsideViewFrustum(const Camera camera,
-                                const Instance instance) {
+static bool isInsideViewFrustumAndClipPlanes(const Camera camera,
+                                             const Instance instance) {
     
     
     if (instance.state == InstanceStateHidden) { return false; }
@@ -36,19 +36,36 @@ static bool isInsideViewFrustum(const Camera camera,
         float4(maxBounds, 1.0)
     };
 
-    // Loop through the frustum planes and check the box corners
+    // Loop through the frustum + clip planes and check the box corners
     for (int i = 0; i < 6; i++) {
 
-        const float4 plane = camera.frustumPlanes[i];
+        const float4 frustumPlane = camera.frustumPlanes[i];
         
-        if (dot(plane, corners[0]) < 0 &&
-            dot(plane, corners[1]) < 0 &&
-            dot(plane, corners[2]) < 0 &&
-            dot(plane, corners[3]) < 0 &&
-            dot(plane, corners[4]) < 0 &&
-            dot(plane, corners[5]) < 0 &&
-            dot(plane, corners[6]) < 0 &&
-            dot(plane, corners[7]) < 0) {
+        if (dot(frustumPlane, corners[0]) < 0 &&
+            dot(frustumPlane, corners[1]) < 0 &&
+            dot(frustumPlane, corners[2]) < 0 &&
+            dot(frustumPlane, corners[3]) < 0 &&
+            dot(frustumPlane, corners[4]) < 0 &&
+            dot(frustumPlane, corners[5]) < 0 &&
+            dot(frustumPlane, corners[6]) < 0 &&
+            dot(frustumPlane, corners[7]) < 0) {
+            // Not visible - all corners returned negative
+            return false;
+        }
+        
+        const float4 clipPlane = camera.clipPlanes[i];
+
+        // Skip the plane if it's not valid
+        if (isinf(clipPlane.w)) { continue; }
+
+        if (-dot(clipPlane.xyz, corners[0].xyz) + clipPlane.w < 0 &&
+            -dot(clipPlane.xyz, corners[1].xyz) + clipPlane.w < 0 &&
+            -dot(clipPlane.xyz, corners[2].xyz) + clipPlane.w < 0 &&
+            -dot(clipPlane.xyz, corners[3].xyz) + clipPlane.w < 0 &&
+            -dot(clipPlane.xyz, corners[4].xyz) + clipPlane.w < 0 &&
+            -dot(clipPlane.xyz, corners[5].xyz) + clipPlane.w < 0 &&
+            -dot(clipPlane.xyz, corners[6].xyz) + clipPlane.w < 0 &&
+            -dot(clipPlane.xyz, corners[7].xyz) + clipPlane.w < 0) {
             // Not visible - all corners returned negative
             return false;
         }
@@ -174,7 +191,7 @@ static bool isInstancedMeshVisible(const Frame frame,
     for (int i = lowerBound; i < upperBound; i++) {
         
         const Instance instance = instances[i];
-        const bool insideFrustum = isInsideViewFrustum(camera, instance);
+        const bool insideFrustum = isInsideViewFrustumAndClipPlanes(camera, instance);
 
         if (insideFrustum) {
             // Check if the instance passes the depth & contribution test

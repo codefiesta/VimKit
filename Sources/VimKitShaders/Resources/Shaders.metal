@@ -71,7 +71,8 @@ VertexOut vertexMain(VertexIn in [[stage_in]],
         float alpha = material.rgba.w * 0.1;
         out.color = float4(grayscale, grayscale, grayscale, alpha);
     }
-        
+    
+    // Instance state
     switch (instance.state) {
         case InstanceStateDefault:
             // If the color override is set, pluck the color from the colors buffer
@@ -80,11 +81,25 @@ VertexOut vertexMain(VertexIn in [[stage_in]],
             }
             break;
         case InstanceStateHidden:
-            out.color = float4(0, 0, 0, 0);
+            out.clipDistance[0] = -1.0f;
             break;
         case InstanceStateSelected:
             out.color = colors[0];
             break;
+    }
+    
+    // Clip Planes
+    for (int i = 0; i < 6; i++) {
+        const float4 plane = camera.clipPlanes[i];
+
+        // Validate clip plane by making sure the w isn't infinite
+        if (isinf(plane.w)) {
+            out.clipDistance[i] = 0.0f;
+            continue;
+        }
+        // Calculate the distance to the clip plane
+        const float clipDistance = -dot(plane.xyz, worldPosition.xyz) + plane.w;
+        out.clipDistance[i] = clipDistance;
     }
     
     // Camera
@@ -104,7 +119,7 @@ VertexOut vertexMain(VertexIn in [[stage_in]],
 //   - texture: the texture.
 //   - colorSampler: The color sampler.
 [[fragment]]
-FragmentOut fragmentMain(VertexOut in [[stage_in]],
+FragmentOut fragmentMain(FragmentIn in [[stage_in]],
                          constant Light *lights [[buffer(FragmentBufferIndexLights)]],
                          texture2d<float, access::sample> texture [[texture(0)]],
                          sampler colorSampler [[sampler(0)]]) {
@@ -115,9 +130,13 @@ FragmentOut fragmentMain(VertexOut in [[stage_in]],
     float3 cameraDirection = in.cameraDirection;
     float cameraDistance = in.cameraDistance;
 
-    // If the color alpha is zero, discard the fragment
+    
+    FragmentOut out;
+    
+    // Discard the fragment if the color alpha is zero
     if (baseColor.w == 0.0) {
         discard_fragment();
+        return out;
     }
     
     float3 normal = normalize(in.worldNormal);
@@ -134,8 +153,6 @@ FragmentOut fragmentMain(VertexOut in [[stage_in]],
                                  cameraDistance,
                                  lightCount,
                                  lights);
-    
-    FragmentOut out;
     
     out.color = color;
     out.index = in.index;
