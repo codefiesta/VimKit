@@ -107,6 +107,7 @@ open class Renderer: NSObject {
         // Make the render passes
         let renderPasses: [RenderPass?] = [
             supportsIndirectCommandBuffers ? RenderPassIndirect(context) : RenderPassDirect(context),
+            RenderPassShapes(context),
             RenderPassSkycube(context)
         ]
         self.renderPasses = renderPasses.compactMap { $0 }

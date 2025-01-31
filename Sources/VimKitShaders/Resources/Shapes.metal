@@ -27,6 +27,8 @@ VertexOut vertexShape(VertexIn in [[stage_in]],
     VertexOut out;
     const Frame frame = frames[0];
     const Camera camera = frame.cameras[amp_id];
+    
+    // Matrices
     float4x4 viewMatrix = camera.viewMatrix;
     float4x4 projectionMatrix = camera.projectionMatrix;
     float4x4 modelViewProjectionMatrix = projectionMatrix * viewMatrix * modelMatrix;
@@ -36,6 +38,14 @@ VertexOut vertexShape(VertexIn in [[stage_in]],
 
     // Color
     out.color = color;
+    
+    // Selection
+    out.index = -1; // Denotes an invalid selection
+
+    // Don't apply any clip distances to the shape
+    for (int i = 0; i < 6; i++) {
+        out.clipDistance[i] = 0.0f;
+    }
 
     return out;
 }

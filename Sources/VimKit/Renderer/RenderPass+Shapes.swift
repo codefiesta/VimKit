@@ -49,6 +49,8 @@ class RenderPassShapes: RenderPass {
         // Encode the buffers
         encode(descriptor: descriptor, renderEncoder: renderEncoder)
 
+        // Draw the clip planes
+        drawClipPlanes(descriptor: descriptor, renderEncoder: renderEncoder)
     }
 
     /// Encodes the buffer data into the render encoder.
@@ -57,11 +59,27 @@ class RenderPassShapes: RenderPass {
     ///   - renderEncoder: the render encoder to use
     private func encode(descriptor: DrawDescriptor, renderEncoder: MTLRenderCommandEncoder) {
 
-        guard let pipelineState else { return }
+        guard let pipelineState, let normalsBuffer = geometry?.normalsBuffer else { return }
         renderEncoder.pushDebugGroup(labelPipeline)
         renderEncoder.setRenderPipelineState(pipelineState)
         renderEncoder.setDepthStencilState(depthStencilState)
 
+        // Setup the per frame buffers to pass to the GPU
+        renderEncoder.setVertexBuffer(descriptor.framesBuffer, offset: descriptor.framesBufferOffset, index: .frames)
+        renderEncoder.setVertexBuffer(normalsBuffer, offset: 0, index: .normals) // Not used but we are sharing the same vertex descriptor
+    }
+
+    /// Draws all valid clip planes.
+    /// - Parameters:
+    ///   - descriptor: the draw descriptor to use
+    ///   - renderEncoder: the render encoder to use
+    private func drawClipPlanes(descriptor: DrawDescriptor, renderEncoder: MTLRenderCommandEncoder) {
+        let clipPlanes = camera.clipPlanes.filter{ $0 != .invalid }
+        guard clipPlanes.isNotEmpty else { return }
+
+        for plane in clipPlanes {
+            drawPlane(renderEncoder: renderEncoder, plane: plane)
+        }
     }
 
     /// Draws the shape with the specified render encoder, mesh, color and transform.
@@ -81,11 +99,18 @@ class RenderPassShapes: RenderPass {
         // Set the buffers to pass to the GPU
         renderEncoder.setVertexBytes(&color, length: MemoryLayout<SIMD4<Float>>.size, index: .colors)
         renderEncoder.setVertexBytes(&transform, length: MemoryLayout<float4x4>.size, index: .instances)
-        renderEncoder.setVertexBuffer(mesh.vertexBuffers.first?.buffer, offset: 0, index: .positions)
+
+        for vertexBuffer in mesh.vertexBuffers {
+            renderEncoder.setVertexBuffer(vertexBuffer.buffer, offset: vertexBuffer.offset, index: .positions)
+        }
 
         // Draw the mesh
         for submesh in mesh.submeshes {
-            renderEncoder.drawIndexedPrimitives(type: submesh.primitiveType, indexCount: submesh.indexCount, indexType: submesh.indexType, indexBuffer: submesh.indexBuffer.buffer, indexBufferOffset: 0)
+            renderEncoder.drawIndexedPrimitives(type: submesh.primitiveType,
+                                                indexCount: submesh.indexCount,
+                                                indexType: submesh.indexType,
+                                                indexBuffer: submesh.indexBuffer.buffer,
+                                                indexBufferOffset: submesh.indexBuffer.offset)
         }
 
         // Pop the debug group
@@ -149,8 +174,6 @@ class RenderPassShapes: RenderPass {
 
         // Set the plane position
         transform.position = plane.xyz * plane.w
-        // Multiply the transform by the scene transform (most likely z-up)
-        transform *= camera.sceneTransform
         // Rotate the plane around it's normal axis by 180° (expressed in radians)
         transform.rotate(around: plane.xyz, by: Float.pi / 2)
         // Draw the plane using the plane mesh
