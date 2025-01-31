@@ -104,6 +104,13 @@ VertexOut vertexMain(VertexIn in [[stage_in]],
             const float clipDistance = (dot(plane.xyz, worldPosition.xyz) + plane.w);
             out.clipDistance[i] = clipDistance;
         }
+    } else {
+        out.clipDistance[0] = 0.0f;
+        out.clipDistance[1] = 0.0f;
+        out.clipDistance[2] = 0.0f;
+        out.clipDistance[3] = 0.0f;
+        out.clipDistance[4] = 0.0f;
+        out.clipDistance[5] = 0.0f;
     }
     
     // Camera
