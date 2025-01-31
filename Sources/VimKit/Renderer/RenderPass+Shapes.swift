@@ -214,7 +214,7 @@ class RenderPassShapes: RenderPass {
               let cylinderMesh = try? MTKMesh(mesh: cylinder, device: device),
               let planeMesh = try? MTKMesh(mesh: plane, device: device),
               let sphereMesh = try? MTKMesh(mesh: sphere, device: device) else { return }
-        
+
         self.boxMesh = boxMesh
         self.cylinderMesh = cylinderMesh
         self.planeMesh = planeMesh
