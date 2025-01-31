@@ -44,6 +44,6 @@ VertexOut vertexShape(VertexIn in [[stage_in]],
 // - Parameters:
 //   - in: the data passed from the vertex function.
 [[fragment]]
-float4 fragmentShape(VertexOut in [[stage_in]]) {
+float4 fragmentShape(FragmentIn in [[stage_in]]) {
     return in.color;
 }

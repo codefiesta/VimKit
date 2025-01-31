@@ -88,8 +88,22 @@ VertexOut vertexMain(VertexIn in [[stage_in]],
             break;
     }
     
-    // Clip Plane
+    // Clip Planes
     if (frame.enableClipPlanes) {
+        
+        // Check the valid clip planes
+        for (int i = 0; i < 6; i++) {
+            const float4 plane = camera.clipPlanes[i];
+
+            // Validate clip plane by making sure the w isn't infinite
+            if (isinf(plane.w)) {
+                out.clipDistance[i] = 0.0f;
+                continue;
+            }
+            // Calculate the distance to the clip plane
+            const float clipDistance = (dot(plane.xyz, worldPosition.xyz) + plane.w);
+            out.clipDistance[i] = clipDistance;
+        }
     }
     
     // Camera
@@ -109,7 +123,7 @@ VertexOut vertexMain(VertexIn in [[stage_in]],
 //   - texture: the texture.
 //   - colorSampler: The color sampler.
 [[fragment]]
-FragmentOut fragmentMain(VertexOut in [[stage_in]],
+FragmentOut fragmentMain(FragmentIn in [[stage_in]],
                          constant Light *lights [[buffer(FragmentBufferIndexLights)]],
                          texture2d<float, access::sample> texture [[texture(0)]],
                          sampler colorSampler [[sampler(0)]]) {

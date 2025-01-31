@@ -213,29 +213,62 @@ typedef struct {
 typedef struct {
     // The position of the vertex.
     float4 position [[position]];
+    // The distance to the clip planes
+    float clipDistance [[clip_distance]] [6];
     // The world position of the vertex.
-    float3 worldPosition;
+    float3 worldPosition [[user(worldPosition)]];
     // The world normal of the vertex.
-    float3 worldNormal;
+    float3 worldNormal [[user(worldNormal)]];
     // The camera position in world space.
-    float3 cameraPosition;
+    float3 cameraPosition [[user(cameraPosition)]];
     // The directional vector from the perspective of the camera.
-    float3 cameraDirection;
+    float3 cameraDirection [[user(cameraDirection)]];
     // The distance from camera to the vertex.
-    float cameraDistance;
+    float cameraDistance [[user(cameraDistance)]];
     // The material color.
-    float4 color;
+    float4 color [[user(color)]];
     // The material glossiness.
-    float glossiness;
+    float glossiness [[user(glossiness)]];
     // The material smoothness.
-    float smoothness;
+    float smoothness [[user(smoothness)]];
     // The texture coordinates.
-    float3 textureCoordinates;
+    float3 textureCoordinates [[user(textureCoordinates)]];
     // The number of lights.
-    uint lightCount;
+    uint lightCount [[user(lightCount)]];
     // The instance index (-1 indicates a non-selectable or invalid instance).
-    int32_t index;
+    int32_t index [[user(index)]];
 } VertexOut;
+
+// The struct that is mapped from the vertex shader output to the fragment shader input.
+// This is used in replacement of the `VertexOut` struct due to the `clip_distance` attributes.
+// See Metal Shading Language section 5.7.1 "Vertex-Fragment Signature Matching" for more info.
+typedef struct {
+    // The position of the vertex.
+    float4 position [[position]];
+    // The world position of the vertex.
+    float3 worldPosition [[user(worldPosition)]];
+    // The world normal of the vertex.
+    float3 worldNormal [[user(worldNormal)]];
+    // The camera position in world space.
+    float3 cameraPosition [[user(cameraPosition)]];
+    // The directional vector from the perspective of the camera.
+    float3 cameraDirection [[user(cameraDirection)]];
+    // The distance from camera to the vertex.
+    float cameraDistance [[user(cameraDistance)]];
+    // The material color.
+    float4 color [[user(color)]];
+    // The material glossiness.
+    float glossiness [[user(glossiness)]];
+    // The material smoothness.
+    float smoothness [[user(smoothness)]];
+    // The texture coordinates.
+    float3 textureCoordinates [[user(textureCoordinates)]];
+    // The number of lights.
+    uint lightCount [[user(lightCount)]];
+    // The instance index (-1 indicates a non-selectable or invalid instance).
+    int32_t index [[user(index)]];
+} FragmentIn;
+
 
 // The struct that is returned from the fragment function
 typedef struct {
