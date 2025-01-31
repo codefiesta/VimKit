@@ -89,28 +89,17 @@ VertexOut vertexMain(VertexIn in [[stage_in]],
     }
     
     // Clip Planes
-    if (frame.enableClipPlanes) {
-        
-        // Check the valid clip planes
-        for (int i = 0; i < 6; i++) {
-            const float4 plane = camera.clipPlanes[i];
+    for (int i = 0; i < 6; i++) {
+        const float4 plane = camera.clipPlanes[i];
 
-            // Validate clip plane by making sure the w isn't infinite
-            if (isinf(plane.w)) {
-                out.clipDistance[i] = 0.0f;
-                continue;
-            }
-            // Calculate the distance to the clip plane
-            const float clipDistance = (dot(plane.xyz, worldPosition.xyz) + plane.w);
-            out.clipDistance[i] = clipDistance;
+        // Validate clip plane by making sure the w isn't infinite
+        if (isinf(plane.w)) {
+            out.clipDistance[i] = 0.0f;
+            continue;
         }
-    } else {
-        out.clipDistance[0] = 0.0f;
-        out.clipDistance[1] = 0.0f;
-        out.clipDistance[2] = 0.0f;
-        out.clipDistance[3] = 0.0f;
-        out.clipDistance[4] = 0.0f;
-        out.clipDistance[5] = 0.0f;
+        // Calculate the distance to the clip plane
+        const float clipDistance = (dot(plane.xyz, worldPosition.xyz) + plane.w);
+        out.clipDistance[i] = clipDistance;
     }
     
     // Camera

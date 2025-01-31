@@ -90,8 +90,6 @@ typedef struct {
     simd_float2 physicalSize;
     // The number of lights contained inside the lights buffer.
     size_t lightCount;
-    // Flag indicating if clipping planes should be applied.
-    bool enableClipPlanes;
     // Flag indicating if the indirect command buffers should perform depth testing (frustum testing will always happen).
     bool enableDepthTesting;
     // Flag indicating if the indirect command buffers should perform area

@@ -134,7 +134,6 @@ extension Vim {
             super.init()
             self.transform = .init(position: .zero, target: .ynegative, up: .zpositive)
             self.sceneTransform = transform
-            self.clipPlanes[0] = [0, 0, 1, 28]
         }
 
         /// Updates the projection matrix when any of the relevant projection values change.
