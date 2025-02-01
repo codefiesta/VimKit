@@ -11,7 +11,7 @@ import SwiftData
 
 private typealias CacheKey = String
 private let cacheTotalCostLimit = 1024 * 1024 * 64
-private let batchSize = 10000 * 7
+private let batchSize = 10000
 
 extension Database {
 
@@ -84,10 +84,13 @@ extension Database {
             self.modelExecutor = DefaultSerialModelExecutor(modelContext: ModelContext(modelContainer))
             self.cache = ImportCache()
             // Register subscribers
-            NotificationCenter.default.publisher(for: ModelContext.willSave).sink{ _ in
-                debugPrint("􁗫 Model context will save...")
+            NotificationCenter.default.publisher(for: ModelContext.willSave).sink { notification in
+                guard let modelContext = notification.object as? ModelContext else { return }
+                let insertCount = modelContext.insertedModelsArray.count
+                let changeCount = modelContext.changedModelsArray.count
+                debugPrint("􁗫 Model context will save [\(insertCount)] inserts, [\(changeCount)] changes.")
             }.store(in: &subscribers)
-            NotificationCenter.default.publisher(for: ModelContext.didSave).sink{ _ in
+            NotificationCenter.default.publisher(for: ModelContext.didSave).sink { _ in
                 debugPrint("􁗫 Model context saved.")
             }.store(in: &subscribers)
         }
@@ -184,25 +187,27 @@ extension Database {
         ///   - limit: the max limit of models to import
         private func importModel(_ modelType: any IndexedPersistentModel.Type, _ limit: Int) {
             let modelName = modelType.modelName
-            guard let table = database.tables[modelName] else {
-                updateMeta(modelName, state: .unknown)
-                return
-            }
+            guard let table = database.tables[modelName] else { return }
 
             let start = Date.now
             let rowCount = table.rows.count
+            var state: ModelMetadata.State = .unknown
+
+            defer {
+                  let timeInterval = abs(start.timeIntervalSinceNow)
+                  debugPrint("􂂼 [\(modelName)] - [\(state)] [\(rowCount)] in [\(timeInterval.stringFromTimeInterval())]")
+                  updateMeta(modelName, state: state)
+              }
+
             debugPrint("􀈄 [\(modelType.modelName)] - importing [\(rowCount)] models")
             for i in 0..<rowCount {
                 if i >= limit || Task.isCancelled { break }
                 let index = Int64(i)
                 let row = table.rows[i]
-                upsert(index: index, modelType, data: row)
+                update(index: index, modelType, data: row)
                 count += 1
             }
-            let timeInterval = abs(start.timeIntervalSinceNow)
-            let state: ModelMetadata.State = Task.isCancelled ? .failed : .imported
-            debugPrint("􂂼 [\(modelName)] - [\(state)] [\(rowCount)] in [\(timeInterval.stringFromTimeInterval())]")
-            updateMeta(modelName, state: state)
+            state = Task.isCancelled ? .failed : .imported
         }
 
         /// Performs a batch insert of cached models. This is a performance optimization
@@ -214,28 +219,9 @@ extension Database {
             let start = Date.now
             var batchCount = 0
 
-            // We only need a subset of the model caches as the relationships will cascade
-            let models: [any IndexedPersistentModel.Type] = [
-                Category.self,
-                CompoundStructureLayer.self,
-                DesignOption.self,
-                DisplayUnit.self,
-                Family.self,
-                FamilyInstance.self,
-                FamilyType.self,
-                Group.self,
-                Level.self,
-                Material.self,
-                MaterialInElement.self,
-                Node.self,
-                Parameter.self,
-                Room.self,
-                View.self,
-                Workset.self,
-            ]
-
+            let models = Database.models
             let cacheKeys = models.map{ $0.modelName }.sorted{ $0 > $1 }
-            let shouldBatchSsave = cache.count >= batchSize * 2
+            let shouldBatchSsave = false//cache.count >= batchSize * 10
 
             defer {
                 let timeInterval = abs(start.timeIntervalSinceNow)
@@ -259,7 +245,7 @@ extension Database {
                         modelContext.insert(model)
                         batchCount += 1
 
-                        if shouldBatchSsave, batchCount % batchSize == .zero {
+                        if shouldBatchSsave, modelContext.hasChanges, batchCount % batchSize == .zero {
                             try? modelContext.save()
                         }
                     }
@@ -307,12 +293,12 @@ extension Database {
             meta.state = state
         }
 
-        /// Upserts a model of the specified type at the specified index with the row data.
+        /// Updates a model of the specified type at the specified index with the row data.
         /// - Parameters:
         ///   - index: the index of the model
         ///   - modelType: the model type
         ///   - row: the model row data
-        private func upsert(index: Int64, _ modelType: any IndexedPersistentModel.Type, data: [String: AnyHashable]) {
+        private func update(index: Int64, _ modelType: any IndexedPersistentModel.Type, data: [String: AnyHashable]) {
             guard !Task.isCancelled else { return }
             let model = modelType.findOrCreate(index: index, cache: cache)
             model.update(from: data, cache: cache)

@@ -304,8 +304,7 @@ extension Database {
         @Attribute(.unique)
         public var index: Int64
         public var width: Double
-        @Relationship(deleteRule: .cascade)
-        public var structuralLayer: CompoundStructureLayer?
+        public var layer: CompoundStructureLayer?
 
         /// Initializer.
         public required init() {
@@ -316,7 +315,7 @@ extension Database {
         public func update(from data: [String: AnyHashable], cache: ImportCache) {
             width = data["Width"] as? Double ?? .zero
             if let idx = data["StructuralLayer"] as? Int64, idx != .empty {
-                structuralLayer = cache.findOrCreate(idx)
+                layer = cache.findOrCreate(idx)
             }
         }
     }
@@ -332,7 +331,6 @@ extension Database {
         public var index: Int64
         public var width: Double
         public var orderIndex: Int
-        public var compoundStructure: CompoundStructure?
 
         /// Initializer.
         public required init() {
@@ -344,9 +342,6 @@ extension Database {
         public func update(from data: [String: AnyHashable], cache: ImportCache) {
             width = data["Width"] as? Double ?? .zero
             orderIndex = data["OrderIndex"] as? Int ?? .zero
-            if let idx = data["CompoundStructure"] as? Int64, idx != .empty {
-                compoundStructure = cache.findOrCreate(idx)
-            }
         }
     }
 
@@ -412,13 +407,7 @@ extension Database {
         public var name: String?
         public var type: String?
         public var familyName: String?
-        public var document: BimDocument?
-        public var assemblyInstance: AssemblyInstance?
         public var category: Category?
-        public var designOption: DesignOption?
-        public var group: Group?
-        public var level: Level?
-        public var room: Room?
         public var workset: Workset?
         public var parameters: [Parameter]
 
@@ -459,26 +448,8 @@ extension Database {
             name = data["Name"] as? String
             type = data["Type"] as? String
             familyName = data["FamilyName"] as? String
-            if let idx = data["AssemblyInstance"] as? Int64, idx != .empty {
-                assemblyInstance = cache.findOrCreate(idx)
-            }
-            if let idx = data["BimDocument"] as? Int64, idx != .empty {
-                document = cache.findOrCreate(idx)
-            }
             if let idx = data["Category"] as? Int64, idx != .empty {
                 category = cache.findOrCreate(idx)
-            }
-            if let idx = data["DesignOption"] as? Int64, idx != .empty {
-                designOption = cache.findOrCreate(idx)
-            }
-            if let idx = data["Group"] as? Int64, idx != .empty {
-                group = cache.findOrCreate(idx)
-            }
-            if let idx = data["Level"] as? Int64, idx != .empty {
-                level = cache.findOrCreate(idx)
-            }
-            if let idx = data["Room"] as? Int64, idx != .empty {
-                room = cache.findOrCreate(idx)
             }
             if let idx = data["Workset"] as? Int64, idx != .empty {
                 workset = cache.findOrCreate(idx)
@@ -760,7 +731,6 @@ extension Database {
         }
 
         public var descriptor: ParameterDescriptor?
-        public var element: Element?
 
         /// Initializer.
         public required init() {
@@ -773,8 +743,8 @@ extension Database {
                 descriptor = cache.findOrCreate(idx)
             }
             if let idx = data["Element"] as? Int64, idx != .empty {
-                element = cache.findOrCreate(idx)
-                element?.parameters.append(self)
+                let element: Element = cache.findOrCreate(idx)
+                element.parameters.append(self)
             }
             value = data["Value"] as? String ?? .empty
         }
