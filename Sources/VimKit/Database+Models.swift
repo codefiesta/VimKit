@@ -731,6 +731,7 @@ extension Database {
         @Attribute(.unique)
         public var index: Int64
         public var value: String
+        public var descriptor: ParameterDescriptor?
 
         /// Provides a convenience formatted value if the value is pipe delimited.
         @Transient
@@ -738,7 +739,6 @@ extension Database {
             value.contains("|") ? String(value.split(separator: "|").last!) : value
         }
 
-        public var descriptor: ParameterDescriptor?
 
         /// Initializer.
         public required init() {
