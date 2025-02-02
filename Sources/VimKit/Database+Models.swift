@@ -11,12 +11,29 @@ import Foundation
 import simd
 import SwiftData
 
+/// A type that specifies the model import priority.
+public enum ModelImportPriority: Int, Sendable {
+    /// The model type has a very low priority during the import process.
+    case veryLow
+    /// The model type has a low priority during the import process.
+    case low
+    /// The model type has a normal  priority during the import process.
+    case normal
+    /// The model type has a high priority during the import process.
+    case high
+    /// The model type has a very hight priority during the import process.
+    case veryHigh
+}
+
 public protocol IndexedPersistentModel: PersistentModel {
 
     /// Builds the index predicate for this model.
     /// - Parameter index: the unique index
     /// - Returns: the predicate used to lookup this indexed model.
     static func predicate(_ index: Int64) -> Predicate<Self>
+
+    /// The model import priority used for sorting the models during the import process.
+    static var importPriority: ModelImportPriority { get }
 
     /// The unique record id.
     var index: Int64 { get set }
@@ -137,6 +154,9 @@ extension Database {
             #Predicate<Asset> { $0.index == index }
         }
 
+        @Transient
+        public static let importPriority: ModelImportPriority = .veryHigh
+
         @Attribute(.unique)
         public var index: Int64
         public var bufferName: String?
@@ -157,6 +177,9 @@ extension Database {
         public static func predicate(_ index: Int64) -> Predicate<BimDocument> {
             #Predicate<BimDocument> { $0.index == index }
         }
+
+        @Transient
+        public static let importPriority: ModelImportPriority = .normal
 
         @Attribute(.unique)
         public var index: Int64
@@ -197,10 +220,14 @@ extension Database {
             #Predicate<AssemblyInstance> { $0.index == index }
         }
 
+        @Transient
+        public static let importPriority: ModelImportPriority = .normal
+
         @Attribute(.unique)
         public var index: Int64
         public var typeName: String
         public var element: Element?
+
         var positionX: Float
         var positionY: Float
         var positionZ: Float
@@ -234,6 +261,9 @@ extension Database {
         public static func predicate(_ index: Int64) -> Predicate<Camera> {
             #Predicate<Camera> { $0.index == index }
         }
+
+        @Transient
+        public static let importPriority: ModelImportPriority = .veryHigh
 
         @Attribute(.unique)
         public var index: Int64
@@ -275,6 +305,9 @@ extension Database {
             #Predicate<Category> { $0.index == index }
         }
 
+        @Transient
+        public static let importPriority: ModelImportPriority = .normal
+
         @Attribute(.unique)
         public var index: Int64
         public var parent: Category?
@@ -309,6 +342,9 @@ extension Database {
             #Predicate<CompoundStructure> { $0.index == index }
         }
 
+        @Transient
+        public static let importPriority: ModelImportPriority = .normal
+
         @Attribute(.unique)
         public var index: Int64
         public var width: Double
@@ -335,6 +371,9 @@ extension Database {
             #Predicate<CompoundStructureLayer> { $0.index == index }
         }
 
+        @Transient
+        public static let importPriority: ModelImportPriority = .veryHigh
+
         @Attribute(.unique)
         public var index: Int64
         public var width: Double
@@ -359,6 +398,9 @@ extension Database {
         public static func predicate(_ index: Int64) -> Predicate<DesignOption> {
             #Predicate<DesignOption> { $0.index == index }
         }
+
+        @Transient
+        public static let importPriority: ModelImportPriority = .normal
 
         @Attribute(.unique)
         public var index: Int64
@@ -386,6 +428,9 @@ extension Database {
             #Predicate<DisplayUnit> { $0.index == index }
         }
 
+        @Transient
+        public static let importPriority: ModelImportPriority = .veryHigh
+
         @Attribute(.unique)
         public var index: Int64
         public var label: String
@@ -407,6 +452,9 @@ extension Database {
         public static func predicate(_ index: Int64) -> Predicate<Element> {
             #Predicate<Element> { $0.index == index }
         }
+
+        @Transient
+        public static let importPriority: ModelImportPriority = .high
 
         @Attribute(.unique)
         public var index: Int64
@@ -472,6 +520,9 @@ extension Database {
             #Predicate<Family> { $0.index == index }
         }
 
+        @Transient
+        public static let importPriority: ModelImportPriority = .normal
+
         @Attribute(.unique)
         public var index: Int64
         public var isSystemFamily: Bool
@@ -505,6 +556,9 @@ extension Database {
             #Predicate<FamilyInstance> { $0.index == index }
         }
 
+        @Transient
+        public static let importPriority: ModelImportPriority = .normal
+
         @Attribute(.unique)
         public var index: Int64
         public var familyType: FamilyType?
@@ -536,11 +590,13 @@ extension Database {
             #Predicate<FamilyType> { $0.index == index }
         }
 
+        @Transient
+        public static let importPriority: ModelImportPriority = .normal
+
         @Attribute(.unique)
         public var index: Int64
         public var isSystemFamilyType: Bool
         public var element: Element?
-        public var family: Family?
         public var compoundStructure: CompoundStructure?
 
         /// Initializer.
@@ -557,9 +613,6 @@ extension Database {
             if let idx = data["Element"] as? Int64, idx != .empty {
                 element = cache.findOrCreate(idx)
             }
-            if let idx = data["Family"] as? Int64, idx != .empty {
-                family = cache.findOrCreate(idx)
-            }
         }
     }
 
@@ -570,13 +623,18 @@ extension Database {
             #Predicate<Group> { $0.index == index }
         }
 
+        @Transient
+        public static let importPriority: ModelImportPriority = .normal
+
         @Attribute(.unique)
         public var index: Int64
-        public var element: Element?
         public var type: String
+        public var element: Element?
+
         var positionX: Float
         var positionY: Float
         var positionZ: Float
+
         public var position: SIMD3<Float> {
             [positionX, positionY, positionZ]
         }
@@ -608,6 +666,9 @@ extension Database {
             #Predicate<Level> { $0.index == index }
         }
 
+        @Transient
+        public static let importPriority: ModelImportPriority = .normal
+
         @Attribute(.unique)
         public var index: Int64
         public var elevation: Double
@@ -633,6 +694,9 @@ extension Database {
         public static func predicate(_ index: Int64) -> Predicate<Material> {
             #Predicate<Material> { $0.index == index }
         }
+
+        @Transient
+        public static let importPriority: ModelImportPriority = .normal
 
         @Attribute(.unique)
         public var index: Int64
@@ -669,13 +733,16 @@ extension Database {
             #Predicate<MaterialInElement> { $0.index == index }
         }
 
+        @Transient
+        public static let importPriority: ModelImportPriority = .normal
+
         @Attribute(.unique)
         public var index: Int64
         public var isPaint: Bool
         public var area: Double
         public var volume: Double
-        public var element: Element?
         public var material: Material?
+        public var element: Element?
 
         /// Initializer.
         public required init() {
@@ -689,11 +756,11 @@ extension Database {
             isPaint = data["IsPaint"] as? Bool ?? false
             area = data["Area"] as? Double ?? .zero
             volume = data["Volume"] as? Double ?? .zero
-            if let idx = data["Element"] as? Int64, idx != .empty {
-                element = cache.findOrCreate(idx)
-            }
             if let idx = data["Material"] as? Int64, idx != .empty {
                 material = cache.findOrCreate(idx)
+            }
+            if let idx = data["Element"] as? Int64, idx != .empty {
+                element = cache.findOrCreate(idx)
             }
         }
     }
@@ -704,6 +771,9 @@ extension Database {
         public static func predicate(_ index: Int64) -> Predicate<Node> {
             #Predicate<Node> { $0.index == index }
         }
+
+        @Transient
+        public static let importPriority: ModelImportPriority = .normal
 
         @Attribute(.unique)
         public var index: Int64
@@ -727,6 +797,9 @@ extension Database {
         public static func predicate(_ index: Int64) -> Predicate<Parameter> {
             #Predicate<Parameter> { $0.index == index }
         }
+
+        @Transient
+        public static let importPriority: ModelImportPriority = .normal
 
         @Attribute(.unique)
         public var index: Int64
@@ -764,6 +837,9 @@ extension Database {
         public static func predicate(_ index: Int64) -> Predicate<ParameterDescriptor> {
             #Predicate<ParameterDescriptor> { $0.index == index }
         }
+
+        @Transient
+        public static let importPriority: ModelImportPriority = .veryHigh
 
         @Attribute(.unique)
         public var index: Int64
@@ -806,6 +882,9 @@ extension Database {
             #Predicate<Room> { $0.index == index }
         }
 
+        @Transient
+        public static let importPriority: ModelImportPriority = .normal
+
         @Attribute(.unique)
         public var index: Int64
         public var area: Double
@@ -843,6 +922,9 @@ extension Database {
         public static func predicate(_ index: Int64) -> Predicate<View> {
             #Predicate<View> { $0.index == index }
         }
+
+        @Transient
+        public static let importPriority: ModelImportPriority = .high
 
         @Attribute(.unique)
         public var index: Int64
@@ -883,7 +965,6 @@ extension Database {
 
         public var scale: Float
         public var camera: Camera?
-        public var element: Element?
 
         /// Initializer.
         public required init() {
@@ -927,9 +1008,6 @@ extension Database {
             if let idx = data["Camera"] as? Int64, idx != .empty {
                 camera = cache.findOrCreate(idx)
             }
-            if let idx = data["Element"] as? Int64, idx != .empty {
-                element = cache.findOrCreate(idx)
-            }
         }
     }
 
@@ -939,6 +1017,9 @@ extension Database {
         public static func predicate(_ index: Int64) -> Predicate<Workset> {
             #Predicate<Workset> { $0.index == index }
         }
+
+        @Transient
+        public static let importPriority: ModelImportPriority = .veryHigh
 
         @Attribute(.unique)
         public var index: Int64

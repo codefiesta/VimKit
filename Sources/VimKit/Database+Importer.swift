@@ -107,8 +107,10 @@ extension Database {
                 didImport(start)
             }
 
+            let models = Database.models
+
             // 1) Warm the model cache by stubbing out model skeletons.
-            for modelType in Database.models {
+            for modelType in models {
                 group.enter()
                 Task {
                     defer {
@@ -127,7 +129,8 @@ extension Database {
             group.wait()
 
             // 2) Stitch together all of model relationships
-            for modelType in Database.models {
+            let sortedModels = models.sorted{ $0.importPriority.rawValue > $1.importPriority.rawValue }
+            for modelType in sortedModels {
 
                 group.enter()
 
@@ -219,9 +222,8 @@ extension Database {
             let start = Date.now
             var batchCount = 0
 
-            let models = Database.models
-            let cacheKeys = models.map{ $0.modelName }.sorted{ $0 > $1 }
-            let shouldBatchSsave = false//cache.count >= batchSize * 10
+            let models = Database.models.sorted{ $0.importPriority.rawValue > $1.importPriority.rawValue }
+            let cacheKeys = models.map{ $0.modelName }
 
             defer {
                 let timeInterval = abs(start.timeIntervalSinceNow)
@@ -245,9 +247,6 @@ extension Database {
                         modelContext.insert(model)
                         batchCount += 1
                         cache.removeValue(for: key)
-                        if shouldBatchSsave, modelContext.hasChanges, batchCount % batchSize == .zero {
-                            try? modelContext.save()
-                        }
                     }
                 }
             }
