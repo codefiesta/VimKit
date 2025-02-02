@@ -244,7 +244,7 @@ extension Database {
                         guard let model = cache[key] else { continue }
                         modelContext.insert(model)
                         batchCount += 1
-
+                        cache.removeValue(for: key)
                         if shouldBatchSsave, modelContext.hasChanges, batchCount % batchSize == .zero {
                             try? modelContext.save()
                         }
