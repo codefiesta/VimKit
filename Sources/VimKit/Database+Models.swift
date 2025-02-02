@@ -161,6 +161,7 @@ extension Database {
         @Attribute(.unique)
         public var index: Int64
         public var name: String?
+        public var address: String?
         public var elevation: Double?
         public var latitude: Double?
         public var longitude: Double?
@@ -176,6 +177,7 @@ extension Database {
 
         public func update(from data: [String: AnyHashable], cache: ImportCache) {
             name = data["Name"] as? String
+            address = data["Address"] as? String
             elevation = data["Elevation"] as? Double
             latitude = data["Latitude"] as? Double
             longitude = data["Longitude"] as? Double
