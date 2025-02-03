@@ -59,7 +59,7 @@ class RenderPassShapes: RenderPass {
     ///   - renderEncoder: the render encoder to use
     private func encode(descriptor: DrawDescriptor, renderEncoder: MTLRenderCommandEncoder) {
 
-        guard let pipelineState, let normalsBuffer = geometry?.normalsBuffer else { return }
+        guard let pipelineState else { return }
         renderEncoder.setRenderPipelineState(pipelineState)
         renderEncoder.setDepthStencilState(depthStencilState)
 
