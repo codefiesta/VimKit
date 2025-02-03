@@ -41,6 +41,18 @@ public class Geometry: ObservableObject, @unchecked Sendable {
     @MainActor @Published
     public var state: State = .unknown
 
+    private var device: MTLDevice
+
+    /// Boolean flag indicating if indirect command buffers are supported or not.
+    private var supportsIndirectCommandBuffers: Bool {
+        device.supportsFamily(.apple4)
+    }
+
+    /// Boolean flag indicating if the device supports non-uniform threadgroup sizes.
+    private var supportsNonUniformThreadGroupSizes: Bool {
+        device.supportsFamily(.apple4)
+    }
+
     /// Returns the combined positions (vertex) buffer of all of the vertices for all the meshes layed out in slices of [x,y,z]
     public private(set) var positionsBuffer: MTLBuffer?
     /// Returns the combined index buffer of all of the indices.
@@ -80,6 +92,7 @@ public class Geometry: ObservableObject, @unchecked Sendable {
 
     /// Initializer
     init(_ bfast: BFast) {
+        self.device = MTLContext.device
         self.bfast = bfast
         for (index, buffer) in bfast.buffers.enumerated() {
             // Skip the first buffer as it is only meta information
@@ -115,44 +128,40 @@ public class Geometry: ObservableObject, @unchecked Sendable {
 
         publish(state: .loading)
 
-        let device = MTLContext.device
-        let supportsIndirectCommandBuffers = device.supportsFamily(.apple4)
-        let cacheDir = FileManager.default.cacheDirectory
-
         // 1) Build the positions (vertex) buffer
-        makePositionsBuffer(device: device)
+        makePositionsBuffer()
         incrementProgressCount()
 
         // 2) Build the index buffer
-        makeIndexBuffer(device: device)
+        makeIndexBuffer()
         incrementProgressCount()
 
         // 3) Build the normals buffer
-        await computeVertexNormals(device: device, cacheDirectory: cacheDir)
+        await computeVertexNormals()
         incrementProgressCount()
 
         // 4) Build the materials buffer
-        await makeMaterialsBuffer(device: device)
+        await makeMaterialsBuffer()
         incrementProgressCount()
 
         // 5) Build the submeshes buffer
-        await makeSubmeshesBuffer(device: device)
+        await makeSubmeshesBuffer()
         incrementProgressCount()
 
         // 6) Build the meshes buffer
-        await makeMeshesBuffer(device: device)
+        await makeMeshesBuffer()
         incrementProgressCount()
 
         // 7) Build the instances buffer
-        await makeInstancesBuffer(device: device)
+        await makeInstancesBuffer()
         incrementProgressCount()
 
         // 8) Compute the bounding boxes
-        await computeBoundingBoxes(device: device)
+        await computeBoundingBoxes()
         incrementProgressCount()
 
         // 9) Build the colors buffer
-        await makeColorsBuffer(device: device)
+        await makeColorsBuffer()
         incrementProgressCount()
 
         // 10 Start indexing the file
@@ -185,7 +194,7 @@ public class Geometry: ObservableObject, @unchecked Sendable {
 
     // MARK: Postions (Vertex Buffer Raw Data)
 
-    private func makePositionsBuffer(device: MTLDevice) {
+    private func makePositionsBuffer() {
         let start = Date.now
         defer {
             let timeInterval = abs(start.timeIntervalSinceNow)
@@ -207,7 +216,7 @@ public class Geometry: ObservableObject, @unchecked Sendable {
 
     // MARK: Index Buffer
 
-    private func makeIndexBuffer(device: MTLDevice) {
+    private func makeIndexBuffer() {
         let start = Date.now
         defer {
             let timeInterval = abs(start.timeIntervalSinceNow)
@@ -317,9 +326,8 @@ public class Geometry: ObservableObject, @unchecked Sendable {
 
     // MARK: Meshes
 
-    /// Makes the meshes buffer
-    /// - Parameter device: the metal device to use.
-    private func makeMeshesBuffer(device: MTLDevice) async {
+    /// Makes the meshes buffer.
+    private func makeMeshesBuffer() async {
         guard !Task.isCancelled else { return }
         let start = Date.now
         defer {
@@ -354,7 +362,7 @@ public class Geometry: ObservableObject, @unchecked Sendable {
 
     // MARK: Submeshes
 
-    private func makeSubmeshesBuffer(device: MTLDevice) async {
+    private func makeSubmeshesBuffer() async {
         guard !Task.isCancelled else { return }
 
         let start = Date.now
@@ -426,9 +434,7 @@ public class Geometry: ObservableObject, @unchecked Sendable {
     private(set) var hiddeninstancedMeshes = Set<Int>()
 
     /// Makes the instance buffer.
-    /// - Parameters:
-    ///   - device: the metal device to use
-    private func makeInstancesBuffer(device: MTLDevice) async {
+    private func makeInstancesBuffer() async {
 
         guard !Task.isCancelled else { return }
 
@@ -575,8 +581,7 @@ public class Geometry: ObservableObject, @unchecked Sendable {
     // MARK: Materials
 
     /// Makes the materials buffer.
-    /// - Parameter device: the metal device to use.
-    private func makeMaterialsBuffer(device: MTLDevice) async {
+    private func makeMaterialsBuffer() async {
         guard !Task.isCancelled else { return }
 
         let start = Date.now
@@ -643,10 +648,7 @@ extension Geometry {
     }
 
     /// Computes the vertiex normals on the GPU using Metal Performance Shaders.
-    /// - Parameters:
-    ///   - device: the metal device to use
-    ///   - cacheDirectory: the cache directory
-    private func computeVertexNormals(device: MTLDevice, cacheDirectory: URL) async {
+    private func computeVertexNormals() async {
 
         let start = Date.now
         defer {
@@ -655,6 +657,7 @@ extension Geometry {
         }
 
         // If the normals file has already been generated, just make the MTLBuffer from it
+        let cacheDirectory = FileManager.default.cacheDirectory
         let normalsBufferFile = cacheDirectory.appending(path: "\(sha256Hash)\(normalsBufferExtension)")
         if FileManager.default.fileExists(atPath: normalsBufferFile.path) {
             guard let normalsBuffer = device.makeBufferNoCopy(normalsBufferFile, type: Float.self) else {
@@ -700,8 +703,13 @@ extension Geometry {
         let gridSize: MTLSize = .init(width: 1, height: 1, depth: 1)
         let width = pipelineState.threadExecutionWidth
         let height = pipelineState.maxTotalThreadsPerThreadgroup / width
-        let threadgroupSize: MTLSize = .init(width: width, height: height, depth: 1)
-        computeEncoder.dispatchThreadgroups(gridSize, threadsPerThreadgroup: threadgroupSize)
+        let threadsPerThreadgroup: MTLSize = .init(width: width, height: height, depth: 1)
+
+        if supportsNonUniformThreadGroupSizes {
+            computeEncoder.dispatchThreads(gridSize, threadsPerThreadgroup: threadsPerThreadgroup)
+        } else {
+            computeEncoder.dispatchThreadgroups(gridSize, threadsPerThreadgroup: threadsPerThreadgroup)
+        }
 
         computeEncoder.endEncoding()
         commandBuffer.commit()
@@ -717,8 +725,7 @@ extension Geometry {
     }
 
     /// Computes all of the instance bounding boxes on the GPU via Metal Performance Shaders.
-    /// - Parameter device: the device to use
-    private func computeBoundingBoxes(device: MTLDevice) async {
+    private func computeBoundingBoxes() async {
         let start = Date.now
         defer {
             let timeInterval = abs(start.timeIntervalSinceNow)
@@ -753,7 +760,12 @@ extension Geometry {
         let width = pipelineState.threadExecutionWidth
         let height = pipelineState.maxTotalThreadsPerThreadgroup / width
         let threadsPerThreadgroup: MTLSize = .init(width: width, height: height, depth: 1)
-        computeEncoder.dispatchThreads(gridSize, threadsPerThreadgroup: threadsPerThreadgroup)
+
+        if supportsNonUniformThreadGroupSizes {
+            computeEncoder.dispatchThreads(gridSize, threadsPerThreadgroup: threadsPerThreadgroup)
+        } else {
+            computeEncoder.dispatchThreadgroups(gridSize, threadsPerThreadgroup: threadsPerThreadgroup)
+        }
 
         computeEncoder.endEncoding()
         commandBuffer.commit()
@@ -934,8 +946,7 @@ extension Geometry {
 extension Geometry {
 
     /// Makes the color overrides buffer
-    /// - Parameter device: the metal device to use
-    private func makeColorsBuffer(device: MTLDevice) async {
+    private func makeColorsBuffer() async {
         guard !Task.isCancelled else { return }
 
         let start = Date.now
