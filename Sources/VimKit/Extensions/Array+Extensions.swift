@@ -62,4 +62,13 @@ extension Array where Element == SIMD3<Float> {
     }
 }
 
+extension Array where Element == SIMD4<Float> {
 
+    /// Invalidates all elements of the array by assigning the values as `.invalid`.
+    public mutating func invalidate() {
+        guard self.isNotEmpty else { return }
+        for i in 0..<self.count {
+            self[i] = .invalid
+        }
+    }
+}

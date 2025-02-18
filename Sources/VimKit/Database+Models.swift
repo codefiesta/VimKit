@@ -965,6 +965,7 @@ extension Database {
 
         public var scale: Float
         public var camera: Camera?
+        public var element: Element?
 
         /// Initializer.
         public required init() {
@@ -1007,6 +1008,9 @@ extension Database {
 
             if let idx = data["Camera"] as? Int64, idx != .empty {
                 camera = cache.findOrCreate(idx)
+            }
+            if let idx = data["Element"] as? Int64, idx != .empty {
+                element = cache.findOrCreate(idx)
             }
         }
     }
