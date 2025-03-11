@@ -39,7 +39,7 @@ Provides the core library for rendering VIM files on [visionOS](https://develope
 *  [Drawing fully immersive content using Metal](https://developer.apple.com/documentation/compositorservices/drawing_fully_immersive_content_using_metal)
 
 ## VimKitShaders
-C Library that provides types and enums shared between [Metal Shaders](https://developer.apple.com/metal/Metal-Shading-Language-Specification.pdf) and Swift.
+Provides the core Metal C++14 Library that provides types and enums shared between [Metal Shaders](https://developer.apple.com/metal/Metal-Shading-Language-Specification.pdf) and Swift.
 
 ## Direct and Indirect Rendering
 VimKit supports both Direct Render Passes (draw commands issued on the CPU) and Indirect Render Passes (draw commands issued on the GPU via [Indirect Command Buffers](https://developer.apple.com/documentation/metal/indirect_command_encoding/encoding_indirect_command_buffers_on_the_gpu)).
