@@ -5,73 +5,35 @@
 //  Created by Kevin McKee
 //
 
-import Combine
+import Foundation
 import SwiftData
+import Testing
 @testable import VimKit
-import XCTest
 
-final class DatabaseTests: XCTestCase {
+/// Skip tests that require downloads on Github runners.
+private let testsEnabled = ProcessInfo.processInfo.environment["GITHUB_REPOSITORY"] == nil
 
-    private var subscribers = Set<AnyCancellable>()
+@Suite("Database Tests",
+       .enabled(if: testsEnabled),
+       .tags(.database))
+struct DatabaseTests {
 
-    override func setUp() {
-        subscribers.removeAll()
+    private let vim: Vim = .init()
+    private let urlString = "https://storage.cdn.vimaec.com/samples/residence.v1.2.75.vim"
+    private var url: URL {
+        .init(string: urlString)!
     }
 
-    override func tearDown() {
-        for subscriber in subscribers {
-            subscriber.cancel()
-        }
-    }
-
-    /// Tests importing a database into SwiftData
-    func testImporter() async throws {
-
-        let urlString = "https://vim02.azureedge.net/samples/residence.v1.2.75.vim"
-        let url = URL(string: urlString)!
-        let vim: Vim = .init()
-
-        // Subscribe to the file state
-        var readyExpection = expectation(description: "Ready")
-
-        vim.$state.sink { state in
-            switch state {
-            case .unknown, .downloading, .downloaded, .loading, .error:
-                break
-            case .ready:
-                // The file is now ready to be read
-                readyExpection.fulfill()
-            }
-        }.store(in: &subscribers)
-
-        Task {
-            await vim.load(from: url)
-        }
-
-        // Wait for the file to be downloaded and put into a ready state
-        await fulfillment(of: [readyExpection], timeout: 10)
+    @Test("Importing database into SwiftData")
+    func whenImporting() async throws {
+        await vim.load(from: url)
+        await #expect(vim.state == .ready)
 
         let db = vim.db!
-        XCTAssertGreaterThan(db.tableNames.count, 0)
-
-        // Subscribe to the database state
-        readyExpection = expectation(description: "Ready")
-        db.$state.sink { state in
-            switch state {
-            case .ready:
-                // The database is now imported and ready to be read
-                readyExpection.fulfill()
-            case .unknown, .importing, .error:
-                break
-            }
-        }.store(in: &subscribers)
+        #expect(db.tableNames.count > 0)
 
         let importer = Database.ImportActor(db)
         await importer.import()
-
-        // Wait for the database to be put into a ready state
-        await fulfillment(of: [readyExpection], timeout: 60)
-
 
         // Create a new model context for reading
         let modelContext = ModelContext(db.modelContainer)
@@ -80,8 +42,7 @@ final class DatabaseTests: XCTestCase {
         let metaDataDescriptor = FetchDescriptor<Database.ModelMetadata>(sortBy: [SortDescriptor(\.name)])
         guard let results = try? modelContext.fetch(metaDataDescriptor) else { return }
         for result in results {
-            XCTAssertNotEqual(result.state, .failed)
+            #expect(result.state != .failed)
         }
     }
 }
-

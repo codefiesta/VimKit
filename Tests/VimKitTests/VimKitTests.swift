@@ -1,47 +1,30 @@
-import Combine
+//
+//  VimKitTests.swift
+//
+//
+//  Created by Kevin McKee
+//
+import Foundation
+import Testing
 @testable import VimKit
-import XCTest
 
-final class VimKitTests: XCTestCase {
+/// Skip tests that require downloads on Github runners.
+private let testsEnabled = ProcessInfo.processInfo.environment["GITHUB_REPOSITORY"] == nil
 
-    private var subscribers = Set<AnyCancellable>()
+@Suite("File Reader Tests",
+       .enabled(if: testsEnabled),
+       .tags(.reader))
+struct FileReaderTests {
 
-    override func setUp() {
-        subscribers.removeAll()
+    private let vim: Vim = .init()
+    private let urlString = "https://storage.cdn.vimaec.com/samples/residence.v1.2.75.vim"
+    private var url: URL {
+        .init(string: urlString)!
     }
 
-    override func tearDown() {
-        for subscriber in subscribers {
-            subscriber.cancel()
-        }
-    }
-
-    /// Tests loading a remote VIM file
-    func testLoadRemoteFile() async throws {
-
-        // Downloads the `residence.vim` from the VIM samples
-        let urlString = "https://vim02.azureedge.net/samples/residence.v1.2.75.vim"
-        let url = URL(string: urlString)!
-        let vim: Vim = .init()
-
-        // Subscribe to the file state
-        let readyExpection = expectation(description: "Ready")
-
-        vim.$state.sink { state in
-            switch state {
-            case .unknown, .downloading, .downloaded, .loading, .error:
-                debugPrint(state)
-            case .ready:
-                // The file is now ready to be read
-                readyExpection.fulfill()
-            }
-        }.store(in: &subscribers)
-
-        Task {
-            await vim.load(from: url)
-        }
-
-        // Wait for the file to be downloaded and put into a ready state
-        await fulfillment(of: [readyExpection], timeout: 30)
+    @Test("downloading a vim file")
+    func whenDownloading() async throws {
+        await vim.load(from: url)
+        await #expect(vim.state == .ready)
     }
 }
