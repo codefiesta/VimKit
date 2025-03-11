@@ -19,19 +19,14 @@ private let testsEnabled = ProcessInfo.processInfo.environment["GITHUB_REPOSITOR
 struct DatabaseTests {
 
     private let vim: Vim = .init()
-    private let urlString = "https://vim02.azureedge.net/samples/residence.v1.2.75.vim"
+    private let urlString = "https://storage.cdn.vimaec.com/samples/residence.v1.2.75.vim"
     private var url: URL {
         .init(string: urlString)!
     }
 
     @Test("Importing database into SwiftData")
     func whenImporting() async throws {
-        let loadTask = Task {
-            await vim.load(from: url)
-        }
-
-        await loadTask.value
-
+        await vim.load(from: url)
         await #expect(vim.state == .ready)
 
         let db = vim.db!
