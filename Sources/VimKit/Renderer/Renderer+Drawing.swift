@@ -8,14 +8,10 @@
 import MetalKit
 import VimKitShaders
 
-///  The render encoder label.
-private let renderEncoderLabel = "VimRenderEncoder"
-///  The render encoder debug group.
-private let renderEncoderDebugGroupName = "VimDrawGroup"
-private let labelOnScreenCommandBuffer = "OnScreenCommandBuffer"
+/// The label for the off-screen commands to execute. Used by indirect rendering compute encoder to dispatch threads.
 private let labelOffScreenCommandBuffer = "OffScreenCommandBuffer"
-///  The minimum amount of instanced meshes to implement frustum culling.
-private let minFrustumCullingThreshold = 1024
+/// The label for the on-screen commands to execute.
+private let labelOnScreenCommandBuffer = "OnScreenCommandBuffer"
 
 #if !os(visionOS)
 
