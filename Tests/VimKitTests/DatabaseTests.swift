@@ -66,8 +66,6 @@ class DatabaseTests {
 
     @Test("Verify categories imported")
     func verifyCategories() async throws {
-
-        // Only load system families
         let descriptor = FetchDescriptor<Database.Category>(sortBy: [SortDescriptor(\.index)])
         let results = try! modelContext.fetch(descriptor)
         #expect(results.isNotEmpty)
