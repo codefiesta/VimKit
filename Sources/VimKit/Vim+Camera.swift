@@ -213,17 +213,17 @@ extension Vim {
             position = p
         }
 
-        /// Frames the bounding box by zooming to it's extents and applys clip planes around the box if specified. 
+        /// Frames the bounding box by zooming to it's extents and applies clip planes around the box if specified. 
         /// - Parameters:
         ///   - box: the box to frame
         ///   - clip: if true, the camera will add clip planes around to the box.
-        public func frame(box: MDLAxisAlignedBoundingBox, clip: Bool = false) {
+        public func zoom(to box: MDLAxisAlignedBoundingBox, clip: Bool = false) {
             if clip {
                 clipPlanes = box.planes
             }
             let center = box.center
-            let fovRadians = fovDegrees.radians
             let radius = box.radius
+            let fovRadians = fovDegrees.radians
             let distance = radius / sin(fovRadians / 2)
             let eye = center - distance * forward
             look(at: box.center, from: eye)
