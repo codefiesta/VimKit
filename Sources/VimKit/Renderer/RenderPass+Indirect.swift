@@ -53,7 +53,7 @@ class RenderPassIndirect: RenderPass {
 
     /// Boolean flag indicating if indirect command buffers should perform depth occlusion testing or not.
     /// Frustum testing will always happen
-    open var enableDepthTesting: Bool {
+    var enableDepthTesting: Bool {
         context.vim.options.enableDepthTesting
     }
 

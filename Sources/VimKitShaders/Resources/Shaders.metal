@@ -91,6 +91,7 @@ VertexOut vertexMain(VertexIn in [[stage_in]],
     // Clip Planes
     for (int i = 0; i < 6; i++) {
         const float4 plane = camera.clipPlanes[i];
+        const float3 planeNormal = normalize(plane.xyz);
 
         // Validate clip plane by making sure the w isn't infinite
         if (isinf(plane.w)) {
@@ -98,7 +99,7 @@ VertexOut vertexMain(VertexIn in [[stage_in]],
             continue;
         }
         // Calculate the distance to the clip plane
-        const float clipDistance = -dot(plane.xyz, worldPosition.xyz) + plane.w;
+        const float clipDistance = -dot(planeNormal, worldPosition.xyz) + plane.w;
         out.clipDistance[i] = clipDistance;
     }
     

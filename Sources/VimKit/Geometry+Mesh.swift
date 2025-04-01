@@ -10,7 +10,7 @@ import VimKitShaders
 extension Instance {
 
     /// Convenience var that returns the bounding box.
-    var boundingBox: MDLAxisAlignedBoundingBox {
+    public var boundingBox: MDLAxisAlignedBoundingBox {
         .init(maxBounds: maxBounds, minBounds: minBounds)
     }
 

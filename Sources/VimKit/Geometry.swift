@@ -916,6 +916,14 @@ extension Geometry {
 
 extension Geometry {
 
+    /// Returns the instance with the specified id.
+    /// - Parameter id: the instance id
+    /// - Returns: the instance with the specified id or nil
+    public func instance(id: Int) -> Instance? {
+        guard let index = instanceOffsets.firstIndex(of: id) else { return nil }
+        return instances[index]
+    }
+
     /// Toggles the instance hidden state to `.selected` or
     /// - Parameters:
     ///   - id: the index of the instances to select or deselect
@@ -932,6 +940,15 @@ extension Geometry {
             return false
         @unknown default:
             return false
+        }
+    }
+
+    /// Toggles the instance hidden state of all instances from `.selected` to `.default`
+    public func deselectAll() {
+        for (i, value) in instances.enumerated() {
+            if value.state == .selected {
+                instances[i].state = .default
+            }
         }
     }
 

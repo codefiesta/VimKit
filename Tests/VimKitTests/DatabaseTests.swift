@@ -16,33 +16,83 @@ private let testsEnabled = ProcessInfo.processInfo.environment["GITHUB_REPOSITOR
 @Suite("Database Tests",
        .enabled(if: testsEnabled),
        .tags(.database))
-struct DatabaseTests {
+class DatabaseTests {
 
+    /// The vim file.
     private let vim: Vim = .init()
+
+    /// Convenience var for accessing the database.
+    private var db: Database {
+        vim.db!
+    }
+
+    /// Convenience var for accessing the model context.
+    private var modelContext: ModelContext {
+        ModelContext(db.modelContainer)
+    }
+
     private let urlString = "https://storage.cdn.vimaec.com/samples/residence.v1.2.75.vim"
     private var url: URL {
         .init(string: urlString)!
     }
 
-    @Test("Importing database into SwiftData")
-    func whenImporting() async throws {
+    /// Initializer.
+    init() async throws {
         await vim.load(from: url)
         await #expect(vim.state == .ready)
+        try! await importDatabase()
+    }
 
-        let db = vim.db!
+    /// Imports the vim database into SwiftData.
+    private func importDatabase() async throws {
         #expect(db.tableNames.count > 0)
 
         let importer = Database.ImportActor(db)
         await importer.import()
+        await #expect(importer.progress.isFinished == true)
+    }
 
-        // Create a new model context for reading
-        let modelContext = ModelContext(db.modelContainer)
+    @Test("Verify import state")
+    func verifyImportState() async throws {
 
-        // Make sure the meta data is all in an imported state
-        let metaDataDescriptor = FetchDescriptor<Database.ModelMetadata>(sortBy: [SortDescriptor(\.name)])
-        guard let results = try? modelContext.fetch(metaDataDescriptor) else { return }
+        // Verifies all meta data is all in an imported state
+        let descriptor = FetchDescriptor<Database.ModelMetadata>(sortBy: [SortDescriptor(\.name)])
+        let results = try! modelContext.fetch(descriptor)
+        #expect(results.isNotEmpty)
         for result in results {
             #expect(result.state != .failed)
+        }
+    }
+
+    @Test("Verify categories imported")
+    func verifyCategories() async throws {
+        let descriptor = FetchDescriptor<Database.Category>(sortBy: [SortDescriptor(\.index)])
+        let results = try! modelContext.fetch(descriptor)
+        #expect(results.isNotEmpty)
+    }
+
+    @Test("Verify families imported")
+    func verifyFamilies() async throws {
+
+        // Only load system families
+        let predicate = #Predicate<Database.Family> { $0.isSystemFamily == true }
+
+        let descriptor = FetchDescriptor<Database.Family>(predicate: predicate, sortBy: [SortDescriptor(\.index)])
+        let results = try! modelContext.fetch(descriptor)
+        #expect(results.isNotEmpty)
+        for result in results {
+            #expect(result.isSystemFamily == true)
+        }
+    }
+
+    @Test("Verify levels imported")
+    func verifyLevels() async throws {
+        let descriptor = FetchDescriptor<Database.Level>(sortBy: [SortDescriptor(\.elevation)])
+        let results = try! modelContext.fetch(descriptor)
+        #expect(results.isNotEmpty)
+        for result in results {
+            #expect(result.element?.familyName == "Level")
+            #expect(result.element?.category?.name == "Levels")
         }
     }
 }

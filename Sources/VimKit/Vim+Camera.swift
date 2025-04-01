@@ -213,6 +213,22 @@ extension Vim {
             position = p
         }
 
+        /// Frames the bounding box by zooming to it's extents and applies clip planes around the box if specified. 
+        /// - Parameters:
+        ///   - box: the box to frame
+        ///   - clip: if true, the camera will add clip planes around to the box.
+        public func zoom(to box: MDLAxisAlignedBoundingBox, clip: Bool = false) {
+            if clip {
+                clipPlanes = box.planes
+            }
+            let center = box.center
+            let radius = box.radius
+            let fovRadians = fovDegrees.radians
+            let distance = radius / sin(fovRadians / 2)
+            let eye = center - distance * forward
+            look(at: box.center, from: eye)
+        }
+
         /// Projects a point from the 3D world coordinate system of the scene to the 2D pixel coordinate system.
         /// - Parameters:
         ///   - point: A point in the world coordinate system of the scene.

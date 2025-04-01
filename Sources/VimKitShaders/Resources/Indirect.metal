@@ -54,18 +54,19 @@ static bool isInsideViewFrustumAndClipPlanes(const Camera camera,
         }
         
         const float4 clipPlane = camera.clipPlanes[i];
-
+        const float3 planeNormal = normalize(clipPlane.xyz);
+        
         // Skip the plane if it's not valid
         if (isinf(clipPlane.w)) { continue; }
 
-        if (-dot(clipPlane.xyz, corners[0].xyz) + clipPlane.w < 0 &&
-            -dot(clipPlane.xyz, corners[1].xyz) + clipPlane.w < 0 &&
-            -dot(clipPlane.xyz, corners[2].xyz) + clipPlane.w < 0 &&
-            -dot(clipPlane.xyz, corners[3].xyz) + clipPlane.w < 0 &&
-            -dot(clipPlane.xyz, corners[4].xyz) + clipPlane.w < 0 &&
-            -dot(clipPlane.xyz, corners[5].xyz) + clipPlane.w < 0 &&
-            -dot(clipPlane.xyz, corners[6].xyz) + clipPlane.w < 0 &&
-            -dot(clipPlane.xyz, corners[7].xyz) + clipPlane.w < 0) {
+        if (-dot(planeNormal, corners[0].xyz) + clipPlane.w < 0 &&
+            -dot(planeNormal, corners[1].xyz) + clipPlane.w < 0 &&
+            -dot(planeNormal, corners[2].xyz) + clipPlane.w < 0 &&
+            -dot(planeNormal, corners[3].xyz) + clipPlane.w < 0 &&
+            -dot(planeNormal, corners[4].xyz) + clipPlane.w < 0 &&
+            -dot(planeNormal, corners[5].xyz) + clipPlane.w < 0 &&
+            -dot(planeNormal, corners[6].xyz) + clipPlane.w < 0 &&
+            -dot(planeNormal, corners[7].xyz) + clipPlane.w < 0) {
             // Not visible - all corners returned negative
             return false;
         }
