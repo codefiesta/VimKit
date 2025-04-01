@@ -50,7 +50,7 @@ class RenderPassShapes: RenderPass {
         encode(descriptor: descriptor, renderEncoder: renderEncoder)
 
         // Draw the clip planes
-        drawClipPlanes(descriptor: descriptor, renderEncoder: renderEncoder)
+        //drawClipPlanes(descriptor: descriptor, renderEncoder: renderEncoder)
     }
 
     /// Encodes the buffer data into the render encoder.

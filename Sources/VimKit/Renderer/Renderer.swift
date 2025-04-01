@@ -188,22 +188,26 @@ extension Renderer {
     /// Informs the renderer that the model was tapped at the specified point.
     /// Creates a region at the specified point the size of a single pixel and
     /// grabs the byte encoded at that pixel on the instance index texture.
-    /// - Parameter point: the screen point
-    public func didTap(at point: SIMD2<Float>) {
+    /// - Parameters:
+    ///   - pixelLocation: the screen pixel location (unscaled)
+    ///   - displayScale: the screen display scale
+    public func didTap(at pixelLocation: SIMD2<Float>, _ displayScale: Float = 2.0) {
         guard let geometry, let texture = instancePickingTexture else { return }
-        let region = MTLRegionMake2D(Int(point.x), Int(point.y), 1, 1)
+
+        let displayLocation = pixelLocation * displayScale
+        let region = MTLRegionMake2D(Int(displayLocation.x), Int(displayLocation.y), 1, 1)
         let bytesPerRow = MemoryLayout<Int32>.stride * texture.width
-        var pixel: Int32 = .empty
-        texture.getBytes(&pixel, bytesPerRow: bytesPerRow, from: region, mipmapLevel: 0)
-        guard pixel != .empty else {
+        var pixelBytes: Int32 = .empty
+        texture.getBytes(&pixelBytes, bytesPerRow: bytesPerRow, from: region, mipmapLevel: 0)
+        guard pixelBytes != .empty else {
             context.vim.erase()
             return
         }
 
-        let id = Int(pixel)
+        let id = Int(pixelBytes)
         guard let index = geometry.instanceOffsets.firstIndex(of: id) else { return }
 
-        let query = camera.unprojectPoint(point)
+        let query = camera.unprojectPoint(displayLocation)
         var point3D: SIMD3<Float> = .zero
 
         // Raycast into the instance
@@ -213,7 +217,7 @@ extension Renderer {
         }
 
         // Select the instance so the event gets published.
-        context.vim.select(id: id, point: point3D)
+        context.vim.select(id: id, pixel: pixelLocation, point: point3D)
     }
 }
 

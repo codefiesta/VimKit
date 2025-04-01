@@ -30,9 +30,9 @@ public class Vim: NSObject, ObservableObject, @unchecked Sendable {
         /// An instance has been selected or deselected.
         /// - Parameter Int: the instance identifer
         /// - Parameter Bool: true if the instance has been selected, false if de-selected.
-        /// - Parameter Int: the total count of selected instances.
+        /// - Parameter SIMD2<Float>: the 2D pixel point on the screen that was selected
         /// - Parameter SIMD3<Float>: the 3D positon of the selected object.
-        case selected(Int, Bool, Int, SIMD3<Float>)
+        case selected(Int, Bool, SIMD2<Float>, SIMD3<Float>)
 
         /// An instance has been hidden or shown.
         /// - Parameter Int: the total count of hidden instances.
@@ -290,18 +290,20 @@ extension Vim {
 
     /// Erases a previous published event to downstream event subscribers.
     public func erase() {
+        geometry?.deselectAll()
         eventPublisher.send(.empty)
     }
 
     /// Toggles an instance selection state for the instance with the specified id.
     /// - Parameters:
     ///   - id: the id of the instance to select (or deselect if already selected).
+    ///   - pixel: the pixel location of the selection point inside the 2D viewport
     ///   - point: the point in 3D space where the object was selected
     @MainActor
-    public func select(id: Int, point: SIMD3<Float> = .zero) {
+    public func select(id: Int, pixel: SIMD2<Float> = .zero, point: SIMD3<Float> = .zero) {
         guard let geometry else { return }
         let selected = geometry.select(id: id)
-        eventPublisher.send(.selected(id, selected, 1, point))
+        eventPublisher.send(.selected(id, selected, pixel, point))
     }
 
     /// Toggles an instance hidden state for the instance with the specified id

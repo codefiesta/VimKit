@@ -69,9 +69,10 @@ extension RendererContainerViewCoordinator {
             // where UIView 0,0 is in the top left with positive values of Y going down
             let frame = view.frame
             let location = gesture.location(in: view)
+
             let y = frame.height - location.y // Flip the Y coordinate
-            let point: SIMD2<Float> = [Float(location.x), Float(y)] * contentScaleFactor
-            renderer.didTap(at: point)
+            let point: SIMD2<Float> = [Float(location.x), Float(y)]
+            renderer.didTap(at: point, contentScaleFactor)
         default:
             break
         }
@@ -84,9 +85,10 @@ extension RendererContainerViewCoordinator {
         guard let view = gesture.view else { return }
         switch gesture.state {
         case .recognized:
-            let location = gesture.location(in: view) * view.contentScaleFactor
+            let contentScaleFactor = Float(view.contentScaleFactor)
+            let location = gesture.location(in: view)
             let point: SIMD2<Float> = [Float(location.x), Float(location.y)]
-            renderer.didTap(at: point)
+            renderer.didTap(at: point, contentScaleFactor)
         default:
             break
         }
