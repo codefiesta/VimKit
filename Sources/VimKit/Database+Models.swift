@@ -464,11 +464,15 @@ extension Database {
         public var type: String?
         public var familyName: String?
         public var category: Category?
+        public var level: Level?
+        public var room: Room?
+        public var group: Group?
         public var workset: Workset?
         public var parameters: [Parameter]
 
         /// Returns the elements instance type
         public var instanceType: Element? {
+            guard let name, let type else { return nil }
             let predicate = #Predicate<Database.Element>{ $0.name == name && $0.type != type }
             let fetchDescriptor = FetchDescriptor<Database.Element>(predicate: predicate)
             guard let results = try? modelContext?.fetch(fetchDescriptor), results.isNotEmpty else {
@@ -506,6 +510,15 @@ extension Database {
             familyName = data["FamilyName"] as? String
             if let idx = data["Category"] as? Int64, idx != .empty {
                 category = cache.findOrCreate(idx)
+            }
+            if let idx = data["Level"] as? Int64, idx != .empty {
+                level = cache.findOrCreate(idx)
+            }
+            if let idx = data["Room"] as? Int64, idx != .empty {
+                room = cache.findOrCreate(idx)
+            }
+            if let idx = data["Group"] as? Int64, idx != .empty {
+                group = cache.findOrCreate(idx)
             }
             if let idx = data["Workset"] as? Int64, idx != .empty {
                 workset = cache.findOrCreate(idx)
@@ -1050,146 +1063,55 @@ extension Database {
     }
 
     /// Provides an observable model tree
-    @MainActor
     public class ModelTree: ObservableObject {
 
-        public enum TreeError: Error {
-            case empty
-            case notFound
-        }
-
-        public class Item: Identifiable, Hashable {
-
-            public enum ItemType {
-                case category
-                case family
-                case type
-                case instance
-            }
-
-            public var id: Int64
-            public var name: String
-            public var type: ItemType
-            public var children = [Item]()
-
-            init(id: Int64, name: String, type: ItemType, children: [Item] = []) {
-                self.id = id
-                self.name = name
-                self.type = type
-                self.children = children
-            }
-
-            func contains(_ text: String) -> Bool {
-                for child in children {
-                    if child.contains(text) {
-                        return true
-                    }
-                }
-                return name.lowercased().contains(text)
-            }
-
-            public func hash(into hasher: inout Hasher) {
-                hasher.combine(id)
-                hasher.combine(name)
-                hasher.combine(type)
-                hasher.combine(children)
-            }
-
-            public static func == (lhs: ModelTree.Item, rhs: ModelTree.Item) -> Bool {
-                lhs.id == rhs.id && lhs.type == rhs.type && lhs.name == rhs.name
-            }
-        }
-
+        /// The top level categories
         @Published
-        public var results: Result<[Item], TreeError> = .failure(.empty)
+        public var categories = [String]()
 
+        /// A hash of unique families as the key and it's corresponding category.
         @Published
-        public var items = [Item]()
+        public var families = [String: String]()
 
-        /// Initializer.
-        public init() { }
+        /// A hash of unique types as the key and it's corresponding family.
+        @Published
+        public var types = [String: String]()
 
-        /// Loads the tree from the bottom up.
-        /// The Hierarchy `Category > Family > Type > Instance`
-        /// - Parameter familyInstances: the family instances.
-        public func load(_ familyInstances: [Database.FamilyInstance]) async {
+        /// A hash of unique instance ids as the key and it's type name.
+        @Published
+        public var instances = [Int64: String]()
 
-            //////////////////////////////////////////
-            /// CATEGORY = type.category.name
-            /// FAMILY = instance.familyName
-            /// TYPE = type.name
-            /// INSTANCE = instance.name + elementID
-            //////////////////////////////////////////
-            struct Holder {
-                let categoryID: Int64
-                let categoryName: String
-                let familyID: Int64
-                let familyName: String
-                let typeID: Int64
-                let typeName: String
-                let instanceID: Int64
-                let instanceName: String
-            }
+        /// Initializer that loads the tree with a  hierarchy of
+        /// `Category > Family > Type > Instance`
+        /// - Parameter modelContext: the model context
+        public init(modelContext: ModelContext) {
 
-            var categories = [String: Item]()
+            let descriptor = FetchDescriptor<Database.Node>(sortBy: [SortDescriptor(\.element?.category?.name)])
+            let results = try! modelContext.fetch(descriptor)
 
-            // Build the tree TODO: This should be reworked - not very efficient
-            for instance in familyInstances {
+            // Top level categories
+            categories = results.compactMap{ $0.element?.category?.name }.uniqued().sorted{ $0 < $1 }
 
-                guard let element = instance.element,
-                      let instanceName = element.name,
-                      let familyName = element.familyName else { continue }
-
-                guard let typeElement = instance.element?.instanceType,
-                      let typeName = typeElement.name,
-                      let category = typeElement.category else { continue }
-
-                let displayName = "\(instanceName) [\(element.elementId)]"
-                let holder = Holder(categoryID: category.index, categoryName: category.name, familyID: element.index, familyName: familyName, typeID: typeElement.index, typeName: typeName, instanceID: element.index, instanceName: displayName)
-
-                // Category
-                if categories[holder.categoryName] == nil {
-                    categories[holder.categoryName] = Item(id: holder.categoryID, name: holder.categoryName, type: .category)
+            // The hash of families and their category
+            families = results.reduce(into: [String: String]()) { result, node in
+                if let categoryName = node.element?.category?.name, let familyName = node.element?.familyName, familyName.isNotEmpty {
+                    result[familyName] = categoryName
                 }
-                guard let category = categories[holder.categoryName] else { continue }
+            }
 
-                // Family
-                if category.children.filter({ $0.name == holder.familyName }).isEmpty {
-                    category.children.append(Item(id: holder.familyID, name: holder.familyName, type: .family))
+            // The hash of types and their family
+            types = results.reduce(into: [String: String]()) { result, node in
+                if let familyName = node.element?.familyName, familyName.isNotEmpty, let name = node.element?.name {
+                    result[name] = familyName
                 }
-                guard let family = category.children.filter({ $0.name == holder.familyName }).first else { continue }
+            }
 
-                // Type
-                if family.children.filter({ $0.name == holder.typeName }).isEmpty {
-                    family.children.append(Item(id: holder.typeID, name: holder.typeName, type: .type))
+            // The hash of instances and their name
+            instances = results.reduce(into: [Int64: String]()) { result, node in
+                if let element = node.element, let name = element.name {
+                    result[element.elementId] = name
                 }
-                guard let type = family.children.filter({ $0.name == holder.typeName }).first else { continue }
-
-                // Instance
-                let instanceItem = Item(id: holder.instanceID, name: holder.instanceName, type: .instance)
-
-                type.children.append(instanceItem)
             }
-
-            items = Array(categories.values.filter{ $0.children.isNotEmpty }.sorted{ $0.name < $1.name })
-            results = .success(items)
-        }
-
-        /// Performs a search for model items that contain the following text.
-        /// - Parameter text: the search text
-        public func search(_ text: String) async {
-            results = .failure(.empty)
-            guard items.isNotEmpty else { return }
-            guard text.isNotEmpty else {
-                results = .success(items)
-                return
-            }
-            let hits = items.filter{ $0.contains(text)}
-            guard hits.isNotEmpty else {
-                results = .failure(.notFound)
-                return
-            }
-            results = .success(hits)
         }
     }
 }
