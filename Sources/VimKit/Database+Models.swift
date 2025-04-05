@@ -1081,7 +1081,7 @@ extension Database {
         @Published
         public var instances = [Int64: String]()
 
-        /// Initializer that loads the tree with a  hierarchy of
+        /// Initializer that loads the model tree with a hierarchy that mirrors the Revit hierarchy of
         /// `Category > Family > Type > Instance`
         /// - Parameter modelContext: the model context
         public init(modelContext: ModelContext) {
