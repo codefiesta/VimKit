@@ -94,12 +94,16 @@ class DatabaseTests {
         }
     }
 
+    @MainActor
     @Test("Verify model tree")
     func verifyModelTree() async throws {
-        let tree = Database.ModelTree(modelContext: modelContext)
+        let tree: Database.ModelTree = .init()
+        await tree.load(modelContext: modelContext)
+        #expect(tree.title.isNotEmpty)
         #expect(tree.categories.isNotEmpty)
         #expect(tree.families.isNotEmpty)
         #expect(tree.types.isNotEmpty)
         #expect(tree.instances.isNotEmpty)
+        #expect(tree.elementNodes.isNotEmpty)
     }
 }

@@ -72,11 +72,11 @@ public class Geometry: ObservableObject, @unchecked Sendable {
     /// Returns the combinded buffer of all of the color overrides that can be applied to each instance.
     public private(set) var colorsBuffer: MTLBuffer?
 
+    /// Return the model bounds.
+    public var bounds: MDLAxisAlignedBoundingBox = .zero
+
     /// The Geometry Bounding Volume Hierarchy
     var bvh: BVH?
-
-    /// Return the model bounds.
-    var bounds: MDLAxisAlignedBoundingBox = .zero
 
     /// The data container
     private let bfast: BFast

@@ -1063,31 +1063,52 @@ extension Database {
     }
 
     /// Provides an observable model tree
-    public class ModelTree: ObservableObject {
+    @Observable @MainActor
+    public class ModelTree {
+
+        /// The title of the bim document
+        public var title: String = .empty
 
         /// The top level categories
-        @Published
         public var categories = [String]()
 
         /// A hash of unique families as the key and it's corresponding category.
-        @Published
         public var families = [String: String]()
 
         /// A hash of unique types as the key and it's corresponding family.
-        @Published
         public var types = [String: String]()
 
         /// A hash of unique instance ids as the key and it's type name.
-        @Published
         public var instances = [Int64: String]()
 
-        /// Initializer that loads the model tree with a hierarchy that mirrors the Revit hierarchy of
-        /// `Category > Family > Type > Instance`
-        /// - Parameter modelContext: the model context
-        public init(modelContext: ModelContext) {
+        /// A hash of elementIDs to their corresponding node indices (used for quick lookup back to the geometry).
+        public var elementNodes: [Int64: Int64] = [:]
 
-            let descriptor = FetchDescriptor<Database.Node>(sortBy: [SortDescriptor(\.element?.category?.name)])
+        /// Initializer.
+        public init() { }
+
+        /// Loads the model tree with a hierarchy that mirrors the Revit hierarchy of
+        /// `Category > Family > Type > Instance`
+        /// - Parameters:
+        ///   - modelContext: the model context to use
+        public func load(modelContext: ModelContext) async {
+
+            // Fetch the title from the bim document entity
+            var documentDescriptor = FetchDescriptor<Database.BimDocument>(sortBy: [SortDescriptor(\.index)])
+            documentDescriptor.fetchLimit = 1
+            let documents = try? modelContext.fetch(documentDescriptor)
+            title = documents?.first?.title ?? .empty
+
+            // Fetch the nodes to build the tree structure
+            let descriptor = FetchDescriptor<Database.Node>(sortBy: [SortDescriptor(\.index)])
             let results = try! modelContext.fetch(descriptor)
+
+            // Map the node elementIDs to their index
+            elementNodes = results.reduce(into: [Int64: Int64]()) { result, node in
+                if let element = node.element {
+                    result[element.elementId] = node.index
+                }
+            }
 
             // Top level categories
             categories = results.compactMap{ $0.element?.category?.name }.uniqued().sorted{ $0 < $1 }
@@ -1112,6 +1133,27 @@ extension Database {
                     result[element.elementId] = name
                 }
             }
+        }
+
+        /// Returns an array of families for the specified category
+        /// - Parameter category: the category name
+        /// - Returns: a sorted array of unique family names in the specified category
+        public func families(in category: String) -> [String] {
+            families.filter{ $0.value == category }.keys.sorted{ $0 < $1 }
+        }
+
+        /// Returns an array of types for the specified family
+        /// - Parameter family: the family name
+        /// - Returns: a sorted array of unique tyes for the specified family
+        public func types(in family: String) -> [String] {
+            types.filter{ $0.value == family }.keys.sorted{ $0 < $1 }
+        }
+
+        /// Returns an array of instances for the specified type
+        /// - Parameter type: the type name
+        /// - Returns: a sorted array of instance id's for the specified type
+        public func instances(in type: String) -> [Int64] {
+            instances.filter{ $0.value == type }.keys.sorted{ $0 < $1 }
         }
     }
 }
