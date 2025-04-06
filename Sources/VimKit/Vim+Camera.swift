@@ -225,7 +225,8 @@ extension Vim {
             let radius = box.radius
             let fovRadians = fovDegrees.radians
             let distance = radius / sin(fovRadians / 2)
-            let eye = center - distance * forward
+            let dir: SIMD3<Float> = .ypositive
+            let eye = center - distance * dir
             look(at: box.center, from: eye)
         }
 

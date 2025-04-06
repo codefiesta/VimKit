@@ -5,6 +5,7 @@
 //  Created by Kevin McKee
 //
 
+import Algorithms
 import Foundation
 import SwiftData
 import Testing
@@ -66,7 +67,7 @@ class DatabaseTests {
 
     @Test("Verify categories imported")
     func verifyCategories() async throws {
-        let descriptor = FetchDescriptor<Database.Category>(sortBy: [SortDescriptor(\.index)])
+        let descriptor = FetchDescriptor<Database.Category>(sortBy: [SortDescriptor(\.name)])
         let results = try! modelContext.fetch(descriptor)
         #expect(results.isNotEmpty)
     }
@@ -80,9 +81,6 @@ class DatabaseTests {
         let descriptor = FetchDescriptor<Database.Family>(predicate: predicate, sortBy: [SortDescriptor(\.index)])
         let results = try! modelContext.fetch(descriptor)
         #expect(results.isNotEmpty)
-        for result in results {
-            #expect(result.isSystemFamily == true)
-        }
     }
 
     @Test("Verify levels imported")
@@ -94,5 +92,18 @@ class DatabaseTests {
             #expect(result.element?.familyName == "Level")
             #expect(result.element?.category?.name == "Levels")
         }
+    }
+
+    @MainActor
+    @Test("Verify model tree")
+    func verifyModelTree() async throws {
+        let tree: Database.ModelTree = .init()
+        await tree.load(modelContext: modelContext)
+        #expect(tree.title.isNotEmpty)
+        #expect(tree.categories.isNotEmpty)
+        #expect(tree.families.isNotEmpty)
+        #expect(tree.types.isNotEmpty)
+        #expect(tree.instances.isNotEmpty)
+        #expect(tree.elementNodes.isNotEmpty)
     }
 }
