@@ -86,6 +86,10 @@ VertexOut vertexMain(VertexIn in [[stage_in]],
         case InstanceStateSelected:
             out.color = colors[0];
             break;
+        case InstanceStateIsolated:
+            out.color = material.rgba;
+            break;
+
     }
     
     // Clip Planes

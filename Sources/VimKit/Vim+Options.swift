@@ -30,7 +30,7 @@ extension Vim {
         public var minContributionArea: Float = 0.0001
 
         /// Specifies the rendering cull mode to apply.
-        public var cullMode: MTLCullMode = .none
+        public var cullMode: MTLCullMode = .back
 
         /// Haze in the sky. 0 is a clear - 1 spreads the sun’s color
         public var turbidity: Float = 1.0

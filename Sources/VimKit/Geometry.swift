@@ -869,6 +869,29 @@ extension Geometry {
     }
 }
 
+// MARK: Instance State
+extension Geometry {
+
+    /// Toggles all instances states from the `from` state to the `to` state.
+    /// - Parameters:
+    ///   - from: the instance state to match
+    ///   - to: the iinstance state to switch to
+    public func toggle(from: InstanceState, to: InstanceState) {
+        for (i, value) in instances.enumerated() {
+            if value.state == from {
+                instances[i].state = to
+            }
+        }
+    }
+
+    /// Convenience func that returns a count of the instances in the specified state.
+    /// - Parameter state: the state to match
+    public func count(state: InstanceState) -> Int {
+        instances.filter{ $0.state == state }.count
+    }
+}
+
+
 // MARK: Instance Hiding
 
 extension Geometry {
@@ -905,11 +928,6 @@ extension Geometry {
         }
         hiddeninstancedMeshes.removeAll()
     }
-
-    /// Convenience var that returns a count of the hidden instances.
-    public var hiddenCount: Int {
-        instances.filter{ $0.state == .hidden }.count
-    }
 }
 
 // MARK: Instance Selection
@@ -932,7 +950,7 @@ extension Geometry {
         guard let index = instanceOffsets.firstIndex(of: id) else { return false }
         let instance = instances[index]
         switch instance.state {
-        case .default, .hidden:
+        case .default, .hidden, .isolated:
             instances[index].state = .selected
             return true
         case .selected:
@@ -942,19 +960,23 @@ extension Geometry {
             return false
         }
     }
+}
 
-    /// Toggles the instance hidden state of all instances from `.selected` to `.default`
-    public func deselectAll() {
-        for (i, value) in instances.enumerated() {
-            if value.state == .selected {
-                instances[i].state = .default
+// MARK: Instance Isolation
+
+extension Geometry {
+
+    public func isolate(ids: [Int]) {
+
+        let offsets = ids.compactMap{ instanceOffsets.firstIndex(of: $0) ?? -1}
+
+        for (i, _) in instances.enumerated() {
+            if offsets.contains(i) {
+                instances[i].state = .isolated
+            } else {
+                instances[i].state = .hidden
             }
         }
-    }
-
-    /// Convenience var that returns a count of the selected instances.
-    public var selectedCount: Int {
-        instances.filter{ $0.state == .selected }.count
     }
 }
 
