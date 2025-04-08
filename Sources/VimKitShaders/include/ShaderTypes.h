@@ -106,6 +106,7 @@ typedef NS_ENUM(EnumBackingType, InstanceState) {
     InstanceStateDefault = 0,
     InstanceStateHidden = 1,
     InstanceStateSelected = 2,
+    InstanceStateIsolated = 3
 };
 
 // Instance

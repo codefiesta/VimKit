@@ -37,6 +37,10 @@ public class Vim: NSObject, ObservableObject, @unchecked Sendable {
         /// An instance has been hidden or shown.
         /// - Parameter Int: the total count of hidden instances.
         case hidden(Int)
+
+        /// An instance has been isolated.
+        /// - Parameter Int: the total count of isolated instances.
+        case isolated(Int)
     }
 
     @MainActor @Published
@@ -290,7 +294,8 @@ extension Vim {
 
     /// Erases a previous published event to downstream event subscribers.
     public func erase() {
-        geometry?.deselectAll()
+        geometry?.toggle(from: .selected, to: .default)
+        geometry?.toggle(from: .isolated, to: .default)
         eventPublisher.send(.empty)
     }
 
@@ -323,5 +328,16 @@ extension Vim {
         guard let geometry else { return }
         geometry.unhide()
         eventPublisher.send(.hidden(0))
+    }
+
+    /// Isolates  instances in the specifed id set and broadcasts an even to any subscribers.
+    @MainActor
+    public func isolate(ids: [Int]) async {
+        guard let geometry else { return }
+        geometry.isolate(ids: ids)
+        let hiddenCount = geometry.count(state: .hidden)
+        let isolatedCount = geometry.count(state: .isolated)
+        eventPublisher.send(.hidden(hiddenCount))
+        eventPublisher.send(.isolated(isolatedCount))
     }
 }

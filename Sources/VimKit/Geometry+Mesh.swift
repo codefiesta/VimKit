@@ -7,6 +7,22 @@
 import MetalKit
 import VimKitShaders
 
+extension InstancedMesh {
+
+    /// Convenience var that returns the range of instances.
+    var range: Range<Int> {
+        baseInstance..<(baseInstance+instanceCount)
+    }
+
+    /// Returns true if this instanced mesh contains any instances with the id of
+    /// - Parameter ids: the list of instance ids
+    /// - Returns: true if the range contains
+    func contains(ids: [Int]) -> Bool {
+        range ~= ids
+    }
+
+}
+
 extension Instance {
 
     /// Convenience var that returns the bounding box.
