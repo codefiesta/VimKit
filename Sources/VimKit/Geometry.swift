@@ -968,7 +968,7 @@ extension Geometry {
 
     public func isolate(ids: [Int]) {
 
-        let offsets = ids.compactMap{ instanceOffsets.firstIndex(of: $0) ?? -1}
+        let offsets = ids.compactMap{ instanceOffsets.firstIndex(of: $0) }
 
         for (i, _) in instances.enumerated() {
             if offsets.contains(i) {
