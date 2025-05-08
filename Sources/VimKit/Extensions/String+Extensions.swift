@@ -18,4 +18,9 @@ public extension String {
         let hashed = SHA256.hash(data: Data(self.utf8))
         return hashed.compactMap { String(format: "%02x", $0) }.joined()
     }
+
+    /// Convenience var that trim all whitespace.
+    var trimmed: String {
+        trimmingCharacters(in: .whitespaces)
+   }
 }

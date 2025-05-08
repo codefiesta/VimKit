@@ -90,6 +90,8 @@ extension Database {
     /// Provides a static list of the indexed model types.
     /// See: https://github.com/vimaec/vim/blob/master/ObjectModel/object-model-schema.json
     static let models: [any IndexedPersistentModel.Type] = [
+        AreaScheme.self,
+        Area.self,
         AssemblyInstance.self,
         Asset.self,
         BimDocument.self,
@@ -146,6 +148,75 @@ extension Database {
         }
     }
 
+    @Model
+    public final class AreaScheme: IndexedPersistentModel {
+
+        public static func predicate(_ index: Int64) -> Predicate<AreaScheme> {
+            #Predicate<AreaScheme> { $0.index == index }
+        }
+
+        @Transient
+        public static let importPriority: ModelImportPriority = .normal
+
+        @Attribute(.unique)
+        public var index: Int64
+        public var isGrossBuildingArea: Bool
+        public var element: Element?
+
+        /// Initializer.
+        public required init() {
+            index = .empty
+            isGrossBuildingArea = false
+        }
+
+        public func update(from data: [String: AnyHashable], cache: ImportCache) {
+            isGrossBuildingArea = data["IsGrossBuildingArea"] as? Bool ?? false
+            if let idx = data["Element"] as? Int64, idx != .empty {
+                element = cache.findOrCreate(idx)
+            }
+        }
+    }
+
+    @Model
+    public final class Area: IndexedPersistentModel {
+
+        public static func predicate(_ index: Int64) -> Predicate<Area> {
+            #Predicate<Area> { $0.index == index }
+        }
+
+        @Transient
+        public static let importPriority: ModelImportPriority = .normal
+
+        @Attribute(.unique)
+        public var index: Int64
+        public var isGrossInterior: Bool
+        public var perimeter: Double
+        public var value: Double
+        public var scheme: AreaScheme?
+        public var element: Element?
+        public var number: String?
+
+        /// Initializer.
+        public required init() {
+            index = .empty
+            isGrossInterior = false
+            perimeter = 0
+            value = 0
+        }
+
+        public func update(from data: [String: AnyHashable], cache: ImportCache) {
+            isGrossInterior = data["IsGrossInterior"] as? Bool ?? false
+            perimeter = data["Perimeter"] as? Double ?? .zero
+            value = data["Value"] as? Double ?? .zero
+            number = data["Number"] as? String
+            if let idx = data["AreaScheme"] as? Int64, idx != .empty {
+                scheme = cache.findOrCreate(idx)
+            }
+            if let idx = data["Element"] as? Int64, idx != .empty {
+                element = cache.findOrCreate(idx)
+            }
+        }
+    }
 
     @Model
     public final class Asset: IndexedPersistentModel {
