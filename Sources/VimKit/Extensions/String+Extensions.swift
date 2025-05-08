@@ -22,5 +22,25 @@ public extension String {
     /// Convenience var that trim all whitespace.
     var trimmed: String {
         trimmingCharacters(in: .whitespaces)
-   }
+    }
+
+    /// Convenience subscript using a countable closed range.
+    /// - Parameters:
+    ///   - bounds: the bounds to subscript
+    /// - Returns: a string at the specified bounds
+    subscript (bounds: CountableClosedRange<Int>) -> String {
+        let start = index(startIndex, offsetBy: bounds.lowerBound)
+        let end = index(startIndex, offsetBy: bounds.upperBound)
+        return String(self[start...end])
+    }
+
+    /// Convenience subscript using a countable range.
+    /// - Parameters:
+    ///   - bounds: the bounds to subscript
+    /// - Returns: a string at the specified bounds
+    subscript (bounds: CountableRange<Int>) -> String {
+        let start = index(startIndex, offsetBy: bounds.lowerBound)
+        let end = index(startIndex, offsetBy: bounds.upperBound)
+        return String(self[start..<end])
+    }
 }
