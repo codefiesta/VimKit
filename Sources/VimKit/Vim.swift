@@ -84,6 +84,9 @@ public class Vim: NSObject, ObservableObject, @unchecked Sendable {
     @Published
     public var stats: Statistics
 
+    /// Holds a weak reference to the rendering delegate
+    public weak var delegate: RenderingDelegate?
+
     /// The source url of the file.
     public var url: URL? = nil
 

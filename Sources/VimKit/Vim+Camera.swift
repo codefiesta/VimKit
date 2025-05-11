@@ -169,7 +169,7 @@ extension Vim {
         ///   - target: The target position to look at.
         ///   - position: The new position of the camera.
         ///   - upVector: The new  camera up vector.
-        public func look(at target: SIMD3<Float>, from position: SIMD3<Float>? = nil, upVector: SIMD3<Float>? = nil) {
+        private func look(at target: SIMD3<Float>, from position: SIMD3<Float>? = nil, upVector: SIMD3<Float>? = nil) {
             if let position {
                 self.position = position
             }
@@ -230,6 +230,18 @@ extension Vim {
             look(at: box.center, from: eye)
         }
 
+        /// Zooms in or out from a specified position by the specified distance.
+        /// - Parameters:
+        ///   - location: the location to zoom in or out of
+        ///   - distance: the distance to move by
+        ///   - out: if set to true, the camera will zoom out (zooms in by default)
+        public func zoom(to location: SIMD3<Float>, distance: Float, out: Bool = false) {
+            let dir: SIMD3<Float> = forward
+            let translation = forward * distance
+            let eye = out ? (position + translation) : (position - translation)
+            look(at: location, from: eye)
+        }
+
         /// Projects a point from the 3D world coordinate system of the scene to the 2D pixel coordinate system.
         /// - Parameters:
         ///   - point: A point in the world coordinate system of the scene.
@@ -259,6 +271,21 @@ extension Vim {
 
             let worldRayDirection = normalize((viewMatrix.inverse * eyeDirection).xyz)
             return .init(origin: position, direction: worldRayDirection)
+        }
+
+        /// Unprojects the given pixel onto the camera frustum near plane.
+        /// - Parameters:
+        ///   - pixel: A pixel in the screen-space (viewport).
+        /// - Returns: the computed position in 3D space
+        func unproject(_ pixel: SIMD2<Float>) -> SIMD3<Float> {
+            let point = SIMD3<Float>(pixel, 1)
+            let inverse = (projectionMatrix * viewMatrix).inverse
+            let clipX = (2 * point.x) / viewportSize.x - 1
+            let clipY = 1 - (2 * point.y) / viewportSize.y
+            let clipSpace = SIMD4<Float>(clipX, clipY, 0, 1)
+            var result = inverse * clipSpace
+            result /= result.w
+            return result.xyz
         }
 
         /// Determines if the camera frustum intersects the bounding box.

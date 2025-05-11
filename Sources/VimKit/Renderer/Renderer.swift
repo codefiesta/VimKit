@@ -12,7 +12,7 @@ import Spatial
 import VimKitShaders
 
 @MainActor
-open class Renderer: NSObject {
+open class Renderer: NSObject, RenderingDelegate {
 
     /// The context that provides all of the data we need
     let context: RendererContext
@@ -117,6 +117,9 @@ open class Renderer: NSObject {
         makeFramesBuffer()
         // Make the lights buffer
         makeLightsBuffer()
+
+        // Set self as rendering delegate
+        self.context.vim.delegate = self
     }
 }
 
