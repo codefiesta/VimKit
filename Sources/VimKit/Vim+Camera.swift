@@ -169,7 +169,7 @@ extension Vim {
         ///   - target: The target position to look at.
         ///   - position: The new position of the camera.
         ///   - upVector: The new  camera up vector.
-        public func look(at target: SIMD3<Float>, from position: SIMD3<Float>? = nil, upVector: SIMD3<Float>? = nil) {
+        private func look(at target: SIMD3<Float>, from position: SIMD3<Float>? = nil, upVector: SIMD3<Float>? = nil) {
             if let position {
                 self.position = position
             }
