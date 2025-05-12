@@ -27,6 +27,11 @@ class DatabaseTests {
         vim.db!
     }
 
+    /// Convenience var for accessing the geometry.
+    private var geometry: Geometry {
+        vim.geometry!
+    }
+
     /// Convenience var for accessing the model context.
     private var modelContext: ModelContext {
         ModelContext(db.modelContainer)
@@ -41,6 +46,8 @@ class DatabaseTests {
     init() async throws {
         await vim.load(from: url)
         await #expect(vim.state == .ready)
+        await geometry.load()
+        await #expect(geometry.state == .ready)
         try! await importDatabase()
     }
 
@@ -98,7 +105,8 @@ class DatabaseTests {
     @Test("Verify model tree")
     func verifyModelTree() async throws {
         let tree: Database.ModelTree = .init()
-        await tree.load(modelContext: modelContext)
+        let ids = geometry.instances.map{ $0.index }
+        await tree.load(modelContext: modelContext, nodes: ids)
         #expect(tree.title.isNotEmpty)
         #expect(tree.categories.isNotEmpty)
         #expect(tree.families.isNotEmpty)
