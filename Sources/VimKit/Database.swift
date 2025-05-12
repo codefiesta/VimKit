@@ -255,6 +255,10 @@ public class Database: ObservableObject, @unchecked Sendable {
         bfast.sha256Hash
     }()
 
+    /// Contains the indices to geometry nodes. This is kind of a hack, but I don't know
+    /// how else to discern geometry nodes from non-geometry nodes via a query.
+    public var nodes: [Int] = .init()
+
     /// The SwiftData model container
     public var modelContainer: ModelContainer
 

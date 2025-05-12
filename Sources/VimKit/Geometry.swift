@@ -463,8 +463,8 @@ public class Geometry: ObservableObject, @unchecked Sendable {
             let transparent = isTransparent(mesh)
             let instance = Instance(index: i, matrix: transform, flags: flags, parent: parent, mesh: mesh, transparent: transparent)
 
-            // Drop any instances that don't have empty mesh data
-            guard mesh != .empty else { continue }
+            // Drop any instances that don't have empty mesh data or are hidden by default
+            guard mesh != .empty, flags == .zero else { continue }
 
             // Add this instance to the mesh map
             if meshInstances[mesh] != nil {
@@ -919,10 +919,22 @@ extension Geometry {
         return hidden.count
     }
 
+    public func hide(excluding: [Int]) {
+        let excluded = excluding.compactMap{ instanceOffsets.firstIndex(of: $0) }
+
+        for (i, _) in instances.enumerated() {
+            if excluded.contains(i) {
+                instances[i].state = .default
+            } else {
+                instances[i].state = .hidden
+            }
+        }
+    }
+
     /// Unhides all hidden instances.
     public func unhide() {
         for (i, value) in instances.enumerated() {
-            if value.state == .hidden, value.flags == .zero {
+            if value.state == .hidden {
                 instances[i].state = .default
             }
         }
