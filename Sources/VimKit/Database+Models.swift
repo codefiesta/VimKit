@@ -856,6 +856,13 @@ extension Database {
             #Predicate<Node> { $0.index == index }
         }
 
+        public static func predicate(nodes: [Int]) -> Predicate<Node> {
+            let indices = nodes.map{ Int64($0)}
+            return #Predicate<Database.Node> { node in
+                indices.contains(node.index)
+            }
+        }
+
         @Transient
         public static let importPriority: ModelImportPriority = .normal
 
@@ -1162,7 +1169,8 @@ extension Database {
         /// `Category > Family > Type > Instance`
         /// - Parameters:
         ///   - modelContext: the model context to use
-        public func load(modelContext: ModelContext) async {
+        ///   - nodes: the node indices to load
+        public func load(modelContext: ModelContext, nodes: [Int]) async {
 
             // Fetch the title from the bim document entity
             var documentDescriptor = FetchDescriptor<Database.BimDocument>(sortBy: [SortDescriptor(\.index)])
@@ -1170,8 +1178,10 @@ extension Database {
             let documents = try? modelContext.fetch(documentDescriptor)
             title = documents?.first?.title ?? .empty
 
+            let predicate = Database.Node.predicate(nodes: nodes)
+
             // Fetch the nodes to build the tree structure
-            let descriptor = FetchDescriptor<Database.Node>(sortBy: [SortDescriptor(\.index)])
+            let descriptor = FetchDescriptor<Database.Node>(predicate: predicate, sortBy: [SortDescriptor(\.index)])
             let results = try! modelContext.fetch(descriptor)
 
             // Map the node elementIDs to their index
