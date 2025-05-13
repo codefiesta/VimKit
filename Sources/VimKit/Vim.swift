@@ -45,6 +45,9 @@ public class Vim: NSObject, ObservableObject, @unchecked Sendable {
 
     @MainActor @Published
     public var state: State = .unknown
+    
+    /// Combine subscribers.
+    private var subscribers: Set<AnyCancellable> = .init()
 
     /// The private pass through event publisher.
     private var eventPublisher = PassthroughSubject<Event, Never>()
@@ -206,13 +209,34 @@ public class Vim: NSObject, ObservableObject, @unchecked Sendable {
                 break
             }
         }
+        
+        guard let geometry, let db else { return }
+        
+        /// Subscribe to geometry state changes
+        geometry.$state.sink { [weak self] state in
+            guard let self else { return }
+            switch state {
+            case .ready:
+
+                // 1) Inform the db of the geometry nodes
+                db.nodes = geometry.instances.map({ $0.index })
+                // 2) Move the camera to bounds of the geometry
+                camera.zoom(to: geometry.bounds)
+                // 3) Start the db import process
+                Task {
+                    await db.import()
+                }
+            case .indexing, .loading, .unknown, .error:
+                break
+            }
+        }.store(in: &subscribers)
 
         debugPrint("􀇺 [Vim] - validated [\(bfast.header)]")
 
         // Put the file into a ready state
         publish(state: .ready)
     }
-
+    
     /// Removes the contents of the locally cached vim file.
     public func remove() {
         defer {
