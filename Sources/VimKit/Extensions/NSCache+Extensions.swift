@@ -8,7 +8,7 @@
 import Foundation
 
 /// Provides a Swift wrapper around NSCache.
-final class Cache<Key: Hashable, Value>: @unchecked Sendable {
+public final class Cache<Key: Hashable, Value>: @unchecked Sendable {
 
     /// Holds a set of cache keys.
     var keys: Set<Key> = .init()

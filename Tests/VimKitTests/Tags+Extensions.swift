@@ -12,4 +12,5 @@ import Testing
 extension Tag {
     @Tag static var database: Self
     @Tag static var reader: Self
+    @Tag static var model: Self
 }

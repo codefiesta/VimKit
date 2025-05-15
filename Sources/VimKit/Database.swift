@@ -15,6 +15,7 @@ private let sqliteExtension = ".sqlite"
 // See: https://github.com/vimaec/vim#entities-buffer
 public class Database: ObservableObject, @unchecked Sendable {
 
+    /// Represents a table
     public class Table {
 
         class Rows {
@@ -255,9 +256,9 @@ public class Database: ObservableObject, @unchecked Sendable {
         bfast.sha256Hash
     }()
 
-    /// Contains the indices to geometry nodes. This is kind of a hack, but I don't know
+    /// Contains the indices to geometry instances. This is kind of a hack, but I don't know
     /// how else to discern geometry nodes from non-geometry nodes via a query.
-    public var nodes: [Int] = .init()
+    public var instances: [Int] = .init()
 
     /// The SwiftData model container
     public var modelContainer: ModelContainer
@@ -300,6 +301,82 @@ public class Database: ObservableObject, @unchecked Sendable {
             self.state = state
         }
     }
+
+    /// Builds the model tree from the database.
+    /// - Returns: the model tree.
+    func tree() async -> Vim.Tree? {
+        let start = Date.now
+        defer {
+            let timeInterval = abs(start.timeIntervalSinceNow)
+            debugPrint("Tree built in [\(timeInterval.stringFromTimeInterval())]")
+        }
+
+        let modelContext = ModelContext(modelContainer)
+        guard instances.isNotEmpty else { return nil }
+
+        // Fetch the title from the bim document entity
+        var documentDescriptor = FetchDescriptor<Database.BimDocument>(sortBy: [SortDescriptor(\.index)])
+        documentDescriptor.fetchLimit = 1
+        let documents = try? modelContext.fetch(documentDescriptor)
+        let rootName = documents?.first?.title ?? .empty
+
+        let predicate = Database.Node.predicate(nodes: instances)
+        let descriptor = FetchDescriptor<Database.Node>(predicate: predicate, sortBy: [SortDescriptor(\.index)])
+        guard let results = try? modelContext.fetch(descriptor), results.isNotEmpty else { return nil }
+
+        // Top level categories
+        let categories = results.compactMap{ $0.element?.category?.name }.uniqued().sorted{ $0 < $1 }
+
+        // The hash of families and their category
+        let familyCategories = results.reduce(into: [String: String]()) { result, node in
+            if let categoryName = node.element?.category?.name, let familyName = node.element?.familyName, familyName.isNotEmpty {
+                result[familyName] = categoryName
+            }
+        }
+
+        // The hash of types and their family
+        let typeFamilies = results.reduce(into: [String: String]()) { result, node in
+            if let familyName = node.element?.familyName, familyName.isNotEmpty, let name = node.element?.name {
+                result[name] = familyName
+            }
+        }
+
+        // A hash of all type names and their instances
+        let typeInstances = results.reduce(into: [String: [Vim.Tree.Node]]()) { result, node in
+            if let element = node.element, let name = element.name {
+                let n = Vim.Tree.Node(name: "\(name) [\(element.elementId)]", id: Int(node.index))
+                if let _ = result[name] {
+                    result[name]?.append(n)
+                } else {
+                    result[name] = [n]
+                }
+            }
+        }
+
+        /// Build the tree root node
+        let root = Vim.Tree.Node(name: rootName, children:
+            categories.map({ category in
+                // Cateory Nodes
+                Vim.Tree.Node(name: category, children:
+                    familyCategories.filter{ $0.value == category }.keys.sorted{ $0 < $1 }.map{ familyName in
+                        // Family Nodes
+                        Vim.Tree.Node(name: familyName, children:
+                            typeFamilies.filter{ $0.value == familyName }.keys.sorted{ $0 < $1 }.map{ typeName in
+                                // Type Nodes
+                                Vim.Tree.Node(name: typeName, children:
+                                    // Instance Nodes
+                                    typeInstances[typeName] ?? []
+                                )
+                            }
+                        )
+                    }
+                )
+            })
+        )
+
+        return Vim.Tree(root: root)
+    }
+
 
     /// Convenience var for accessing the table names sorted alphabetically.
     public lazy var tableNames: [String] = {
