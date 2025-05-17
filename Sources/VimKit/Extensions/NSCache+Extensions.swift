@@ -8,7 +8,7 @@
 import Foundation
 
 /// Provides a Swift wrapper around NSCache.
-final class Cache<Key: Hashable, Value>: @unchecked Sendable {
+public final class Cache<Key: Hashable, Value>: @unchecked Sendable {
 
     /// Holds a set of cache keys.
     var keys: Set<Key> = .init()
@@ -18,7 +18,7 @@ final class Cache<Key: Hashable, Value>: @unchecked Sendable {
     private let lock = NSLock()
 
     /// The maximum number of objects the cache should hold.
-    var countLimit: Int {
+    public var countLimit: Int {
         get {
             storage.countLimit
         }
@@ -28,7 +28,7 @@ final class Cache<Key: Hashable, Value>: @unchecked Sendable {
     }
 
     /// The maximum total cost that the cache can hold before it starts evicting objects.
-    var totalCostLimit: Int {
+    public var totalCostLimit: Int {
         get {
             storage.totalCostLimit
         }
@@ -38,7 +38,7 @@ final class Cache<Key: Hashable, Value>: @unchecked Sendable {
     }
 
     /// Whether the cache will automatically evict discardable-content objects whose content has been discarded.
-    var evictsObjectsWithDiscardedContent: Bool {
+    public var evictsObjectsWithDiscardedContent: Bool {
         get {
             storage.evictsObjectsWithDiscardedContent
         }
@@ -47,11 +47,14 @@ final class Cache<Key: Hashable, Value>: @unchecked Sendable {
         }
     }
 
+    /// Initializer.
+    public init() {}
+
     /// Sets the value of the specified key in the cache.
     /// - Parameters:
     ///   - value: the value
     ///   - key: the key
-    func insert(_ value: Value, for key: Key) {
+    public func insert(_ value: Value, for key: Key) {
         lock.lock()
         defer { lock.unlock() }
         let entry = Entry(value: value)
@@ -62,7 +65,7 @@ final class Cache<Key: Hashable, Value>: @unchecked Sendable {
     /// Returns the value associated with a given key.
     /// - Parameter key: the key
     /// - Returns: the value associated with the given key
-    func value(for key: Key) -> Value? {
+    public func value(for key: Key) -> Value? {
         lock.lock()
         defer { lock.unlock() }
         return storage.object(forKey: WrappedKey(key))?.value
@@ -70,7 +73,7 @@ final class Cache<Key: Hashable, Value>: @unchecked Sendable {
 
     /// Removes the value of the specified key in the cache.
     /// - Parameter key: the key to remove
-    func removeValue(for key: Key) {
+    public func removeValue(for key: Key) {
         lock.lock()
         defer { lock.unlock() }
         storage.removeObject(forKey: WrappedKey(key))
@@ -78,7 +81,7 @@ final class Cache<Key: Hashable, Value>: @unchecked Sendable {
     }
 
     /// Empties the cache.
-    func removeAll() {
+    public func removeAll() {
         lock.lock()
         defer { lock.unlock() }
         storage.removeAllObjects()
@@ -87,7 +90,7 @@ final class Cache<Key: Hashable, Value>: @unchecked Sendable {
 
     /// Convenience subscript to retrive or set the value for the  given key.
     /// - Parameter key: the value key
-    subscript(key: Key) -> Value? {
+    public subscript(key: Key) -> Value? {
         get {
             value(for: key)
         }

@@ -224,9 +224,10 @@ extension Vim {
             let center = box.center
             let radius = box.radius
             let fovRadians = fovDegrees.radians
-            let distance = radius / sin(fovRadians / 2)
+            let distance = radius / sin(fovRadians)
             let dir: SIMD3<Float> = .ypositive
-            let eye = center - distance * dir
+            let translation = dir * distance
+            let eye = center - translation
             look(at: box.center, from: eye)
         }
 
@@ -236,7 +237,6 @@ extension Vim {
         ///   - distance: the distance to move by
         ///   - out: if set to true, the camera will zoom out (zooms in by default)
         public func zoom(to location: SIMD3<Float>, distance: Float, out: Bool = false) {
-            let dir: SIMD3<Float> = forward
             let translation = forward * distance
             let eye = out ? (position + translation) : (position - translation)
             look(at: location, from: eye)

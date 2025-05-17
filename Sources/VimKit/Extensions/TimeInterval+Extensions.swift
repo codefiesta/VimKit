@@ -14,7 +14,7 @@ extension TimeInterval {
         CACurrentMediaTime()
     }
 
-    func stringFromTimeInterval() -> String {
+    public func stringFromTimeInterval() -> String {
         let time = Int(self)
         let ms = Int((self.truncatingRemainder(dividingBy: 1)) * 1000)
         let seconds = time % 60

@@ -900,7 +900,7 @@ extension Geometry {
     /// - Parameters:
     ///   - ids: the ids of the instances to hide
     /// - Returns: the total count of hidden instances.
-    public func hide(ids: [Int]) -> Int {
+    public func hide(ids: Set<Int>) -> Int {
         for id in ids {
             guard let index = instanceOffsets.firstIndex(of: id) else { continue }
             instances[index].state = .hidden
@@ -919,7 +919,10 @@ extension Geometry {
         return hidden.count
     }
 
-    public func hide(excluding: [Int]) {
+    /// Toggles all instance
+    /// - Parameters:
+    ///   - ids: the ids of the instances not to hide
+    public func hide(excluding: Set<Int>) {
         let excluded = excluding.compactMap{ instanceOffsets.firstIndex(of: $0) }
 
         for (i, _) in instances.enumerated() {
@@ -978,16 +981,9 @@ extension Geometry {
 
 extension Geometry {
 
-    public func isolate(ids: [Int]) {
-
-        let offsets = ids.compactMap{ instanceOffsets.firstIndex(of: $0) }
-
-        for (i, _) in instances.enumerated() {
-            if offsets.contains(i) {
-                instances[i].state = .isolated
-            } else {
-                instances[i].state = .hidden
-            }
+    public func isolate(ids: Set<Int>) {
+        for (i, value) in instances.enumerated() {
+            instances[i].state = ids.contains(value.index) ? .isolated : .hidden
         }
     }
 }
@@ -1026,7 +1022,7 @@ extension Geometry {
     /// - Parameters:
     ///   - color: the override color to apply
     ///   - ids: the ids of the instances to apply this color override for
-    public func apply(color: SIMD4<Float>, to ids: [Int]) {
+    public func apply(color: SIMD4<Float>, to ids: Set<Int>) {
 
         // Find the index of the color if it's already in the colors buffer
         var colorIndex: Int = 0
@@ -1051,7 +1047,7 @@ extension Geometry {
 
     /// Unapplies the color override to all instances in the specified ids
     /// - Parameter ids: the ids of the instances to apply this color override for
-    public func unapply(ids: [Int]) {
+    public func unapply(ids: Set<Int>) {
         var erasables = Set<Int>() // Collect the erasable color indices
         for id in ids {
             guard let index = instanceOffsets.firstIndex(of: id) else { continue }

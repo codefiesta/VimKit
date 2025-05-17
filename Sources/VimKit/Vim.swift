@@ -46,6 +46,9 @@ public class Vim: NSObject, ObservableObject, @unchecked Sendable {
     @MainActor @Published
     public var state: State = .unknown
 
+    /// Combine subscribers.
+    private var subscribers: Set<AnyCancellable> = .init()
+
     /// The private pass through event publisher.
     private var eventPublisher = PassthroughSubject<Event, Never>()
 
@@ -83,6 +86,10 @@ public class Vim: NSObject, ObservableObject, @unchecked Sendable {
     /// The rendering statistics.
     @Published
     public var stats: Statistics
+
+    /// The model tree structure.
+    @Published
+    public var tree: Tree?
 
     /// Holds a weak reference to the rendering delegate
     public weak var delegate: RenderingDelegate?
@@ -207,10 +214,51 @@ public class Vim: NSObject, ObservableObject, @unchecked Sendable {
             }
         }
 
+        // Subsribe to child container state changes
+        subscribe()
+
         debugPrint("􀇺 [Vim] - validated [\(bfast.header)]")
 
         // Put the file into a ready state
         publish(state: .ready)
+    }
+
+    /// Observes child state changes
+    private func subscribe() {
+
+        guard let geometry, let db else { return }
+
+        /// Subscribe to database state changes
+        db.$state.sink { [weak self] state in
+            guard let self else { return }
+            switch state {
+            case .ready:
+                Task { @MainActor in
+                    await tree = db.tree()
+                }
+            case .importing, .unknown, .error:
+                break
+            }
+        }.store(in: &subscribers)
+
+        /// Subscribe to geometry state changes
+        geometry.$state.sink { [weak self] state in
+            guard let self else { return }
+            switch state {
+            case .ready:
+
+                // 1) Inform the db of the geometry nodes
+                db.instances = geometry.instances.map({ $0.index })
+                // 2) Move the camera to bounds of the geometry
+                camera.zoom(to: geometry.bounds)
+                // 3) Start the db import process
+                Task {
+                    await db.import()
+                }
+            case .indexing, .loading, .unknown, .error:
+                break
+            }
+        }.store(in: &subscribers)
     }
 
     /// Removes the contents of the locally cached vim file.
@@ -319,7 +367,7 @@ extension Vim {
     /// - Parameters:
     ///   - id: the ids of the instances to hide
     @MainActor
-    public func hide(ids: [Int]) async {
+    public func hide(ids: Set<Int>) async {
         guard let geometry else { return }
         let hiddenCount = geometry.hide(ids: ids)
         eventPublisher.send(.hidden(hiddenCount))
@@ -335,7 +383,7 @@ extension Vim {
 
     /// Isolates  instances in the specifed id set and broadcasts an even to any subscribers.
     @MainActor
-    public func isolate(ids: [Int]) async {
+    public func isolate(ids: Set<Int>) async {
         guard let geometry else { return }
         geometry.isolate(ids: ids)
         let hiddenCount = geometry.count(state: .hidden)
