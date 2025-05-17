@@ -54,7 +54,6 @@ class DatabaseTests {
     /// Imports the vim database into SwiftData.
     private func importDatabase() async throws {
         #expect(db.tableNames.count > 0)
-
         let importer = Database.ImportActor(db)
         await importer.import()
         await #expect(importer.progress.isFinished == true)
@@ -102,16 +101,11 @@ class DatabaseTests {
     }
 
     @MainActor
-    @Test("Verify model tree")
-    func verifyModelTree() async throws {
-        let tree: Database.ModelTree = .init()
-        let ids = geometry.instances.map{ $0.index }
-        await tree.load(modelContext: modelContext, nodes: ids)
-        #expect(tree.title.isNotEmpty)
-        #expect(tree.categories.isNotEmpty)
-        #expect(tree.families.isNotEmpty)
-        #expect(tree.types.isNotEmpty)
-        #expect(tree.instances.isNotEmpty)
-        #expect(tree.elementNodes.isNotEmpty)
+    @Test("Verify tree")
+    func verifyTree() async throws {
+        let tree = await db.tree()!
+        #expect(tree.root.name.isNotEmpty)
+        let searchResults = tree.search("Door")
+        #expect(searchResults.isNotEmpty)
     }
 }
