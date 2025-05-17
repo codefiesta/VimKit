@@ -1,5 +1,5 @@
 ![Build](https://github.com/codefiesta/VimKit/actions/workflows/swift.yml/badge.svg)
-![Xcode 16.2+](https://img.shields.io/badge/Xcode-16.2%2B-gold.svg)
+![Xcode 16.3+](https://img.shields.io/badge/Xcode-16.3%2B-gold.svg)
 ![Swift 6.0+](https://img.shields.io/badge/Swift-6.0%2B-tomato.svg)
 ![iOS 18.0+](https://img.shields.io/badge/iOS-18.0%2B-crimson.svg)
 ![visionOS 2.0+](https://img.shields.io/badge/visionOS-2.0%2B-magenta.svg)
