@@ -13,28 +13,15 @@ using namespace metal;
 // - Parameters:
 //   - camera: The per frame camera data.
 //   - instance: The instance to check if inside the view frustum.
+//   - corners: The instance bounding box corners.
 // - Returns: true if the instance is inside the view frustum, otherwise false
 __attribute__((always_inline))
 static bool isInsideViewFrustumAndClipPlanes(const Camera camera,
-                                             const Instance instance) {
+                                             const Instance instance,
+                                             const float4 corners[8]) {
     
     
     if (instance.state == InstanceStateHidden) { return false; }
-
-    const float3 minBounds = instance.minBounds;
-    const float3 maxBounds = instance.maxBounds;
-
-    // Extract the box corners
-    const float4 corners[8] = {
-        float4(minBounds, 1.0),
-        float4(minBounds.x, minBounds.y, maxBounds.z, 1.0),
-        float4(minBounds.x, maxBounds.y, minBounds.z, 1.0),
-        float4(minBounds.x, maxBounds.y, maxBounds.z, 1.0),
-        float4(maxBounds.x, minBounds.y, minBounds.z, 1.0),
-        float4(maxBounds.x, minBounds.y, maxBounds.z, 1.0),
-        float4(maxBounds.x, maxBounds.y, minBounds.z, 1.0),
-        float4(maxBounds, 1.0)
-    };
 
     // Loop through the frustum + clip planes and check the box corners
     for (int i = 0; i < 6; i++) {
@@ -90,6 +77,7 @@ static float2 textureCoordinates(const Frame frame,
 // - Parameters:
 //   - camera: The per frame data.
 //   - instance: The instance to check.
+//   - corners: The instance bounding box corners.
 //   - textureSize: The texture size.
 //   - textureSampler: The texture sampler.
 //   - depthTexture: The depth texture.
@@ -97,6 +85,7 @@ static float2 textureCoordinates(const Frame frame,
 __attribute__((always_inline))
 static bool isInstanceVisible(const Frame frame,
                               const Instance instance,
+                              const float4 corners[8],
                               const uint2 textureSize,
                               const sampler textureSampler,
                               depth2d<float> depthTexture) {
@@ -132,18 +121,6 @@ static bool isInstanceVisible(const Frame frame,
     // Depth z culling (eliminate instances that are behind other instances)
     if (enableDepthTesting) {
         
-        // Extract the box corners
-        const float4 corners[8] = {
-            float4(instance.minBounds, 1.0),
-            float4(instance.minBounds.x, instance.minBounds.y, instance.maxBounds.z, 1.0),
-            float4(instance.minBounds.x, instance.maxBounds.y, instance.minBounds.z, 1.0),
-            float4(instance.minBounds.x, instance.maxBounds.y, instance.maxBounds.z, 1.0),
-            float4(instance.maxBounds.x, instance.minBounds.y, instance.minBounds.z, 1.0),
-            float4(instance.maxBounds.x, instance.minBounds.y, instance.maxBounds.z, 1.0),
-            float4(instance.maxBounds.x, instance.maxBounds.y, instance.minBounds.z, 1.0),
-            float4(instance.maxBounds, 1.0)
-        };
-
         for (int i = 0; i < 8; i++) {
             const float4 corner = projectionViewMatrix * corners[i];
             const float2 sampleCoords = textureCoordinates(frame, corner);
@@ -192,11 +169,24 @@ static bool isInstancedMeshVisible(const Frame frame,
     for (int i = lowerBound; i < upperBound; i++) {
         
         const Instance instance = instances[i];
-        const bool insideFrustum = isInsideViewFrustumAndClipPlanes(camera, instance);
+        
+        // Extract the box corners
+        const float4 corners[8] = {
+            float4(instance.minBounds, 1.0),
+            float4(instance.minBounds.x, instance.minBounds.y, instance.maxBounds.z, 1.0),
+            float4(instance.minBounds.x, instance.maxBounds.y, instance.minBounds.z, 1.0),
+            float4(instance.minBounds.x, instance.maxBounds.y, instance.maxBounds.z, 1.0),
+            float4(instance.maxBounds.x, instance.minBounds.y, instance.minBounds.z, 1.0),
+            float4(instance.maxBounds.x, instance.minBounds.y, instance.maxBounds.z, 1.0),
+            float4(instance.maxBounds.x, instance.maxBounds.y, instance.minBounds.z, 1.0),
+            float4(instance.maxBounds, 1.0)
+        };
+
+        const bool insideFrustum = isInsideViewFrustumAndClipPlanes(camera, instance, corners);
 
         if (insideFrustum) {
             // Check if the instance passes the depth & contribution test
-            const bool isVisible = isInstanceVisible(frame, instance, textureSize, textureSampler, depthTexture);
+            const bool isVisible = isInstanceVisible(frame, instance, corners, textureSize, textureSampler, depthTexture);
             if (isVisible) { return true; }
         }
     }
