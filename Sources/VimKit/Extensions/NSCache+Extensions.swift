@@ -71,6 +71,19 @@ public final class Cache<Key: Hashable, Value>: @unchecked Sendable {
         return storage.object(forKey: WrappedKey(key))?.value
     }
 
+    /// Returns a list of values for the given set of keys
+    /// - Parameter keys: the set of keys
+    /// - Returns: a list of values for the given keys
+    public func values(in keys: Set<Key>) -> [Value] {
+        lock.lock()
+        defer { lock.unlock() }
+        var values: [Value?] = []
+        for key in keys {
+            values.append(storage.object(forKey: WrappedKey(key))?.value)
+        }
+        return values.compactMap{ $0 }
+    }
+
     /// Removes the value of the specified key in the cache.
     /// - Parameter key: the key to remove
     public func removeValue(for key: Key) {

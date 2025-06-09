@@ -53,7 +53,7 @@ extension Database {
         if shouldImport {
             ImportTaskTracker.shared.tasks[sha256Hash] = true
             let importer = Database.ImportActor(self)
-            await importer.import(limit)
+            await importer.import()
         }
     }
 
@@ -95,10 +95,8 @@ extension Database {
             }.store(in: &subscribers)
         }
 
-
         /// Starts the import process.
-        /// - Parameter limit: the max limit of models per entity to import
-        func `import`(_ limit: Int = .max) {
+        func `import`() {
 
             let group = DispatchGroup()
             let start = Date.now
@@ -122,7 +120,7 @@ extension Database {
                         debugPrint("􁃎 [\(modelName)] - skipping cache warming")
                         return
                     }
-                    warmCache(modelType, limit)
+                    warmCache(modelType)
                 }
             }
 
@@ -148,7 +146,7 @@ extension Database {
                         debugPrint("􁃎 [\(modelName)] - skipping import")
                         return
                     }
-                    importModel(modelType, limit)
+                    importModel(modelType)
                 }
             }
 
@@ -177,36 +175,35 @@ extension Database {
         /// Warms the cache for the specified model type.
         /// - Parameters:
         ///   - modelType: the type of model
-        ///   - limit: the cache size limit
-        private func warmCache(_ modelType: any IndexedPersistentModel.Type, _ limit: Int) {
+        private func warmCache(_ modelType: any IndexedPersistentModel.Type) {
             guard let table = database.tables[modelType.modelName] else { return }
-            let count = min(table.rows.count, limit)
-            _ = modelType.warm(size: count, cache: cache)
+            modelType.warm(table: table, cache: cache)
         }
 
         /// Imports models of the specified type into the model container.
         /// - Parameters:
         ///   - modelType: the model type
-        ///   - limit: the max limit of models to import
-        private func importModel(_ modelType: any IndexedPersistentModel.Type, _ limit: Int) {
+        private func importModel(_ modelType: any IndexedPersistentModel.Type) {
             let modelName = modelType.modelName
             guard let table = database.tables[modelName] else { return }
+            guard let modelCache = cache.caches[modelName] else { return }
 
+            let keys = modelCache.keys
             let start = Date.now
-            let rowCount = table.rows.count
+            let rowCount = modelCache.keys.count//table.rows.count
             var state: ModelMetadata.State = .unknown
 
             defer {
-                  let timeInterval = abs(start.timeIntervalSinceNow)
-                  debugPrint("􂂼 [\(modelName)] - [\(state)] [\(rowCount)] in [\(timeInterval.stringFromTimeInterval())]")
-                  updateMeta(modelName, state: state)
-              }
+                let timeInterval = abs(start.timeIntervalSinceNow)
+                debugPrint("􂂼 [\(modelName)] - [\(state)] [\(rowCount)] in [\(timeInterval.stringFromTimeInterval())]")
+                updateMeta(modelName, state: state)
+            }
 
-            debugPrint("􀈄 [\(modelType.modelName)] - importing [\(rowCount)] models")
-            for i in 0..<rowCount {
-                if i >= limit || Task.isCancelled { break }
-                let index = Int64(i)
-                let row = table.rows[i]
+            debugPrint("􀈄 [\(modelName)] - importing [\(rowCount)] models")
+
+            for index in keys {
+                if Task.isCancelled { break }
+                let row = table.rows[Int(index)]
                 update(index: index, modelType, data: row)
                 count += 1
             }
@@ -232,21 +229,21 @@ extension Database {
             try? modelContext.transaction {
                 for cacheKey in cacheKeys {
 
-                    guard let cache = cache.caches[cacheKey] else { continue }
+                    guard let modelCache = cache.caches[cacheKey] else { continue }
                     let start = Date.now
-                    let keys = cache.keys
+                    let keys = modelCache.keys
 
                     defer {
                         let timeInterval = abs(start.timeIntervalSinceNow)
                         debugPrint("􂂼 [Batch] - inserted [\(cacheKey)] [\(keys.count)] in [\(timeInterval.stringFromTimeInterval())]")
-                        cache.empty()
+                        modelCache.empty()
                     }
 
                     for key in keys {
-                        guard let model = cache[key] else { continue }
+                        guard let model = modelCache[key] else { continue }
                         modelContext.insert(model)
                         batchCount += 1
-                        cache.removeValue(for: key)
+                        modelCache.removeValue(for: key)
                     }
                 }
             }
@@ -326,13 +323,13 @@ extension Database {
         init() {}
 
         /// Warms the cache to a specific size
-        /// - Parameter size: the size of the cache
+        /// - Parameter table: the database table data
         /// - Returns: a list of models that have been cached.
         @discardableResult
-        func warm<T>(_ size: Int) -> [T] where T: IndexedPersistentModel {
+        func warm<T>(_ table: Database.Table) -> [T] where T: IndexedPersistentModel {
             let cacheKey: CacheKey = T.modelName
             let cache = findOrCreateCache(cacheKey)
-            return cache.warm(size)
+            return cache.warm(table)
         }
 
         /// Finds or creates a model with the specified index and type.
@@ -368,7 +365,7 @@ extension Database {
     fileprivate final class ModelCache: @unchecked Sendable {
 
         /// The backing storage cache.
-        private lazy var cache: Cache<Int64, any IndexedPersistentModel> = {
+        fileprivate lazy var cache: Cache<Int64, any IndexedPersistentModel> = {
             let cache = Cache<Int64, any IndexedPersistentModel>()
             cache.totalCostLimit = cacheTotalCostLimit
             cache.evictsObjectsWithDiscardedContent = true
@@ -383,31 +380,35 @@ extension Database {
         /// Initializer.
         init() { }
 
-        /// Warms the cache up to the specified index size. Any entities that
-        /// have cache index misses are stubbed out skeletons that can later be filled in with `.update(data:cache:)`.
+        /// Warms the cache for the specified table. The entities are stubbed out skeletons that can later be filled in with `.update(data:cache:)`.
         /// Please note that he models that are inserted into the cache are not inserted into the model context. As an import optimization,
         /// all of the models are are inserted via the `.batchInsert()` method.
-        /// - Parameter size: the upper bounds of the model index size
+        /// - Parameter table: the database table to cache from
         /// - Returns: empty results for now, simply used to infer type from the generic - could be reworked
         @discardableResult
-        func warm<T>(_ size: Int) -> [T] where T: IndexedPersistentModel {
+        func warm<T>(_ table: Database.Table) -> [T] where T: IndexedPersistentModel {
             let cacheKey: CacheKey = T.modelName
+            let size = table.rows.count
             if size <= .zero {
                 debugPrint("􂂼 [\(cacheKey)] - skipping warm - [\(models.count)] [\(size)]")
                 return []
             }
             debugPrint("􁰹 [\(cacheKey)] - warming cache [\(size)]")
 
+            var count = 0
             let start = Date.now
+            defer {
+                let timeInterval = abs(start.timeIntervalSinceNow)
+                debugPrint("􂂼 [\(cacheKey)] - cache created [\(count)] in [\(timeInterval.stringFromTimeInterval())]")
+            }
 
-            let range: Range<Int64> = 0..<Int64(size)
-            for index in range {
+            for i in 0..<size {
+                let index = Int64(i)
                 let model: T = .init()
                 model.index = index
                 cache[index] = model
+                count += 1
             }
-            let timeInterval = abs(start.timeIntervalSinceNow)
-            debugPrint("􂂼 [\(cacheKey)] - cache created [\(size)] in [\(timeInterval.stringFromTimeInterval())]")
             return []
         }
 

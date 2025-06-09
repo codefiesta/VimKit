@@ -21,7 +21,7 @@ public enum ModelImportPriority: Int, Sendable {
     case normal
     /// The model type has a high priority during the import process.
     case high
-    /// The model type has a very hight priority during the import process.
+    /// The model type has a very high priority during the import process.
     case veryHigh
 }
 
@@ -66,11 +66,11 @@ extension IndexedPersistentModel {
 
     /// Warms the cache with the specified size.
     /// - Parameters:
-    ///   - size: the size of the cache
+    ///   - table: the database table that contains the raw data
     ///   - cache: the cache to warm
     /// - Returns: the cached objects.
-    static func warm(size: Int, cache: Database.ImportCache) -> [Self] {
-        cache.warm(size)
+    static func warm(table: Database.Table, cache: Database.ImportCache) -> [Self] {
+        cache.warm(table)
     }
 
     /// Performs a fetch request for all models in the specified context.
@@ -539,7 +539,6 @@ extension Database {
         public var room: Room?
         public var group: Group?
         public var workset: Workset?
-        public var parameters: [Parameter]
 
         /// Returns the elements instance type
         public var instanceType: Element? {
@@ -552,25 +551,10 @@ extension Database {
             return results[0]
         }
 
-        /// Returns a hash of instance parameters grouped by name
-        public var instanceParameters: [String: [Parameter]] {
-            var groups = [String: [Parameter]]()
-            for parameter in parameters {
-                guard let descriptor = parameter.descriptor else { continue }
-                if groups[descriptor.group] != nil {
-                    groups[descriptor.group]?.append(parameter)
-                } else {
-                    groups[descriptor.group] = [parameter]
-                }
-            }
-            return groups
-        }
-
         /// Initializer.
         public required init() {
             index = .empty
             elementId = .empty
-            parameters = []
         }
 
         public func update(from data: [String: AnyHashable], cache: ImportCache) {
@@ -890,12 +874,13 @@ extension Database {
         }
 
         @Transient
-        public static let importPriority: ModelImportPriority = .normal
+        public static let importPriority: ModelImportPriority = .veryHigh
 
         @Attribute(.unique)
         public var index: Int64
         public var value: String
         public var descriptor: ParameterDescriptor?
+        public var element: Int64
 
         /// Provides a convenience formatted value if the value is pipe delimited.
         @Transient
@@ -903,22 +888,21 @@ extension Database {
             value.contains("|") ? String(value.split(separator: "|").last!) : value
         }
 
-
         /// Initializer.
         public required init() {
             index = .empty
             value = .empty
+            element = .empty
         }
 
         public func update(from data: [String: AnyHashable], cache: ImportCache) {
             if let idx = data["ParameterDescriptor"] as? Int64, idx != .empty {
                 descriptor = cache.findOrCreate(idx)
             }
-            if let idx = data["Element"] as? Int64, idx != .empty {
-                let element: Element = cache.findOrCreate(idx)
-                element.parameters.append(self)
-            }
             value = data["Value"] as? String ?? .empty
+            if let idx = data["Element"] as? Int64, idx != .empty {
+                element = idx
+            }
         }
     }
 
