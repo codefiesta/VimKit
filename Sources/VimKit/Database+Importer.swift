@@ -177,7 +177,7 @@ extension Database {
         ///   - modelType: the type of model
         private func warmCache(_ modelType: any IndexedPersistentModel.Type) {
             guard let table = database.tables[modelType.modelName] else { return }
-            modelType.warm(table: table, cache: cache)
+            _ = modelType.warm(table: table, cache: cache)
         }
 
         /// Imports models of the specified type into the model container.
