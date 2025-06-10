@@ -69,6 +69,7 @@ extension IndexedPersistentModel {
     ///   - table: the database table that contains the raw data
     ///   - cache: the cache to warm
     /// - Returns: the cached objects.
+    @discardableResult
     static func warm(table: Database.Table, cache: Database.ImportCache) -> [Self] {
         cache.warm(table)
     }
