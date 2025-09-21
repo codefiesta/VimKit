@@ -8,7 +8,7 @@ import Combine
 import Foundation
 import MetalKit
 import VimKitShaders
-import struct SwiftUICore.Color
+import struct SwiftUI.Color
 
 // The MPS function name for computing the vertex normals on the GPU
 private let computeVertexNormalsFunctionName = "computeVertexNormals"
@@ -713,7 +713,7 @@ extension Geometry {
 
         computeEncoder.endEncoding()
         commandBuffer.commit()
-        commandBuffer.waitUntilCompleted()
+        await commandBuffer.completed()
 
         // Finally, write the results to a cache file and create the MTLBuffer from it
         let data = Data(bytes: resultsBuffer.contents(), count: resultsBuffer.length)
@@ -769,7 +769,7 @@ extension Geometry {
 
         computeEncoder.endEncoding()
         commandBuffer.commit()
-        commandBuffer.waitUntilCompleted()
+        await commandBuffer.completed()
 
         // For now, just loop through the instances on the CPU to calculate the world bounds
         // In the future we could do this on the GPU but juice really isn't worth the squeeze
