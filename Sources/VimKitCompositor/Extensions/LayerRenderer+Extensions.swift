@@ -5,7 +5,7 @@
 //  Created by Kevin McKee
 //
 
-#if canImport(CompositorServices)
+#if os(visionOS)
 import CompositorServices
 import VimKit
 
