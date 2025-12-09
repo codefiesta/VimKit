@@ -7,8 +7,8 @@
 import Combine
 import Foundation
 import MetalKit
-import VimKitShaders
 import struct SwiftUI.Color
+import VimKitShaders
 
 // The MPS function name for computing the vertex normals on the GPU
 private let computeVertexNormalsFunctionName = "computeVertexNormals"
