@@ -3,7 +3,7 @@
 ![Xcode 26.0+](https://img.shields.io/badge/Xcode-26.0%2B-tomato.svg)
 ![iOS 26.0+](https://img.shields.io/badge/iOS-26.0%2B-crimson.svg)
 ![macOS 26.0+](https://img.shields.io/badge/macOS-26.0%2B-skyblue.svg)
-![visionOS 26.0+](https://img.shields.io/badge/visionOS-2.0%2B-violet.svg)
+![visionOS 26.0+](https://img.shields.io/badge/visionOS-26.0%2B-violet.svg)
 [![License: MIT](https://img.shields.io/badge/License-MIT-indigo.svg)](https://opensource.org/licenses/MIT)
 
 # VimKit
